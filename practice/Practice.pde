@@ -40,7 +40,7 @@ void setup() {
 
     pt[index++] = radians(random(5,30)) / 5; // Speed of rotation
 
-    /*
+    
     // alternate color scheme
     float prob = random(100);
     if (prob < 30) {
@@ -52,16 +52,16 @@ void setup() {
     } else {
       style[i*2] = color(255,255,255, 220);
     }
-    */
+    
 
-    float prob = random(100);
-    if (prob < 50) {
-      style[i*2] = colorBlended(random(1), 200,255,0, 50,120,0, 210);
-    } else if (prob <90) {
-      style[i*2] = colorBlended(random(1), 255,100,0, 255,255,0, 210);
-    } else {
-      style[i*2] = color(255,255,255, 220);
-    }
+    // float prob = random(100);
+    // if (prob < 50) {
+    //   style[i*2] = colorBlended(random(1), 200,255,0, 50,120,0, 210);
+    // } else if (prob <90) {
+    //   style[i*2] = colorBlended(random(1), 255,100,0, 255,255,0, 210);
+    // } else {
+    //   style[i*2] = color(255,255,255, 220);
+    // }
 
     style[i*2+1] = floor(random(100)) % 3;
   }

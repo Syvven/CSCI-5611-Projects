@@ -58,7 +58,7 @@
 // float r;  //Circle radius
 
 // float speed = 100;
-// float accel = 0.5;
+// float accel = 0.1;
 
 // void update(float dt){
 //   Vec2 mousePos = new Vec2(mouseX, mouseY);

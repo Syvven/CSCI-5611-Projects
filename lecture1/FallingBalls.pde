@@ -11,8 +11,9 @@ Vec2 vel[] = new Vec2[numParticles];
 Vec2 circles[] = new Vec2[3];
 
 float sphereRadius = 60;
-float cor = 0.89;
-Vec2 grav = new Vec2(0,5);
+float cor = 0.8;
+Vec2 grav = new Vec2(0,9.8);
+float fric = 0.005;
 float accel = 0.01;
 
 void setup(){
@@ -39,22 +40,23 @@ void update(float dt){
         if (pos[i].y > height - r){
             norm.x = 0; norm.y = -1;
             pos[i].y = height - r;
-            vel[i] = vel[i].minus(norm.times(dot(vel[i], norm)).times(1+cor));
+            vel[i].subtract(norm.times(dot(vel[i], norm)).times(1+cor));
+            vel[i] = interpolate(vel[i], new Vec2(0, vel[i].y), fric);
         }
         if (pos[i].y < r){
             norm.x = 0; norm.y = 1;
             pos[i].y = r;
-            vel[i] = vel[i].minus(norm.times(dot(vel[i], norm)).times(1+cor));
+            vel[i].subtract(norm.times(dot(vel[i], norm)).times(1+cor));
         }
         if (pos[i].x > width - r){
             norm.x = -1; norm.y = 0;
             pos[i].x = width - r;
-            vel[i] = vel[i].minus(norm.times(dot(vel[i], norm)).times(1+cor));
+            vel[i].subtract(norm.times(dot(vel[i], norm)).times(1+cor));
         }
         if (pos[i].x < r){
             norm.x = 1; norm.y = 0;
             pos[i].x = r;
-            vel[i] = vel[i].minus(norm.times(dot(vel[i], norm)).times(1+cor));
+            vel[i].subtract(norm.times(dot(vel[i], norm)).times(1+cor));
         }
         for (int j = 0; j < 3; j++) {
             Vec2 spherePos = circles[j];
@@ -66,10 +68,9 @@ void update(float dt){
                 norm = pos[i].minus(spherePos);
                 norm.normalize();
                 pos[i] = spherePos.plus(norm.times(sphereRadius + r).times(1.01)); 
-                vel[i] = vel[i].minus(norm.times(dot(vel[i], norm)).times(1+cor)); // Vf = Vi - N(VdotN)(1+a)
+                vel[i].subtract(norm.times(dot(vel[i], norm)).times(1+cor)); // Vf = Vi - N(VdotN)(1+a)
             }
         }
-        
         vel[i] = vel[i].plus(grav);
     }
 }
