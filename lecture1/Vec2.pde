@@ -79,6 +79,7 @@ public class Vec2 {
 
 Vec2 interpolate(Vec2 a, Vec2 b, float t){
   return a.plus((b.minus(a)).times(t));
+  // a + ((b-a)*t)
 }
 
 float interpolate(float a, float b, float t){
