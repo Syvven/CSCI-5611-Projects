@@ -699,7 +699,17 @@ public class lecture1 extends PApplet {
 
 int strokeWidth = 2;
 PImage img;
+PImage img2;
+Vec2 pos; //Image position
+Vec2 vel; //Image velocity
+Vec2 img_dir; //Image direction
+
  public void setup(){
+    Vec2 left = new Vec2(-1, 0); Vec2 up = new Vec2(0, -1); 
+    Vec2 down = new Vec2(0, 1); Vec2 right = new Vec2(1, 0);
+    println(dot(left, up));
+    println(atan((left.y - up.y)/(left.x - up.x)));
+    println(atan((left.y - down.y)/(left.x - down.x)));
   /* size commented out by preprocessor */;
   surface.setTitle("Mouse Following Image [CSCI 5611 Example]");
   
@@ -710,40 +720,40 @@ PImage img;
 
   img = loadImage("cat.png");
   img.resize(img.width/3, img.height/3);
+  img_dir = new Vec2(-1, 0);
   
   strokeWeight(strokeWidth); //Draw thicker lines 
 }
 
-Vec2 pos; //Image position
-Vec2 vel; //Image velocity
-Vec2 img_dir; //Image direction
-
 float speed = 100;
 float accel = 0.1f;
+float rot = 1;
 
  public void update(float dt){
-  Vec2 mousePos = new Vec2(mouseX, mouseY);
-  Vec2 dir = mousePos.minus(pos); //Should be vector pointing from pos to MousePos
-  if (pos.distanceTo(mousePos) > 1) {
-    if (dir.length() > 0) dir.normalize();
-    dir.mul(dt*speed);
-    vel = interpolate(vel, dir, accel);
-    pos.add(vel);
-  }
+    Vec2 mousePos = new Vec2(mouseX, mouseY);
+    Vec2 dir = mousePos.minus(pos); //Should be vector pointing from pos to MousePos
+    if (pos.distanceTo(mousePos) > 1) {
+        if (dir.length() > 0) dir.normalize();
+        dir.mul(dt*speed);
+        vel = interpolate(vel, dir, accel);
+        pos.add(vel);
+        rot = atan2(img_dir.y - vel.y,img_dir.x - vel.x);
+    } else {
+        vel.x = 0; vel.y = 0;
+        pos = mousePos;
+    }
 }
 
-float i = 0;
  public void draw(){
     update(1/frameRate);
     background(255,255,255); //White background
     stroke(0, 0, 0);
     fill(100,20,10);
 
-    i+= 0.01f;
     imageMode(CENTER);
     pushMatrix();
     translate(pos.x, pos.y);
-    rotate(PI*i);
+    rotate(rot);
     image(img, 0,0); //Question: Why is it radius*2 ?
     popMatrix();
     imageMode(CORNER);
