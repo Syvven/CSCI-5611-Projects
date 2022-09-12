@@ -1,11 +1,11 @@
 // ray caster
-int num_squares = 10;
+int num_squares = 20;
 int rec_width, rec_height;
 
 // 
 float[][] map = new float[num_squares][num_squares];
 Rectangle[][] recs = new Rectangle[num_squares][num_squares];
-int num_rays = 3; // always odd
+int num_rays = 101; // always odd
 Vec2[] rays = new Vec2[num_rays];
 float fov = radians(90);
 int[] curr_square;
@@ -40,8 +40,48 @@ void update_rays() {
     }
 }
 
+ArrayList<Vec2> dots = new ArrayList<Vec2>();
+float epsilon = 0.001;
 void ray_collisions() {
-    
+    dots.clear();
+    for (int i = 0; i < rays.length; i++) {
+        Vec2 ray = rays[i];
+        float a = ((curr_square[3]+ray.y*10)-(curr_square[3]));
+        float b = ((curr_square[2])-(curr_square[2]+ray.x*10));
+        float c = a*curr_square[2]+b*curr_square[3];
+
+        for (int j = 0; j < recs.length; j++) {
+            for (int k = 0; k < recs[0].length; k++) {
+                Rectangle curr = recs[j][k];
+
+                if (curr != null) {
+                    float a2 = (curr.bLeft.y-curr.tLeft.y);
+                    float b2 = (curr.tLeft.x-curr.bLeft.x);
+                    float c2 = a2*curr.tLeft.x + b2*curr.tLeft.y;
+
+                    float det = a * b2 - a2 * b;
+                    if (det != 0) {
+                        float x = (b2 * c - b * c2)/det;
+                        float y = (a * c2 - a2 * c)/det;
+                        
+                        if (x < 0 || y < 0 || y > height || x > width) {
+                            continue;
+                        }
+
+                        Vec2 orth = new Vec2(rays[0].y, -rays[0].x);
+
+                        Vec2 point = new Vec2(x,y);
+                        Vec2 aa = curr.tLeft;
+                        Vec2 bb = curr.bLeft;
+                        
+                        if (point.x - aa.x < epsilon && (point.y <= bb.y && point.y >= aa.y)) {
+                            dots.add(new Vec2(x,y));
+                        }
+                    }
+                }
+            }
+        }
+    }
 }
 
 Rectangle curr;
@@ -69,6 +109,12 @@ void draw() {
     for (int i = 0; i < rays.length; i++) {
         Vec2 curr_ray = rays[i];
         line(curr_square[2], curr_square[3], curr_square[2]+curr_ray.x*width, curr_square[3]+curr_ray.y*height);
+    }
+
+    fill(255, 0, 0);
+    for (int i = 0; i < dots.size(); i++) {
+        Vec2 dot = dots.get(i);
+        circle(dot.x, dot.y, 20);
     }
 }
 

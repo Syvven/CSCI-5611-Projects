@@ -48,8 +48,8 @@ public class Vec2 {
     public void clampToLength(float maxL){
         float magnitude = sqrt(x*x + y*y);
         if (magnitude > maxL){
-        x *= maxL/magnitude;
-        y *= maxL/magnitude;
+            x *= maxL/magnitude;
+            y *= maxL/magnitude;
         }
     }
 
