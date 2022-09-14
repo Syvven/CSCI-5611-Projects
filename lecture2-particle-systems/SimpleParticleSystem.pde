@@ -55,7 +55,11 @@
 
 // Challenge:
 //  1. Delete particles which have been around too long (and allow new ones to be created)
+//  Done
+
 //  2. Change the color of the particles over time
+//  Done
+
 //  3. Change the color of the particles as a function of the bounce 
 
 
@@ -69,19 +73,21 @@ float obstacleSpeed = 200;
 float obstacleVertSpeed = sqrt((200*200)/2);
 float COR = 0.7;
 float friction = 0.005;
-Vec2 gravity = new Vec2(0,10);
-float maxlife = 30;
+Vec2 gravity = new Vec2(0,300);
+float maxlife = maxParticles/genRate;
 
 //Initalalize variable
 Vec2 spherePos;
-Vec2 pos[];
-Vec2 vel[];
+ArrayList<Vec2> pos;
+ArrayList<Vec2> vel;
+ArrayList<Float> life;
 int numParticles;
 
 void reset() {
   spherePos = new Vec2(300,400);
-  pos = new Vec2[maxParticles];
-  vel = new Vec2[maxParticles];
+  pos = new ArrayList<Vec2>();
+  vel = new ArrayList<Vec2>();
+  life = new ArrayList<Float>();
   numParticles = 0;
 }
 
@@ -94,7 +100,10 @@ void setup(){
 
 Vec2 obstacleVel = new Vec2(0,0);
 Vec2 obstacleDir = new Vec2(0,0);
+Vec2 obstacleMom = new Vec2(0,0);
 boolean movingVert;
+
+float epsilon = 0.0001;
 
 void update(float dt){
   obstacleDir.x = 0; obstacleDir.y = 0;
@@ -104,8 +113,9 @@ void update(float dt){
   if (random(1) < fractPart) toGen += 1;
   if (numParticles < maxParticles) {
     for (int i = 0; i < toGen; i++){
-      pos[numParticles] = new Vec2(20+random(20),200+random(20));
-      vel[numParticles] = new Vec2(30+random(60),-200+random(10)); 
+      pos.add(new Vec2(20+random(20),200+random(20)));
+      vel.add(new Vec2(30+random(60),-200+random(10))); 
+      life.add(0.0);
       numParticles += 1;
     }
   }
@@ -161,40 +171,59 @@ void update(float dt){
   spherePos.add(obstacleVel.times(dt));
   
   for (int i = 0; i <  numParticles; i++){
-    boolean frictioned = false;
-    Vec2 acc = gravity; //Gravity
-    
-    pos[i].add(vel[i].times(dt)); //Update position based on velocity
-    
-    if (pos[i].y > height - r){
-      pos[i].y = height - r;
-      vel[i].y *= -COR;
-      vel[i] = interpolate(vel[i], new Vec2(0, vel[i].y), friction);
-    }
-    if (pos[i].y < r){
-      pos[i].y = r;
-      vel[i].y *= -COR;
-    }
-    if (pos[i].x > width - r){
-      pos[i].x = width - r;
-      vel[i].x *= -COR;
-    }
-    if (pos[i].x < r){
-      pos[i].x = r;
-      vel[i].x *= -COR;
-    }
+    life.set(i, life.get(i) + dt);
+    if (life.get(i) < maxlife) {
+      boolean frictioned = false;
+      Vec2 acc = gravity; //Gravity
+      
+      Vec2 curr_pos = pos.get(i);
+      Vec2 curr_vel = vel.get(i);
 
-    obstacleDir.normalize();
-    
-    if (pos[i].distanceTo(spherePos) < (sphereRadius+r)){
-      Vec2 normal = (pos[i].minus(spherePos)).normalized();
-      pos[i] = spherePos.plus(normal.times(sphereRadius+r).times(1.01));
-      Vec2 velNormal = normal.times(dot(vel[i],normal));
-      vel[i].subtract(velNormal.times(1 + COR));
-      vel[i] = obstacleVel.times(1.7).minus(vel[i]);
-    }
+      curr_pos.add(curr_vel.times(dt)); //Update position based on velocity
+      
+      if (curr_pos.y > height - r){
+        curr_pos.y = height - r;
+        curr_vel.y *= -COR;
+        curr_vel = interpolate(curr_vel, new Vec2(0, curr_vel.y), friction);
+      }
+      if (curr_pos.y < r){
+        curr_pos.y = r;
+        curr_vel.y *= -COR;
+      }
+      if (curr_pos.x > width - r){
+        curr_pos.x = width - r;
+        curr_vel.x *= -COR;
+      }
+      if (curr_pos.x < r){
+        curr_pos.x = r;
+        curr_vel.x *= -COR;
+      }
 
-    vel[i].add(acc);
+      obstacleDir.normalize();
+      
+      if (curr_pos.distanceTo(spherePos) < (sphereRadius+r)){
+        if (obstacleVel.length() < epsilon) {
+          Vec2 normal = (curr_pos.minus(spherePos)).normalized();
+          curr_pos = spherePos.plus(normal.times(sphereRadius+r).times(1.01));
+          Vec2 velNormal = normal.times(dot(curr_vel,normal));
+          curr_vel.subtract(velNormal.times(1 + COR));
+        }
+        // float angle = acos(dot(normal, obstacleDir));
+        // if (angle - 90 < epsilon || Float.isNaN(angle)) {
+          
+        // } else {
+        //   vel[i].subtract(velNormal.times(1));
+        // }
+      }
+      curr_vel.add(acc.times(dt));
+      pos.set(i, curr_pos);
+      vel.set(i, curr_vel);
+    } else {
+      pos.remove(i);
+      vel.remove(i);
+      life.remove(i);
+      numParticles--;
+    }    
   }
   
 }
@@ -238,9 +267,10 @@ void draw(){
   
   background(255); //White background
   stroke(0,0,0);
-  fill(255,255,0);
   for (int i = 0; i < numParticles; i++){
-    circle(pos[i].x, pos[i].y, r*2); //(x, y, diameter)
+    float col = life.get(i);
+    fill((col*13)%255, (col*27)%255, (col*43)%255);
+    circle(pos.get(i).x, pos.get(i).y, r*2); //(x, y, diameter)
   }
   
   fill(180,60,40);
