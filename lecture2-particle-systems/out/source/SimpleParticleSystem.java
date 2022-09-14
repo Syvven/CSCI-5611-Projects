@@ -219,20 +219,15 @@ float epsilon = 0.0001f;
       obstacleDir.normalize();
       
       if (curr_pos.distanceTo(spherePos) < (sphereRadius+r)){
-        if (obstacleVel.length() < epsilon) {
-          Vec2 normal = (curr_pos.minus(spherePos)).plus(obstacleDir).normalized();
+          Vec2 normal = (curr_pos.minus(spherePos)).normalized();
           curr_pos = spherePos.plus(normal.times(sphereRadius+r).times(1.01f));
           Vec2 velNormal = normal.times(dot(curr_vel,normal));
           curr_vel.subtract(velNormal.times(1 + COR));
-        }
-        // float angle = acos(dot(normal, obstacleDir));
-        // if (angle - 90 < epsilon || Float.isNaN(angle)) {
-          
-        // } else {
-        //   vel[i].subtract(velNormal.times(1));
-        // }
+          curr_vel.add(projAB(obstacleVel, normal));
       }
+
       curr_vel.add(acc.times(dt));
+      
       pos.set(i, curr_pos);
       vel.set(i, curr_vel);
     } else {

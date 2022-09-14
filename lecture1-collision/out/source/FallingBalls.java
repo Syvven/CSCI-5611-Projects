@@ -373,7 +373,7 @@ float rot = 1;
  public void update(float dt){
     Vec2 mousePos = new Vec2(mouseX, mouseY);
     Vec2 dir = mousePos.minus(pos); //Should be vector pointing from pos to MousePos
-    if (pos.distanceTo(mousePos) > pos.distanceTo(pos.plus(vel.times(dt)))) {
+    if (dir.length() < speed*dt) {
         if (dir.length() > 0) dir.normalize();
         dir.mul(dt*speed);
         vel = interpolate(vel, dir, accel);
