@@ -47,11 +47,6 @@ Vec2 vel; //Image velocity
 Vec2 img_dir; //Image direction
 
 void setup(){
-    Vec2 left = new Vec2(-1, 0); Vec2 up = new Vec2(0, -1); 
-    Vec2 down = new Vec2(0, 1); Vec2 right = new Vec2(1, 0);
-    println(dot(left, up));
-    println(atan((left.y - up.y)/(left.x - up.x)));
-    println(atan((left.y - down.y)/(left.x - down.x)));
   size(640,480);
   surface.setTitle("Mouse Following Image [CSCI 5611 Example]");
   
@@ -74,11 +69,11 @@ float rot = 1;
 void update(float dt){
     Vec2 mousePos = new Vec2(mouseX, mouseY);
     Vec2 dir = mousePos.minus(pos); //Should be vector pointing from pos to MousePos
-    if (pos.distanceTo(mousePos) > 1) {
+    if (pos.distanceTo(mousePos) > pos.distanceTo(pos.plus(vel.times(dt)))) {
         if (dir.length() > 0) dir.normalize();
         dir.mul(dt*speed);
         vel = interpolate(vel, dir, accel);
-        pos.add(vel);
+        pos.add(vel.times(dt));
         rot = atan2(img_dir.y - vel.y,img_dir.x - vel.x);
     } else {
         vel.x = 0; vel.y = 0;

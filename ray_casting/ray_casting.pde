@@ -54,83 +54,85 @@ HashMap<Float,Vec2> dist_map = new HashMap<Float,Vec2>();
 
 void ray_collisions() {
     dots = new ArrayList<Vec2>();
-    // for (int i = 0; i < rays.length; i++) {
-    //     ray_hit = false;
-    //     Vec2 ray = rays[i];
-    //     float a = ((curr_square[1].y+ray.y*10)-(curr_square[1].y));
-    //     float b = ((curr_square[1].x)-(curr_square[1].x+ray.x*10));
-    //     float c = a*curr_square[1].x+b*curr_square[1].y;
+    for (int i = 0; i < rays.length; i++) {
+        ray_hit = false;
+        Vec2 ray = rays[i];
+        float a = ((curr_square[1].y+ray.y*10)-(curr_square[1].y));
+        float b = ((curr_square[1].x)-(curr_square[1].x+ray.x*10));
+        float c = a*curr_square[1].x+b*curr_square[1].y;
 
-    //     for (int j = 0; j < recs.length; j++) {
-    //         for (int k = 0; k < recs[0].length; k++) {
-    //             Rectangle curr = recs[j][k];
+        for (int j = 0; j < recs.length; j++) {
+            for (int k = 0; k < recs[0].length; k++) {
+                Rectangle curr = recs[j][k];
 
-    //             if (curr != null) {
-    //                 Vec2 pointvec = curr_square[1].minus(curr.center).normalized();
-    //                 float angle = acos(dot(pointvec, rays[0]));
+                if (curr != null) {
 
-    //                 if (angle - fov < epsilon || Float.isNaN(angle)) {
-    //                     continue;
-    //                 }
-
-    //                 float a2 = (curr.bLeft.y-curr.tLeft.y);
-    //                 float b2 = (curr.tLeft.x-curr.bLeft.x);
-    //                 float c2 = a2*curr.tLeft.x + b2*curr.tLeft.y;
-
-    //                 float det = a * b2 - a2 * b;
-    //                 if (det != 0) {
-    //                     float x = (b2 * c - b * c2)/det;
-    //                     float y = (a * c2 - a2 * c)/det;
-                        
-    //                     if (x < 0 || y < 0 || y > height || x > width) {
-    //                         continue;
-    //                     }
-
-    //                     Vec2 point = new Vec2(x,y);
-
-    //                     Vec2 aa = curr.tLeft;
-    //                     Vec2 bb = curr.bLeft;
-                        
-    //                     if (point.x - aa.x < epsilon && (point.y <= bb.y && point.y >= aa.y)) {
-    //                         dots.add(new Vec2(x,y));
-    //                         ray_hit = true;
-    //                     }
-    //                 }
-    //             }
-    //         }
-    //     }
-    // }
-    for (int i = 0; i < recs.length; i++) {
-        for (int j = 0; j < recs[0].length; j++) {
-            if (recs[i][j] != null) {
-                dist_map.put(curr_square[1].distanceTo(recs[i][j].bLeft), recs[i][j].bLeft);
+                    dist_map.put(curr_square[1].distanceTo(curr.bLeft), curr.bLeft);
                 
-                dist_map.put(curr_square[1].distanceTo(recs[i][j].bRight), recs[i][j].bRight);
-                dist_map.put(curr_square[1].distanceTo(recs[i][j].tLeft), recs[i][j].tLeft);
-                dist_map.put(curr_square[1].distanceTo(recs[i][j].tRight), recs[i][j].tRight);
-                
-                float min_key = Float.POSITIVE_INFINITY;
-                for (float key : dist_map.keySet()) {
-                    if (key < min_key) {
-                        min_key = key;
+                    dist_map.put(curr_square[1].distanceTo(curr.bRight), curr.bRight);
+                    dist_map.put(curr_square[1].distanceTo(curr.tLeft), curr.tLeft);
+                    dist_map.put(curr_square[1].distanceTo(curr.tRight), curr.tRight);
+                    
+                    float min_key = Float.POSITIVE_INFINITY;
+                    for (float key : dist_map.keySet()) {
+                        if (key < min_key) {
+                            min_key = key;
+                        }
+                    }
+                    min1 = dist_map.get(min_key);
+                    dist_map.remove(min_key);
+
+                    min_key = Float.POSITIVE_INFINITY;
+                    for (float key : dist_map.keySet()) {
+                        if (key < min_key) {
+                            min_key = key;
+                        }
+                    }
+                    min2 = dist_map.get(min_key);
+
+                    // dots.add(min1); dots.add(min2);
+
+
+                    Vec2 pointvec = curr_square[1].minus(curr.center).normalized();
+                    float angle = acos(dot(pointvec, rays[0]));
+
+                    if (angle - fov < epsilon || Float.isNaN(angle)) {
+                        continue;
+                    }
+
+                    float a2 = (min2.y-min1.y);
+                    float b2 = (min1.x-min2.x);
+                    float c2 = a2*min1.x + b2*min2.y;
+
+                    float det = a * b2 - a2 * b;
+                    if (det != 0) {
+                        float x = (b2 * c - b * c2)/det;
+                        float y = (a * c2 - a2 * c)/det;
+                        
+                        if (x < 0 || y < 0 || y > height || x > width) {
+                            continue;
+                        }
+
+                        Vec2 point = new Vec2(x,y);
+
+                        Vec2 aa = curr.tLeft;
+                        Vec2 bb = curr.bLeft;
+                        
+                        if (point.x - aa.x < epsilon && (point.y <= bb.y && point.y >= aa.y)) {
+                            dots.add(new Vec2(x,y));
+                        }
                     }
                 }
-                min1 = dist_map.get(min_key);
-                dist_map.remove(min_key);
-
-                min_key = Float.POSITIVE_INFINITY;
-                for (float key : dist_map.keySet()) {
-                    if (key < min_key) {
-                        min_key = key;
-                    }
-                }
-                min2 = dist_map.get(min_key);
-
-                dots.add(min1); dots.add(min2);
-                print(min1.x, min1.y);
             }
         }
     }
+    // for (int i = 0; i < recs.length; i++) {
+    //     for (int j = 0; j < recs[0].length; j++) {
+    //         if (recs[i][j] != null) {
+    //             
+    //         }
+    //     }
+    // }
 }
 
 Rectangle curr;
