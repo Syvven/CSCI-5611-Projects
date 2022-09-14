@@ -68,8 +68,9 @@ public class SimpleParticleSystem extends PApplet {
 //     impart some momentum on the particles. Update the collision response to capture this
 //     effect in some way. There is no perfect answer here, but try to find something that
 //     looks natural.
+//  Done? Maybe?
 
-//Challenge:
+// Challenge:
 //  1. Delete particles which have been around too long (and allow new ones to be created)
 //  2. Change the color of the particles over time
 //  3. Change the color of the particles as a function of the bounce 
@@ -86,6 +87,7 @@ float obstacleVertSpeed = sqrt((200*200)/2);
 float COR = 0.7f;
 float friction = 0.005f;
 Vec2 gravity = new Vec2(0,10);
+float maxlife = 30;
 
 //Initalalize variable
 Vec2 spherePos;
@@ -108,9 +110,11 @@ int numParticles;
 }
 
 Vec2 obstacleVel = new Vec2(0,0);
+Vec2 obstacleDir = new Vec2(0,0);
 boolean movingVert;
 
  public void update(float dt){
+  obstacleDir.x = 0; obstacleDir.y = 0;
   float toGen_float = genRate * dt;
   int toGen = PApplet.parseInt(toGen_float);
   float fractPart = toGen_float - toGen;
@@ -133,15 +137,39 @@ boolean movingVert;
   float oby = 0;
 
   if (!movingVert) {
-    if (leftPressed) obx -= obstacleSpeed;
-    if (rightPressed) obx += obstacleSpeed;
-    if (upPressed) oby -= obstacleSpeed;
-    if (downPressed) oby += obstacleSpeed;
+    if (leftPressed) {
+      obx -= obstacleSpeed;
+      obstacleDir.x += -1;
+    }
+    if (rightPressed) {
+      obx += obstacleSpeed;
+      obstacleDir.x += 1;
+    }
+    if (upPressed) {
+      oby -= obstacleSpeed;
+      obstacleDir.y += -1;
+    }
+    if (downPressed) {
+      oby += obstacleSpeed;
+      obstacleDir.y += 1;
+    }
   } else {
-    if (leftPressed) obx -= obstacleVertSpeed;
-    if (rightPressed) obx += obstacleVertSpeed;
-    if (upPressed) oby -= obstacleVertSpeed;
-    if (downPressed) oby += obstacleVertSpeed;
+    if (leftPressed) {
+      obx -= obstacleVertSpeed;
+      obstacleDir.x += -1;
+    }
+    if (rightPressed) {
+      obx += obstacleVertSpeed;
+      obstacleDir.x += 1;
+    }
+    if (upPressed) {
+      oby -= obstacleVertSpeed;
+      obstacleDir.y = -1;
+    }
+    if (downPressed) {
+      oby += obstacleVertSpeed;
+      obstacleDir.y = 1;
+    }
   }
   
 
@@ -172,13 +200,15 @@ boolean movingVert;
       pos[i].x = r;
       vel[i].x *= -COR;
     }
+
+    obstacleDir.normalize();
     
     if (pos[i].distanceTo(spherePos) < (sphereRadius+r)){
       Vec2 normal = (pos[i].minus(spherePos)).normalized();
       pos[i] = spherePos.plus(normal.times(sphereRadius+r).times(1.01f));
       Vec2 velNormal = normal.times(dot(vel[i],normal));
       vel[i].subtract(velNormal.times(1 + COR));
-      vel[i] = obstacleVel.times(1.5f).minus(vel[i]);
+      vel[i] = obstacleVel.times(1.7f).minus(vel[i]);
     }
 
     vel[i].add(acc);
@@ -234,11 +264,6 @@ boolean paused = true;
   circle(spherePos.x, spherePos.y, sphereRadius*2); //(x, y, diameter)
 }
 
-
-
-
-
-
 // Begin the Vec2 Libraray
 
 //Vector Library
@@ -246,11 +271,12 @@ boolean paused = true;
 // Stephen J. Guy <sjguy@umn.edu>
 
 public class Vec2 {
-  public float x, y;
+  public float x, y, life;
   
   public Vec2(float x, float y){
     this.x = x;
     this.y = y;
+    this.life = 0;
   }
   
   public String toString(){
