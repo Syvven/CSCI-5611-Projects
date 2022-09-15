@@ -366,22 +366,21 @@ Vec2 img_dir; //Image direction
   strokeWeight(strokeWidth); //Draw thicker lines 
 }
 
-float speed = 100;
-float accel = 0.1f;
+float speed = 200;
+float accel = 0.03f;
 float rot = 1;
 
  public void update(float dt){
     Vec2 mousePos = new Vec2(mouseX, mouseY);
     Vec2 dir = mousePos.minus(pos); //Should be vector pointing from pos to MousePos
-    if (dir.length() < speed*dt) {
+    if (dir.length() > speed*dt) {
         if (dir.length() > 0) dir.normalize();
-        dir.mul(dt*speed);
+        dir.mul(speed*dt);
         vel = interpolate(vel, dir, accel);
-        pos.add(vel.times(dt));
+        pos.add(vel);
         rot = atan2(img_dir.y - vel.y,img_dir.x - vel.x);
     } else {
         vel.x = 0; vel.y = 0;
-        pos = mousePos;
     }
 }
 
