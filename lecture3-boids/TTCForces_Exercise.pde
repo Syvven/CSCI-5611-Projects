@@ -9,9 +9,13 @@ TODO:
   1. Currently, there are no forces acting on the agents. Add a goal force that penalizes
      the difference between an agent's current velocity and it's goal velocity.
      i.e., goal_force = goal_vel-current_vel; acc += goal_force
+  Done 
+
   1a. Scale the goal force by the value k_goal. Find a value of k_goal that lets the agents
      smoothly reach their goal without overshooting it first.
      i.e., goal_force = k_goal*(goal_vel-current_vel); acc += goal_force
+  Done
+
   2. Finish the function computeTTC() so that it computes the time-to-collision (TTC) between
      two agents given their positions, velocities and radii. Your implementation should likely
      call rayCircleIntersectTime to compute the time a ray intersects a circle as part of
@@ -19,7 +23,11 @@ TODO:
      current relative velocity intersect the Minkowski sum of the obstacle and your reflection?)
      If there is no collision, return a TTC of -1.
      ie., TTC(A,B) = Ray-Disk(A's position, relative velocity, B's position, combined radius)
+  Done
+  
   2a. Test computeTTC() with some scenarios where you know the (approximate) true value.
+  Done
+
   3. Compute an avoidance force as follows:
        - Find the ttc between agent "id" and it's neighbor "j" (make sure id != j)
        - If the ttc is negative (or there is no collision) then there is no avoidance force w.r.t agent j
@@ -48,7 +56,7 @@ CHALLENGE:
 static int maxNumAgents = 3;
 int numAgents = 3;
 
-float k_goal = 1;  //TODO: Tune this parameter to agent stop naturally on their goals
+float k_goal = 3.2;  //TODO: Tune this parameter to agent stop naturally on their goals
 float k_avoid = 1;
 float agentRad = 40;
 float goalSpeed = 100;
@@ -79,12 +87,22 @@ void setup(){
     if (agentVel[i].length() > 0)
       agentVel[i].setToLength(goalSpeed);
   }
+
+  testComputeTTC();
+}
+
+void testComputeTTC() {
+  Vec2 pos1 = new Vec2(0,0); Vec2 pos2 = new Vec2(0, height);
+  float radius1 = 100; float radius2 = 100;
+  Vec2 vel1 = new Vec2(0, 1); Vec2 vel2 = new Vec2(0, -1);
+  print(computeTTC(pos1, vel1, radius1, pos2, vel2, radius2));
+
 }
 
 //Return at what time agents 1 and 2 collide if they keep their current velocities
 // or -1 if there is no collision.
 float computeTTC(Vec2 pos1, Vec2 vel1, float radius1, Vec2 pos2, Vec2 vel2, float radius2){
-  return -1;
+  return rayCircleIntersectTime(pos1, radius1+radius2, pos2, vel2.minus(vel1));
 }
 
 // Compute attractive forces to draw agents to their goals,
@@ -92,7 +110,12 @@ float computeTTC(Vec2 pos1, Vec2 vel1, float radius1, Vec2 pos2, Vec2 vel2, floa
 Vec2 computeAgentForces(int id){
   //TODO: Make this better
   Vec2 acc = new Vec2(0,0);
- 
+  
+  Vec2 goal_vel = goalPos[id].minus(agentPos[id]);
+  Vec2 goal_force = goal_vel.minus(agentVel[id]);
+
+  acc.add(goal_force.times(k_goal));
+
   return acc;
 }
 
@@ -139,14 +162,14 @@ void keyPressed(){
 
 
 ///////////////////////
-
+// pos1 = (0,0), r = 200, l_start = (850, 0), l_dir = (2, 0)
 float rayCircleIntersectTime(Vec2 center, float r, Vec2 l_start, Vec2 l_dir){
  
   //Compute displacement vector pointing from the start of the line segment to the center of the circle
   Vec2 toCircle = center.minus(l_start);
  
   //Solve quadratic equation for intersection point (in terms of l_dir and toCircle)
-  float a = l_dir.length();
+  float a = l_dir.length()*l_dir.length();
   float b = -2*dot(l_dir,toCircle); //-2*dot(l_dir,toCircle)
   float c = toCircle.lengthSqr() - (r*r); //different of squared distances
  
