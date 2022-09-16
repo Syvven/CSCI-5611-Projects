@@ -204,7 +204,7 @@ Vec2[] goalPos = new Vec2[maxNumAgents];
   for (int jd = 0; jd < numAgents; jd++) {
     if (jd != id) {
       float dist = agentPos[id].distanceTo(agentPos[jd]);
-      if (dist <= (sepMaxDist-goalAgentRad-agentRad)) {
+      if (dist <= (sepMaxDist+goalAgentRad+agentRad)) {
         Vec2 sepForce = agentPos[id].minus(agentPos[jd]);
         sepForce.setToLength(sepScale/pow(dist, 2));
         acc.add(sepForce);
