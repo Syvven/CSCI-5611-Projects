@@ -24,7 +24,7 @@ TODO:
      If there is no collision, return a TTC of -1.
      ie., TTC(A,B) = Ray-Disk(A's position, relative velocity, B's position, combined radius)
   Done
-  
+
   2a. Test computeTTC() with some scenarios where you know the (approximate) true value.
   Done
 
@@ -41,11 +41,16 @@ TODO:
       The final force should be the avoidance force for each neighbor plus the overall goal force.
       Try to find a balance between k_avoid and k_goal that gives good behavior. Note: you may need a
       very large value of k_goal to avoid collisions between agents.
+  Done
+
    4. Make the following simulation improvements:
      - Draw agents with a slightly smaller radius than the one used for collisions
      - When an agent reaches its goal, stop it from reacting to other agents
+    Done
+
    5. Finally, place 2 more agents in the scene and try to make an interesting scenario where the
       agents interact with each other.
+    Doneish <-- come back to this to make it more fun after capping vel and acc
 
 CHALLENGE:
   1. Give agents a maximum force and maximum velocity and don't let them violate these constraints.
@@ -53,18 +58,29 @@ CHALLENGE:
   3. Add a static obstacle for the agent to avoid (hint: treat it as an agent with 0 velocity).
 */
 
-static int maxNumAgents = 3;
-int numAgents = 3;
+// number of agents
+static int maxNumAgents = 100;
+int numAgents = 100;
+int numGoalAgents = 3;
 
-float k_goal = 3.2;  //TODO: Tune this parameter to agent stop naturally on their goals
-float k_avoid = 1;
-float agentRad = 40;
+// multipliers
+float k_goal = 10;  
+float k_avoid = 100;
+
+float maxVel = 300;
+float maxAcc = 300;
+
+float agentRad = 10;
+float goalAgentRad = 35;
+float agentDrawRad = 5;
+float goalAgentDrawRad = 30;
 float goalSpeed = 100;
 
 //The agent states
 Vec2[] agentPos = new Vec2[maxNumAgents];
 Vec2[] agentVel = new Vec2[maxNumAgents];
 Vec2[] agentAcc = new Vec2[maxNumAgents];
+ArrayList<Vec2> reactiveAgents = new ArrayList<Vec2>();
 
 //The agent goals
 Vec2[] goalPos = new Vec2[maxNumAgents];
@@ -80,15 +96,32 @@ void setup(){
   goalPos[0] = new Vec2(200,420);
   goalPos[1] = new Vec2(120,120);
   goalPos[2] = new Vec2(220,220);
+
+  for (int i = numGoalAgents; i < numAgents; i++) {
+    agentPos[i] = new Vec2(random(width), random(height));
+  }
  
   //Set initial velocities to cary agents towards their goals
   for (int i = 0; i < numAgents; i++){
-    agentVel[i] = goalPos[i].minus(agentPos[i]);
-    if (agentVel[i].length() > 0)
-      agentVel[i].setToLength(goalSpeed);
+    if (i >= numGoalAgents) {
+      agentVel[i] = new Vec2(30+random(60),-200+random(10));
+      if (agentVel[i].length() > 0)
+        agentVel[i].setToLength(goalSpeed);
+    } else {
+      agentVel[i] = goalPos[i].minus(agentPos[i]);
+      if (agentVel[i].length() > 0)
+        agentVel[i].setToLength(goalSpeed);
+    }
   }
 
-  testComputeTTC();
+  // testComputeTTC();
+}
+
+void reset() {
+  agentPos = new Vec2[maxNumAgents];
+  agentVel = new Vec2[maxNumAgents];
+  agentAcc = new Vec2[maxNumAgents];
+  setup();
 }
 
 void testComputeTTC() {
@@ -108,30 +141,68 @@ float computeTTC(Vec2 pos1, Vec2 vel1, float radius1, Vec2 pos2, Vec2 vel2, floa
 // Compute attractive forces to draw agents to their goals,
 // and avoidance forces to anticipatory avoid collisions
 Vec2 computeAgentForces(int id){
-  //TODO: Make this better
   Vec2 acc = new Vec2(0,0);
-  
-  Vec2 goal_vel = goalPos[id].minus(agentPos[id]);
-  Vec2 goal_force = goal_vel.minus(agentVel[id]);
 
-  acc.add(goal_force.times(k_goal));
+  // Force due to goal for only first three agents
+  if (id < numGoalAgents) {
+    Vec2 goal_vel = goalPos[id].minus(agentPos[id]);
+    Vec2 goal_force = goal_vel.minus(agentVel[id]);
+
+    acc.add(goal_force.times(k_goal));
+  }
+  
+
+  // Force due to avoiding collisions
+  for (int jd = 0; jd < numAgents; jd++) {
+    if (jd != id) {
+      float ttc = computeTTC(
+        agentPos[id], agentVel[id], (id < numGoalAgents ? goalAgentRad : agentRad),
+        agentPos[jd], agentVel[jd], (jd < numGoalAgents ? goalAgentRad : agentRad)
+      );
+
+      if (ttc > -1) {
+        Vec2 futureid = agentPos[id].plus(agentVel[id].times(ttc));
+        Vec2 futurejd = agentPos[jd].plus(agentVel[jd].times(ttc));
+        Vec2 rfd = (futureid.minus(futurejd)).normalized();
+        
+        acc.add(rfd.times(k_avoid*(1/ttc)));
+      }
+    }
+  }
 
   return acc;
 }
 
-
+float epsilon = 0.001;
 //Update agent positions & velocities based acceleration
 void moveAgent(float dt){
   //Compute accelerations for every agents
-  for (int i = 0; i < numAgents; i++){
-    agentAcc[i] = computeAgentForces(i);
+  for (int id = 0; id < numAgents; id++){
+    agentAcc[id] = computeAgentForces(id);
+    agentAcc[id].clampToLength(maxAcc);
   }
+
   //Update position and velocity using (Eulerian) numerical integration
   for (int i = 0; i < numAgents; i++){
-    agentVel[i].add(agentAcc[i].times(dt));
-    agentPos[i].add(agentVel[i].times(dt));
+    if (i >= numGoalAgents || 
+        (abs(agentPos[i].x-goalPos[i].x) > epsilon &&
+          abs(agentPos[i].y-goalPos[i].y) > epsilon)) {
+      agentVel[i].add(agentAcc[i].times(dt));
+      agentVel[i].clampToLength(maxVel);
+      agentPos[i].add(agentVel[i].times(dt));
+      agentPos[i].x = agentPos[i].x < 0 ? width : (agentPos[i].x > width ? 0 : agentPos[i].x);
+      agentPos[i].y = agentPos[i].y < 0 ? height : (agentPos[i].y > height ? 0 : agentPos[i].y);
+    } else {
+      agentVel[i].x = 0; agentVel[i].y = 0;
+    }
   }
+  // test_circ_pos.add(test_circ_vel.times(dt));
+  // test_circ_pos.x = test_circ_pos.x < 0 ? width : (test_circ_pos.x > width ? 0 : test_circ_pos.x);
+  // test_circ_pos.y = test_circ_pos.y < 0 ? height : (test_circ_pos.y > height ? 0 : test_circ_pos.y);
 }
+
+// Vec2 test_circ_pos = new Vec2(0, 0);
+// Vec2 test_circ_vel = new Vec2(-100,100);
 
 boolean paused = true;
 void draw(){
@@ -144,20 +215,32 @@ void draw(){
  
   //Draw orange goal rectangle
   fill(255,150,50);
-  for (int i = 0; i < numAgents; i++){
+  for (int i = 0; i < numGoalAgents; i++){
     rect(goalPos[i].x-10, goalPos[i].y-10, 20, 20);
   }
  
-  //Draw the green agents
+  //Draw the green goal agents
   fill(20,200,150);
-  for (int i = 0; i < numAgents; i++){
-    circle(agentPos[i].x, agentPos[i].y, agentRad*2);
+  for (int i = 0; i < numGoalAgents; i++) {
+    circle(agentPos[i].x, agentPos[i].y, goalAgentDrawRad*2);
   }
+
+  // draw the rest of the agents with smaller size
+  for (int i = numGoalAgents; i < numAgents; i++){
+    circle(agentPos[i].x, agentPos[i].y, agentDrawRad*2);
+  }
+
+  // circle((test_circ_pos.x)%width, (test_circ_pos.y)%height, 10*2);
 }
 
 //Pause/unpause the simulation
 void keyPressed(){
   if (key == ' ') paused = !paused;
+  if (key == 'r') reset();
+}
+
+void mouseClicked() {
+  goalAgents;
 }
 
 
