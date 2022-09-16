@@ -65,10 +65,10 @@
 
 
 //Simulation paramaters
-static int maxParticles = 40000;
+static int maxParticles = 4000;
 float sphereRadius = 60;
 float r = 0.1;
-float genRate = 4000;
+float genRate = 400;
 float obstacleSpeed = 200;
 float obstacleVertSpeed = sqrt((200*200)/2);
 float COR = 0.7;
@@ -93,7 +93,7 @@ void reset() {
 
 void setup(){
   reset();
-  size(640,480);
+  size(640,480, P3D);
   surface.setTitle("Particle System [CSCI 5611 Example]");
   strokeWeight(2); //Draw thicker lines 
 }
