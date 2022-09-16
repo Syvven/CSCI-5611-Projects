@@ -63,10 +63,13 @@ static int maxNumAgents = 100;
 int numAgents = 100;
 int numGoalAgents = 3;
 
-// multipliers
-float k_goal = 10;  
+// goal multipliers
+float k_goal = 500;  
+
+// TTC multiplier
 float k_avoid = 100;
 
+// max values for velocity and acceleration
 float maxVel = 300;
 float maxAcc = 300;
 
@@ -75,6 +78,15 @@ float goalAgentRad = 35;
 float agentDrawRad = 5;
 float goalAgentDrawRad = 30;
 float goalSpeed = 100;
+
+// Boid Force Stuff
+// Separation
+float sepMaxDist = 100;
+float sepScale = 5000;
+
+// Cohesion
+float cohMaxDist = 50;
+float cohScale = 1;
 
 //The agent states
 Vec2[] agentPos = new Vec2[maxNumAgents];
@@ -170,6 +182,19 @@ Vec2 computeAgentForces(int id){
     }
   }
 
+  if (id < numGoalAgents) return acc;
+
+  for (int jd = 0; jd < numAgents; jd++) {
+    if (jd != id) {
+      float dist = agentPos[id].distanceTo(agentPos[jd]);
+      if (dist <= (sepMaxDist-goalAgentRad-agentRad)) {
+        Vec2 sepForce = agentPos[id].minus(agentPos[jd]);
+        sepForce.setToLength(sepScale/pow(dist, 2));
+        acc.add(sepForce);
+      }
+    }
+  }
+
   return acc;
 }
 
@@ -240,7 +265,7 @@ void keyPressed(){
 }
 
 void mouseClicked() {
-  goalAgents;
+  
 }
 
 
