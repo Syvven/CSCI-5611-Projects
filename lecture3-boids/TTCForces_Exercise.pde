@@ -50,11 +50,15 @@ TODO:
 
    5. Finally, place 2 more agents in the scene and try to make an interesting scenario where the
       agents interact with each other.
-    Doneish <-- come back to this to make it more fun after capping vel and acc
+    Doneish <-- make follow mouse next
 
 CHALLENGE:
   1. Give agents a maximum force and maximum velocity and don't let them violate these constraints.
+  Done
+
   2. Start two agents slightly colliding. Update the approach to better handle collisions.
+  Done --> Used separation forces
+
   3. Add a static obstacle for the agent to avoid (hint: treat it as an agent with 0 velocity).
 */
 
@@ -67,26 +71,41 @@ int numGoalAgents = 3;
 float k_goal = 500;  
 
 // TTC multiplier
-float k_avoid = 100;
+float k_avoid = 5000;
 
 // max values for velocity and acceleration
 float maxVel = 300;
-float maxAcc = 300;
+float maxAcc = 500;
 
 float agentRad = 10;
 float goalAgentRad = 35;
 float agentDrawRad = 5;
 float goalAgentDrawRad = 30;
-float goalSpeed = 100;
+float goalSpeed = 10;
 
 // Boid Force Stuff
 // Separation
-float sepMaxDist = 100;
-float sepScale = 5000;
+float sepMaxDist = 20;
+float sepScale = 300;
 
 // Cohesion
-float cohMaxDist = 50;
-float cohScale = 1;
+float cohMaxDist = 40;
+float cohScale = 30;
+
+// Alignment
+float alignMaxDist = 40;
+float alignScale = 30;
+
+// Wall Forces --> Didn't work 
+// Maybe come back to this?
+float wallMaxDist = 5;
+float wallScale = 5000;
+
+// Mouse Forces
+float mouseMaxDist = 200;
+float mouseScale = 100;
+boolean leftHeld = false;
+boolean rightHeld = false;
 
 //The agent states
 Vec2[] agentPos = new Vec2[maxNumAgents];
@@ -97,20 +116,65 @@ ArrayList<Vec2> reactiveAgents = new ArrayList<Vec2>();
 //The agent goals
 Vec2[] goalPos = new Vec2[maxNumAgents];
 
+// Obstacle Things
+float obstDrawRadius = 0;
+float obstRadius = 5;
+int numObst;
+Vec2[] obstPos;
+Vec2[] obstVel;
+float maxTimeToObstacle = 3;
+
+// two points define a line segment
+// which is a wall in this scenario
+// modify this if you want to make more recangle wall obstacles
+int numWalls = 4;
+Vec2[][] walls = new Vec2[numWalls][2];
+float wallPadding = 20;
+float maxTimeToWall = 2;
+
 void setup(){
-  size(850,650);
-  //size(850,650,P3D); //Smoother
- 
+  // size(850,650);
+  size(850,650,P3D); //Smoother
+  frameRate(144);
+
+  /////////////// Relic of Old Wall Tech /////////////////////////
+  // numObst = 0;
+  // numObst += (width/obstRadius)*2;
+  // int numObstX = int(width/obstRadius);
+  // numObst += (height/obstRadius)*2;
+  // int numObstY = int(height/obstRadius);
+
+  // obstPos = new Vec2[numObst];
+  // obstVel = new Vec2[numObst];
+
+  // for (int i = 0; i < numObstX; i++) {
+  //   obstPos[i*2] = new Vec2(i*obstRadius,0); 
+  //   obstPos[i*2+1] = new Vec2(i*obstRadius, height);
+  //   obstVel[i*2] = new Vec2(0,0); 
+  //   obstVel[i*2+1] = new Vec2(0,0);
+  // }
+
+  // for (int i = 0; i < numObstY; i++) {
+  //   obstPos[numObstX*2+i*2] = new Vec2(0, i*obstRadius); 
+  //   obstPos[numObstX*2+i*2+1] = new Vec2(width, i*obstRadius);
+  //   obstVel[numObstX*2+i*2] = new Vec2(0,0); 
+  //   obstVel[numObstX*2+i*2+1] = new Vec2(0,0);
+  // }
+  ////////////////////////////////////////////////////////////////
+
   //Set initial agent positions and goals
   agentPos[0] = new Vec2(220,610);
-  agentPos[1] = new Vec2(320,650);
+  agentPos[1] = new Vec2(320,640);
   agentPos[2] = new Vec2(320,420);
   goalPos[0] = new Vec2(200,420);
   goalPos[1] = new Vec2(120,120);
   goalPos[2] = new Vec2(220,220);
 
   for (int i = numGoalAgents; i < numAgents; i++) {
-    agentPos[i] = new Vec2(random(width), random(height));
+    agentPos[i] = new Vec2(
+      wallPadding+agentRad+random(width-2*wallPadding-agentRad), 
+      wallPadding+agentRad+random(height-2*wallPadding-agentRad)
+    );
   }
  
   //Set initial velocities to cary agents towards their goals
@@ -126,7 +190,15 @@ void setup(){
     }
   }
 
+  walls[0][0] = new Vec2(wallPadding,wallPadding); walls[0][1] = new Vec2(width-wallPadding, wallPadding); // top
+  walls[1][0] = new Vec2(wallPadding,height-wallPadding); walls[1][1] = new Vec2(width-wallPadding,height-wallPadding); // bottom
+  walls[2][0] = new Vec2(wallPadding,wallPadding); walls[2][1] = new Vec2(wallPadding,height-wallPadding); // left
+  walls[3][0] = new Vec2(width-wallPadding,wallPadding); walls[3][1] = new Vec2(width-wallPadding,height-wallPadding); // right
+
+  strokeWeight(0);
+
   // testComputeTTC();
+  // testRayIntersect();
 }
 
 void reset() {
@@ -163,6 +235,20 @@ Vec2 computeAgentForces(int id){
     acc.add(goal_force.times(k_goal));
   }
   
+  for (int ob = 0; ob < numObst; ob++) {
+    float ttc = computeTTC(
+      agentPos[id], agentVel[id], (id < numGoalAgents ? goalAgentRad : agentRad),
+      obstPos[ob], obstVel[ob], obstRadius
+    );
+
+    if (ttc > -1 && ttc < 3) {
+      Vec2 futureid = agentPos[id].plus(agentVel[id].times(ttc));
+      Vec2 futureob = obstPos[ob];
+      Vec2 rfd = (futureid.minus(futureob)).normalized();
+      
+      acc.add(rfd.times(k_avoid*(1/ttc)));
+    }
+  }
 
   // Force due to avoiding collisions
   for (int jd = 0; jd < numAgents; jd++) {
@@ -172,7 +258,7 @@ Vec2 computeAgentForces(int id){
         agentPos[jd], agentVel[jd], (jd < numGoalAgents ? goalAgentRad : agentRad)
       );
 
-      if (ttc > -1) {
+      if (ttc > -1 && ttc <= maxTimeToObstacle) {
         Vec2 futureid = agentPos[id].plus(agentVel[id].times(ttc));
         Vec2 futurejd = agentPos[jd].plus(agentVel[jd].times(ttc));
         Vec2 rfd = (futureid.minus(futurejd)).normalized();
@@ -184,16 +270,95 @@ Vec2 computeAgentForces(int id){
 
   if (id < numGoalAgents) return acc;
 
+  
+  // Forces for walls
+  for (int wall = 0; wall < numWalls; wall++) {
+    float curr = rayLineIntersectDistance(agentPos[id], agentVel[id], walls[wall][0], walls[wall][1]);
+    float ttc = curr/agentVel[id].length();
+    if (!Float.isNaN(curr) && ttc <= maxTimeToWall) {
+      Vec2 futureid = agentPos[id].plus(agentVel[id].times(ttc));
+      Vec2 wallInt = agentPos[id].plus(agentVel[id].times(curr));
+      Vec2 rfd = (futureid.minus(wallInt)).normalized();
+      acc.add(rfd.times(k_avoid));
+    }
+  }
+
+  Vec2 mousePos = new Vec2(mouseX, mouseY);
+  float mouseDist = agentPos[id].distanceTo(mousePos);
+  if (leftHeld && mouseDist <= mouseMaxDist) {
+    Vec2 mouseForce = mousePos.minus(agentPos[id]);
+    mouseForce.normalize();
+    mouseForce.mul(mouseScale);
+    acc.add(mouseForce);
+  }
+
+  if (rightHeld && mouseDist <= mouseMaxDist) {
+    Vec2 mouseForce = agentPos[id].minus(mousePos);
+    mouseForce.mul(mouseScale/mouseDist);
+    acc.add(mouseForce);
+  }
+
+  // Averages for align and cohesion
+  Vec2 avgPos = new Vec2(0,0);
+  Vec2 avgVel = new Vec2(0,0);
+  float num_neighbors_c = 0;
+  float num_neighbors_a = 0;
+
   for (int jd = 0; jd < numAgents; jd++) {
     if (jd != id) {
       float dist = agentPos[id].distanceTo(agentPos[jd]);
-      if (dist <= (sepMaxDist+goalAgentRad+agentRad)) {
+
+      // calculation of separation force
+      if ((jd < numGoalAgents && dist <= sepMaxDist+goalAgentRad) || dist <= sepMaxDist) {
         Vec2 sepForce = agentPos[id].minus(agentPos[jd]);
-        sepForce.setToLength(sepScale/pow(dist, 2));
+        sepForce.mul(sepScale/dist);
         acc.add(sepForce);
+      }
+
+      // averages for cohesion and alignment
+      if (jd >= numGoalAgents) {
+        if (dist <= cohMaxDist) {
+          avgPos.add(agentPos[jd]);
+          num_neighbors_c++;
+        }
+
+        if (dist <= alignMaxDist) {
+          avgVel.add(agentVel[jd]);
+          num_neighbors_a++;
+        }
       }
     }
   }
+
+  // // obstacle separation forces for when they get stuck in the obstacle
+  // for (int ob = 0; ob < numObst; ob++) {
+  //   float dist = agentPos[id].distanceTo(obstPos[ob]);
+  //   if (dist <= obstRadius+agentRad) {
+  //     Vec2 sepForce = agentPos[id].minus(obstPos[ob]);
+  //     sepForce.mul(sepScale/dist);
+  //     acc.add(sepForce);
+  //   }
+  // }
+
+  // calculation of cohesion force
+  if (num_neighbors_c > 0) {
+    avgPos.x /= num_neighbors_c; avgPos.y /= num_neighbors_c;
+    Vec2 cohForce = avgPos.minus(agentPos[id]);
+    cohForce.normalize();
+    cohForce.mul(cohScale);
+
+    acc.add(cohForce);
+  }
+
+  // calculation of alignment force
+  if (num_neighbors_a > 0) {
+    avgVel.x /= num_neighbors_a; avgVel.y /= num_neighbors_a;
+    Vec2 alignForce = avgVel.minus(agentVel[id]);
+    alignForce.normalize();
+    acc.add(alignForce.times(alignScale));
+  }
+
+
 
   return acc;
 }
@@ -232,7 +397,7 @@ void moveAgent(float dt){
 boolean paused = true;
 void draw(){
   background(255,255,255); //White background
- 
+  strokeWeight(0);
   //Update agent if not paused
   if (!paused){
     moveAgent(1.0/frameRate);
@@ -246,6 +411,10 @@ void draw(){
  
   //Draw the green goal agents
   fill(20,200,150);
+  // for (int i = 0; i < numObst; i++) {
+  //   circle(obstPos[i].x, obstPos[i].y, obstDrawRadius*2);
+  // }
+
   for (int i = 0; i < numGoalAgents; i++) {
     circle(agentPos[i].x, agentPos[i].y, goalAgentDrawRad*2);
   }
@@ -253,6 +422,11 @@ void draw(){
   // draw the rest of the agents with smaller size
   for (int i = numGoalAgents; i < numAgents; i++){
     circle(agentPos[i].x, agentPos[i].y, agentDrawRad*2);
+  }
+
+  strokeWeight(1);
+  for (var wall : walls) {
+    line(wall[0].x, wall[0].y, wall[1].x, wall[1].y);
   }
 
   // circle((test_circ_pos.x)%width, (test_circ_pos.y)%height, 10*2);
@@ -264,10 +438,54 @@ void keyPressed(){
   if (key == 'r') reset();
 }
 
-void mouseClicked() {
-  
+void mousePressed() {
+  if (mouseButton == LEFT) {
+    leftHeld = true;
+  } 
+  if (mouseButton == RIGHT) {
+    rightHeld = true;
+  }
 }
 
+void mouseReleased() {
+  if (mouseButton == LEFT) {
+    leftHeld = false;
+  }
+  if (mouseButton == RIGHT) {
+    rightHeld = false;
+  }
+}
+
+// test ray intersect to make sure its working
+void testRayIntersect() {
+  Vec2 rayO = new Vec2(width, 0);
+  Vec2 rayD = new Vec2(-1, 1);
+  Vec2 p1 = new Vec2(0,0);
+  Vec2 p2 = new Vec2(width,height);
+  print(rayLineIntersectDistance(rayO, rayD, p1, p2));
+}
+
+// intersect distance from a circle with velocity to a line
+float rayLineIntersectDistance(Vec2 rayO, Vec2 rayD, Vec2 p1, Vec2 p2) {
+  rayD = rayD.normalized();
+  Vec2 a = rayO.minus(p1);
+  Vec2 b = p2.minus(p1);
+  Vec2 c = new Vec2(-rayD.y, rayD.x);
+
+  float dot = dot(b, c);
+  if (abs(dot) < epsilon) {
+    return Float.NaN;
+  }
+
+  float t1 = ((b.x*a.y)-(b.y*a.x))/dot;
+  float t2 = dot(a, c)/dot;
+
+  if (t1 >= 0.0 && (t2 >= 0.0 && t2 <= 1.0)) {
+    return t1;
+  }
+
+  return Float.NaN;
+}
 
 ///////////////////////
 // pos1 = (0,0), r = 200, l_start = (850, 0), l_dir = (2, 0)
