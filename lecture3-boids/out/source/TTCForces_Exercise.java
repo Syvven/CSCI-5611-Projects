@@ -63,11 +63,11 @@ TODO:
    4. Make the following simulation improvements:
      - Draw agents with a slightly smaller radius than the one used for collisions
      - When an agent reaches its goal, stop it from reacting to other agents
-    Done
+  Done
 
    5. Finally, place 2 more agents in the scene and try to make an interesting scenario where the
       agents interact with each other.
-    Doneish <-- make follow mouse next
+  Doneish <-- make follow mouse next
 
 CHALLENGE:
   1. Give agents a maximum force and maximum velocity and don't let them violate these constraints.
@@ -77,6 +77,7 @@ CHALLENGE:
   Done --> Used separation forces
 
   3. Add a static obstacle for the agent to avoid (hint: treat it as an agent with 0 velocity).
+  Done --> Walls --> Also can add more static obstacles when wanted
 */
 
 // number of agents
@@ -103,7 +104,7 @@ float goalSpeed = 10;
 // Boid Force Stuff
 // Separation
 float sepMaxDist = 20;
-float sepScale = 300;
+float sepScale = 500;
 
 // Cohesion
 float cohMaxDist = 40;
@@ -112,11 +113,6 @@ float cohScale = 30;
 // Alignment
 float alignMaxDist = 40;
 float alignScale = 30;
-
-// Wall Forces --> Didn't work 
-// Maybe come back to this?
-float wallMaxDist = 5;
-float wallScale = 5000;
 
 // Mouse Forces
 float mouseMaxDist = 200;
@@ -148,6 +144,8 @@ int numWalls = 4;
 Vec2[][] walls = new Vec2[numWalls][2];
 float wallPadding = 20;
 float maxTimeToWall = 2;
+
+float epsilon = 0.001f;
 
  public void setup(){
   // size(850,650);
@@ -181,7 +179,7 @@ float maxTimeToWall = 2;
 
   //Set initial agent positions and goals
   agentPos[0] = new Vec2(220,610);
-  agentPos[1] = new Vec2(320,640);
+  agentPos[1] = new Vec2(320,610);
   agentPos[2] = new Vec2(320,420);
   goalPos[0] = new Vec2(200,420);
   goalPos[1] = new Vec2(120,120);
@@ -198,12 +196,13 @@ float maxTimeToWall = 2;
   for (int i = 0; i < numAgents; i++){
     if (i >= numGoalAgents) {
       agentVel[i] = new Vec2(30+random(60),-200+random(10));
+      agentAcc[i] = new Vec2(0,0);
       if (agentVel[i].length() > 0)
-        agentVel[i].setToLength(goalSpeed);
+        agentVel[i].clampToLength(goalSpeed);
     } else {
       agentVel[i] = goalPos[i].minus(agentPos[i]);
       if (agentVel[i].length() > 0)
-        agentVel[i].setToLength(goalSpeed);
+        agentVel[i].clampToLength(goalSpeed);
     }
   }
 
@@ -290,13 +289,35 @@ float maxTimeToWall = 2;
   
   // Forces for walls
   for (int wall = 0; wall < numWalls; wall++) {
-    float curr = rayLineIntersectDistance(agentPos[id], agentVel[id], walls[wall][0], walls[wall][1]);
-    float ttc = curr/agentVel[id].length();
-    if (!Float.isNaN(curr) && ttc <= maxTimeToWall) {
-      Vec2 futureid = agentPos[id].plus(agentVel[id].times(ttc));
-      Vec2 wallInt = agentPos[id].plus(agentVel[id].times(curr));
-      Vec2 rfd = (futureid.minus(wallInt)).normalized();
-      acc.add(rfd.times(k_avoid));
+    for (int k = 0; k < 50; k++) {
+      Vec2 vel1 = agentVel[id].rotated(k*0.03f);
+      Vec2 vel2 = agentVel[id].rotated(-k*0.03f);
+      float curr1 = rayLineIntersectDistance(
+        agentPos[id], vel1, 
+        walls[wall][0], walls[wall][1]
+      );
+      float curr2 = rayLineIntersectDistance(
+        agentPos[id], vel2, 
+        walls[wall][0], walls[wall][1]
+      );
+
+      float ttc = curr1/vel1.length();
+      if (!Float.isNaN(curr1) && ttc <= maxTimeToWall && ttc > 0) {
+        Vec2 futureid = agentPos[id].plus(vel1.times(ttc));
+        Vec2 wallInt = agentPos[id].plus(vel1.times(curr1));
+        Vec2 rfd = (futureid.minus(wallInt));
+        rfd.normalize();
+        acc.add(rfd.times(k_avoid*(1/ttc)));
+      }
+
+      ttc = curr2/vel2.length();
+      if (!Float.isNaN(curr2) && ttc <= maxTimeToWall && ttc > 0) {
+        Vec2 futureid = agentPos[id].plus(vel2.times(ttc));
+        Vec2 wallInt = agentPos[id].plus(vel2.times(curr2));
+        Vec2 rfd = (futureid.minus(wallInt));
+        rfd.normalize();
+        acc.add(rfd.times(k_avoid*(1/ttc)));
+      }
     }
   }
 
@@ -348,6 +369,7 @@ float maxTimeToWall = 2;
   }
 
   // // obstacle separation forces for when they get stuck in the obstacle
+  // // uncomment if using obstacles
   // for (int ob = 0; ob < numObst; ob++) {
   //   float dist = agentPos[id].distanceTo(obstPos[ob]);
   //   if (dist <= obstRadius+agentRad) {
@@ -375,12 +397,9 @@ float maxTimeToWall = 2;
     acc.add(alignForce.times(alignScale));
   }
 
-
-
   return acc;
 }
 
-float epsilon = 0.001f;
 //Update agent positions & velocities based acceleration
  public void moveAgent(float dt){
   //Compute accelerations for every agents
@@ -428,6 +447,7 @@ boolean paused = true;
  
   //Draw the green goal agents
   fill(20,200,150);
+  // // uncomment if using obstacles
   // for (int i = 0; i < numObst; i++) {
   //   circle(obstPos[i].x, obstPos[i].y, obstDrawRadius*2);
   // }
@@ -497,7 +517,7 @@ boolean paused = true;
   float t1 = ((b.x*a.y)-(b.y*a.x))/dot;
   float t2 = dot(a, c)/dot;
 
-  if (t1 >= 0.0f && (t2 >= 0.0f && t2 <= 1.0f)) {
+  if (!Float.isNaN(t1) && t1 >= 0.0f && (t2 >= 0.0f && t2 <= 1.0f)) {
     return t1;
   }
 
@@ -534,11 +554,12 @@ boolean paused = true;
 //////////////////////
 
 public class Vec2 {
-  public float x, y;
+  public float x, y, epsilon;
  
   public Vec2(float x, float y){
     this.x = x;
     this.y = y;
+    this.epsilon = 0.001f;
   }
  
   public String toString(){
@@ -596,12 +617,14 @@ public class Vec2 {
  
   public void normalize(){
     float magnitude = sqrt(x*x + y*y);
+    if (magnitude < epsilon) return;
     x /= magnitude;
     y /= magnitude;
   }
  
   public Vec2 normalized(){
     float magnitude = sqrt(x*x + y*y);
+    if (magnitude < epsilon) return new Vec2(x, y);
     return new Vec2(x/magnitude, y/magnitude);
   }
  
@@ -609,6 +632,18 @@ public class Vec2 {
     float dx = rhs.x - x;
     float dy = rhs.y - y;
     return sqrt(dx*dx + dy*dy);
+  }
+
+  public void rotate(float rad) {
+    x = cos(rad)*x - sin(rad)*y;
+    y = sin(rad)*x + cos(rad)*y;
+  }
+
+  public Vec2 rotated(float rad) {
+    float newx = cos(rad)*x - sin(rad)*y;
+    float newy = sin(rad)*x + cos(rad)*y;
+
+    return new Vec2(newx, newy);
   }
 }
 

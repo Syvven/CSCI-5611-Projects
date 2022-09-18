@@ -6,37 +6,45 @@
 // Here is what you should discuss & try to code as a group:
 //  1. Initially, the code shows a dark red circle with a purple-ish outline.
 //     Change the program to draw a red circle with a black outline instead.
-// Done
-//
+//  Done
+
 //  2. Find the Processing.org reference pages for the circle command. 
 //     Why am I multiplying the radius by 2? (Note: these reference pages are 
 //     very useful, be sure to check them out for general Processing help.)
 //  Ans.
 //     the radius actually sets width and height instead of radius
-//
+
 //  3. Change the background color to be white instead green.
-// Done
-//
+//  Done
+
 //  4. Have the ball follow the user's mouse. You should do this by setting
 //      dir to be the vector pointing from the ball's current position (pos)
 //      to the mouse's current position (mousePos).
-// Done
-//
+//  Done
+
 //  5. Try to get some keyboard input working:  
 //        -When the user presses the 'd' key, double the speed the ball moves. 
 //        -When the user presses the 'h' key, half the speed the ball moves. 
+//  Done
+
 //  6. The simple approach is Step 4 will leave the ball jittering when it
 //     reaches the mouse. Find a strategy to fix the jitter so the ball stops
 //     completely when it is nicely centered on the mouse.
+//  Done
+
 //  7. Currently, the variable 'speed' doesn't have a well defined unit and its
 //     effect depends on the framerate. Fix this by using dt in the update function
 //     to make sure the speed value means "pixels per second". Set the speed to
 //     100 pixels per second. Make sure the ball takes about 6.4 seconds to make
 //     it 640 pixels across the screen.
+//  Done
      
 // As a challenge:
 //  1. Give the ball a maximum acceleration (i.e. limit how fast it's velocity can change).
+//  Done
+
 //  2. Draw an image (sprite) instead of a circle. Try to orient it in the direction of travel.
+//  Done
 
 
 int strokeWidth = 2;
@@ -62,7 +70,7 @@ void setup(){
   strokeWeight(strokeWidth); //Draw thicker lines 
 }
 
-float speed = 200;
+float speed = 100;
 float accel = 0.03;
 float rot = 1;
 
