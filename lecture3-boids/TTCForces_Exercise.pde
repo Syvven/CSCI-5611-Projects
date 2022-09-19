@@ -72,7 +72,7 @@ int numGoalAgents = 3;
 float k_goal = 500;  
 
 // TTC multiplier
-float k_avoid = 5000;
+float k_avoid = 50000000;
 
 // max values for velocity and acceleration
 float maxVel = 300;

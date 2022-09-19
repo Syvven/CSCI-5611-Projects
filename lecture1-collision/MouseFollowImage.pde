@@ -83,6 +83,7 @@ void update(float dt){
         vel = interpolate(vel, dir, accel);
         pos.add(vel);
         rot = atan2(img_dir.y - vel.y,img_dir.x - vel.x);
+        println(rot);
     } else {
         vel.x = 0; vel.y = 0;
     }
