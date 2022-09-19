@@ -17,11 +17,11 @@ int fenceScale = 125;
 PShape[] shapes = new PShape[kiwiFrames];
 int[] times = new int[kiwiFrames];
 
-float sceneX = 1200;
-float sceneY = 1200;
-float sceneZ = 1200;
+float sceneX = 1500;
+float sceneY = 1500;
+float sceneZ = 1500;
 
-float speed = 1000;
+float speed = 10;
 
 Vec3[] floor = new Vec3[]{
     new Vec3(sceneX/2,0,sceneZ/2),
@@ -35,14 +35,18 @@ Camera camera;
 int centerAgentID = 0;
 boolean centerAgent = false;
 boolean simPaused = true;
+boolean leftHeld, rightHeld;
 
 // agent variables
-float agentHBRad = 1.5*kiwiScale;
-int numAgents = 1;
+float agentHBRad = kiwiScale;
+int numAgents = 50;
 Vec3 agentPos[] = new Vec3[numAgents];
 Vec3 agentVel[] = new Vec3[numAgents];
 Vec3 agentAcc[] = new Vec3[numAgents];
 float agentRot[] = new float[numAgents];
+float agentTime[] = new float[numAgents];
+int agentSwitchFrame[] = new int[numAgents];
+int agentFrame[] = new int[numAgents];
 Vec3 agentDir = new Vec3(0,0,1);
 
 // variables for the outer fencing
@@ -57,11 +61,11 @@ boolean debug = false;
 ////////////// FORCES //////////////////////////
 
 // max vel and acc changes
-float maxVel = 50;
-float maxAcc = 70;
+float maxVel = 5000;
+float maxAcc = 700;
 
 // TTC
-float k_avoid = 5000;
+float k_avoid = 500;
 float maxTTCTime = 3;
 
 // wall forces
@@ -69,19 +73,23 @@ int numPlanes = 4;
 Vec3[][] planes = new Vec3[numPlanes][2];
 float wallPadding = 30;
 float maxTimeToPlane = 3;
-float wallAvoid = 5000;
+float wallAvoid = 500;
 
 // Separation Force
-float sepMaxDist = agentHBRad*2+20;
-float sepScale = 500;
+float sepMaxDist = agentHBRad*2;
+float sepScale = 300;
 
 // Cohesion Force
-float cohMaxDist = agentHBRad*2+40;
-float cohScale = 30;
+float cohMaxDist = agentHBRad*2+30;
+float cohScale = 100;
 
 // Align Force
-float alignMaxDist = agentHBRad*2+40;
-float alignScale = 30;
+float alignMaxDist = agentHBRad*2+15;
+float alignScale = 100;
+
+// Cam Force
+float camMaxDist = 1000;
+float camScale = 100;
 
 // float angle;
 // float concentration;
@@ -149,13 +157,15 @@ void start() {
     for (int id = 0; id < numAgents; id++) {
         // each agent at a random position within the walls
         agentPos[id] = new Vec3(
-            (-sceneX*0.5)+(wallPadding+agentHBRad)+random(2*((sceneX*0.5)-(2*wallPadding)-agentHBRad)),
+            (-sceneX*0.5)+(wallPadding+agentHBRad)+70+random(2*((sceneX*0.5)-(2*wallPadding)-agentHBRad-70)),
             -0.71*kiwiScale,
-            (-sceneZ*0.5)+(wallPadding+agentHBRad)+random(2*((sceneZ*0.5)-(2*wallPadding)-agentHBRad))
+            (-sceneZ*0.5)+(wallPadding+agentHBRad)+70+random(2*((sceneZ*0.5)-(2*wallPadding)-agentHBRad-70))
         );
-        agentVel[id] = new Vec3(-60+random(120), 0, -60+random(120));
+        agentVel[id] = new Vec3(-200+random(400), 0, -200+random(400));
         agentVel[id].setToLength(speed);
         agentAcc[id] = new Vec3(0,0,0);
+        agentTime[id] = random(5);
+        agentFrame[id] = int(random(kiwiFrames));
     }
 }
 
@@ -165,14 +175,14 @@ void reset() {
 
 //////////////// UPDATING FUNCTIONS ///////////////////////////////
 
-void updateKiwiFrame() {
-    total_time += 1/frameRate;
-    if (total_time > 1/kiwi_framerate) {
-        total_time = 0;
-        switchframe++;
-        if (switchframe == times[frame]) {
-            switchframe = 0;
-            frame = (frame+1)%4;
+void updateKiwiFrame(int id) {
+    agentTime[id] += agentVel[id].length()*0.001;
+    if (agentTime[id] > 1/kiwi_framerate) {
+        agentTime[id] = 0;
+        agentSwitchFrame[id]++;
+        if (agentSwitchFrame[id] == times[agentFrame[id]]) {
+            agentSwitchFrame[id] = 0;
+            agentFrame[id] = (agentFrame[id]+1)%4;
         }
     }
 }
@@ -181,32 +191,19 @@ void updateKiwiFrame() {
 Vec3 computeTTW(Vec3 aPos, Vec3 aVel, int numRays) {
     Vec3 acc = new Vec3(0,0,0);
     for (var plane : planes) {
-        // for (int k = 0; k < numRays; k++) {
-            // Vec3 vel1 = aVel.rotatedAroundY(k*0.03);
-            // Vec3 vel2 = aVel.rotatedAroundY(-k*0.03);
-            float ttc = rayIntersectPlaneTime(
-                plane[1], plane[0], 
-                aPos, aVel
-            );
-            // float ttc2 = rayIntersectPlaneTime(
-            //     plane[1], plane[0], 
-            //     aPos, vel2
-            // );
-
-            if (!Float.isNaN(ttc) && ttc <= maxTimeToPlane && ttc > 0) {
-                // Vec3 norm = projAB(aVel, plane[1]);
-                // acc.subtract(norm.times(wallAvoid*(1/ttc)));
-                Vec3 intPoint = aPos.plus(aVel.times(ttc));
-                Vec3 repel = aPos.minus(intPoint);
-                repel.mul(wallAvoid/(aPos.distanceTo(intPoint)));
-                acc.add(repel);
-            }
-
-            // if (!Float.isNaN(ttc2) && ttc2 <= maxTimeToPlane && ttc2 > 0) {
-            //     acc.subtract(plane[1].times(wallAvoid*(1/ttc2)));
-            // }
-        // }
+        float ttc = rayIntersectPlaneTime(
+            plane[1], plane[0], 
+            aPos, aVel
+        );
+        
+        if (!Float.isNaN(ttc) && ttc <= maxTimeToPlane && ttc > 0) {
+            Vec3 intPoint = aPos.plus(aVel.times(ttc));
+            Vec3 repel = aPos.minus(intPoint);
+            repel.mul(wallAvoid);
+            acc.add(repel);
+        }
     }
+
     return acc;
 }
 
@@ -230,29 +227,32 @@ Vec3 computeAgentForces(int id) {
     Vec3 avgVel = new Vec3(0,0,0);
     int numAlign = 0; int numCohesion = 0;
     for (int jd = 0; jd < numAgents; jd++) {
-        // TTC force
-        acc.add(computeTTC(
-            agentPos[id], agentVel[id], agentHBRad,
-            agentPos[jd], agentVel[jd], agentHBRad
-        ));
+        if (id != jd) {
+            // TTC force
+            acc.add(computeTTC(
+                agentPos[id], agentVel[id], agentHBRad,
+                agentPos[jd], agentVel[jd], agentHBRad
+            ));
 
-        float dist = agentPos[id].distanceTo(agentPos[jd]);
+            float dist = agentPos[id].distanceTo(agentPos[jd]);
 
-        // Separation Force
-        if (dist <= sepMaxDist) {
-            Vec3 sepForce = agentPos[id].minus(agentPos[jd]);
-            sepForce.mul(sepScale/dist);
-            acc.add(sepForce);
-        }
+            // Separation Force
+            if (dist <= sepMaxDist) {
+                Vec3 sepForce = agentPos[id].minus(agentPos[jd]);
+                sepForce.mul(sepScale/dist);
+                sepForce.y = 0;
+                acc.add(sepForce);
+            }
 
-        if (dist <= cohMaxDist) {
-          avgPos.add(agentPos[jd]);
-          numCohesion++;
-        }
+            if (dist <= cohMaxDist) {
+            avgPos.add(agentPos[jd]);
+            numCohesion++;
+            }
 
-        if (dist <= alignMaxDist) {
-          avgVel.add(agentVel[jd]);
-          numAlign++;
+            if (dist <= alignMaxDist) {
+            avgVel.add(agentVel[jd]);
+            numAlign++;
+            }
         }
     }
 
@@ -261,6 +261,7 @@ Vec3 computeAgentForces(int id) {
         avgPos.x /= numCohesion; avgPos.z /= numCohesion;
         Vec3 cohForce = avgPos.minus(agentPos[id]);
         cohForce.normalize();
+        cohForce.y = 0;
         cohForce.mul(cohScale);
 
         acc.add(cohForce);
@@ -271,7 +272,28 @@ Vec3 computeAgentForces(int id) {
         avgVel.x /= numAlign; avgVel.z /= numAlign;
         Vec3 alignForce = avgVel.minus(agentVel[id]);
         alignForce.normalize();
+        alignForce.y = 0;
         acc.add(alignForce.times(alignScale));
+    }
+
+    // Mouse Force
+    Vec3 camPos = new Vec3(camera.position.x, camera.position.y, camera.position.z);
+    camPos.y = agentPos[id].y;
+    float camDist = agentPos[id].distanceTo(camPos);
+
+    if (leftHeld && camDist <= camMaxDist) {
+        Vec3 camForce = camPos.minus(agentPos[id]);
+        camForce.normalize();
+        camForce.mul(camScale);
+        camForce.y = 0;
+        acc.add(camForce);
+    }
+
+    if (rightHeld && camDist <= camMaxDist) {
+        Vec3 camForce = agentPos[id].minus(camPos);
+        camForce.mul(camScale/camDist);
+        camForce.y = 0;
+        acc.add(camForce);
     }
 
     // Wall forces
@@ -281,13 +303,11 @@ Vec3 computeAgentForces(int id) {
 }
 
 void update(float dt) {
-    updateKiwiFrame();
     checkPressed();
 
     for (int id = 0; id < numAgents; id++) {
         agentAcc[id] = computeAgentForces(id);
         agentAcc[id].clampToLength(maxAcc);
-        // do stuff with acceleration
     }
 
     for (int id = 0; id < numAgents; id++) {
@@ -421,14 +441,15 @@ void draw() {
     // draws things needed for understanding coordinate system
     // safe to comment out once everything is ready
     if (debug) drawBounds();
+
+    // draw each agent
     for (int id = 0; id < numAgents; id++) {
+        if (!simPaused) updateKiwiFrame(id);
         pushMatrix();
             translate(agentPos[id].x, agentPos[id].y, agentPos[id].z);
             rotateY(agentRot[id]);
             scale(kiwiScale);
-            shape(shapes[frame]);
-            // single frame draw
-            // shape(shapes[0],0,0);
+            shape(shapes[agentFrame[id]]);
         popMatrix();
     }
     // draw fences after because of some weird masking quirks
@@ -444,6 +465,16 @@ void checkPressed() {
 
 void mouseWheel(MouseEvent event) {
     
+}
+
+void mousePressed() {
+    if (mouseButton == LEFT) leftHeld = true;
+    if (mouseButton == RIGHT) rightHeld = true;
+}
+
+void mouseReleased() {
+    if (mouseButton == LEFT) leftHeld = false;
+    if (mouseButton == RIGHT) rightHeld = false;
 }
 
 void keyPressed()
