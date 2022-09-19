@@ -82,14 +82,16 @@ CHALLENGE:
 
 // number of agents
 static int maxNumAgents = 100;
-int numAgents = 100;
+int numNormalAgents = 97;
 int numGoalAgents = 3;
+int numAgents = numGoalAgents+numNormalAgents;
+float minDistFromGoal = 5;
 
 // goal multipliers
-float k_goal = 500;  
+float k_goal = 10;  
 
 // TTC multiplier
-float k_avoid = 5000;
+float k_avoid = 50;
 
 // max values for velocity and acceleration
 float maxVel = 300;
@@ -99,7 +101,7 @@ float agentRad = 10;
 float goalAgentRad = 35;
 float agentDrawRad = 5;
 float goalAgentDrawRad = 30;
-float goalSpeed = 10;
+float goalSpeed = 100;
 
 // Boid Force Stuff
 // Separation
@@ -179,7 +181,7 @@ float epsilon = 0.001f;
 
   //Set initial agent positions and goals
   agentPos[0] = new Vec2(220,610);
-  agentPos[1] = new Vec2(300,610);
+  agentPos[1] = new Vec2(310,610);
   agentPos[2] = new Vec2(320,420);
   goalPos[0] = new Vec2(200,420);
   goalPos[1] = new Vec2(120,120);
@@ -246,6 +248,11 @@ float epsilon = 0.001f;
   // Force due to goal for only first three agents
   if (id < numGoalAgents) {
     Vec2 goal_vel = goalPos[id].minus(agentPos[id]);
+    if (goal_vel.length() > minDistFromGoal) {
+      goal_vel = goal_vel.normalized().times(goalSpeed);
+    } else {
+      goal_vel = new Vec2(0,0);
+    }
     Vec2 goal_force = goal_vel.minus(agentVel[id]);
 
     acc.add(goal_force.times(k_goal));
@@ -270,8 +277,8 @@ float epsilon = 0.001f;
   for (int jd = 0; jd < numAgents; jd++) {
     if (jd != id) {
       float ttc = computeTTC(
-        agentPos[id], agentVel[id], (id < numGoalAgents ? goalAgentRad : agentRad),
-        agentPos[jd], agentVel[jd], (jd < numGoalAgents ? goalAgentRad : agentRad)
+        agentPos[id], agentVel[id], ((id < numGoalAgents) ? goalAgentRad : agentRad),
+        agentPos[jd], agentVel[jd], ((jd < numGoalAgents) ? goalAgentRad : agentRad)
       );
 
       if (ttc > -1 && ttc <= maxTimeToObstacle) {
@@ -405,17 +412,16 @@ float epsilon = 0.001f;
   //Compute accelerations for every agents
   for (int id = 0; id < numAgents; id++){
     agentAcc[id] = computeAgentForces(id);
-    agentAcc[id].clampToLength(maxAcc);
   }
 
   //Update position and velocity using (Eulerian) numerical integration
   for (int i = 0; i < numAgents; i++){
-    if (i >= numGoalAgents || 
-        (abs(agentPos[i].x-goalPos[i].x) > epsilon &&
-          abs(agentPos[i].y-goalPos[i].y) > epsilon)) {
-      agentVel[i].add(agentAcc[i].times(dt));
-      agentVel[i].clampToLength(maxVel);
+    if (i >= numGoalAgents || (agentPos[i].distanceTo(goalPos[i]) > minDistFromGoal)) {
       agentPos[i].add(agentVel[i].times(dt));
+      agentVel[i].add(agentAcc[i].times(dt));
+      if (agentVel[i].length() > maxVel) {
+        agentVel[i] = agentVel[i].normalized().times(maxVel);
+      }
       agentPos[i].x = agentPos[i].x < 0 ? width : (agentPos[i].x > width ? 0 : agentPos[i].x);
       agentPos[i].y = agentPos[i].y < 0 ? height : (agentPos[i].y > height ? 0 : agentPos[i].y);
     } else {

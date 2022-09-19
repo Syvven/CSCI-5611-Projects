@@ -64,7 +64,8 @@ float agentRot[] = new float[numAgents];
 float agentTime[] = new float[numAgents];
 int agentSwitchFrame[] = new int[numAgents];
 int agentFrame[] = new int[numAgents];
-Vec3 agentDir = new Vec3(0,0,1);
+float agentDir[] = new float[numAgents];
+float t = 0.98f;
 
 // variables for the outer fencing
 int numFencesX = PApplet.parseInt(ceil(sceneX/(fenceLength*fenceScale)));
@@ -183,6 +184,7 @@ float camScale = 10;
         agentAcc[id] = new Vec3(0,0,0);
         agentTime[id] = random(5);
         agentFrame[id] = PApplet.parseInt(random(kiwiFrames));
+        agentDir[id] = atan2(agentVel[id].x, agentVel[id].z);
     }
 }
 
@@ -335,7 +337,6 @@ float camScale = 10;
 
     for (int id = 0; id < numAgents; id++) {
         agentAcc[id] = computeAgentForces(id);
-        agentAcc[id].clampToLength(maxAcc);
     }
 
     for (int id = 0; id < numAgents; id++) {
@@ -359,7 +360,20 @@ float camScale = 10;
         //     // agentVel[id] = interpolate(agentVel[id], targetVel, 0.09);
         // }
 
-        agentRot[id] = rotateTo(agentDir, agentVel[id]);
+        // introduce orientation
+        // vector or angle
+        // start -> way model is laoding -- 0 deg
+        // timestep -> new vel from boid --> dorient= t*dorient+(1-t)*atan2(vel.y,vel.x)
+        // --> smaller t = more floaty? tune it
+
+        // more? t --> function of velocity
+
+        // old way --> bad, has jittering
+        // agentRot[id] = rotateTo(new Vec3(0,0,1), agentVel[id]);
+
+        // new way --> doesnt work yet
+        agentDir[id] = agentDir[id]*t+(1-t)*atan2(agentVel[id].x, agentVel[id].z);
+        // println(agentDir[id]);
     }
 }
 
@@ -491,7 +505,10 @@ float rot = 0;
         if (!simPaused) updateKiwiFrame(id);
         pushMatrix();
             translate(agentPos[id].x, agentPos[id].y, agentPos[id].z);
-            rotateY(agentRot[id]);
+            // for new way
+            rotateY(agentDir[id]);
+            // for old way
+            // rotateY(agentRot[id]);
             scale(kiwiScale);
             shape(shapes[agentFrame[id]]);
         popMatrix();

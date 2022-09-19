@@ -47,7 +47,8 @@ float agentRot[] = new float[numAgents];
 float agentTime[] = new float[numAgents];
 int agentSwitchFrame[] = new int[numAgents];
 int agentFrame[] = new int[numAgents];
-Vec3 agentDir = new Vec3(0,0,1);
+float agentDir[] = new float[numAgents];
+float t = 0.98;
 
 // variables for the outer fencing
 int numFencesX = int(ceil(sceneX/(fenceLength*fenceScale)));
@@ -166,6 +167,7 @@ void start() {
         agentAcc[id] = new Vec3(0,0,0);
         agentTime[id] = random(5);
         agentFrame[id] = int(random(kiwiFrames));
+        agentDir[id] = atan2(agentVel[id].x, agentVel[id].z);
     }
 }
 
@@ -318,7 +320,6 @@ void update(float dt) {
 
     for (int id = 0; id < numAgents; id++) {
         agentAcc[id] = computeAgentForces(id);
-        agentAcc[id].clampToLength(maxAcc);
     }
 
     for (int id = 0; id < numAgents; id++) {
@@ -349,7 +350,13 @@ void update(float dt) {
         // --> smaller t = more floaty? tune it
 
         // more? t --> function of velocity
-        agentRot[id] = rotateTo(agentDir, agentVel[id]);
+
+        // old way --> bad, has jittering
+        // agentRot[id] = rotateTo(new Vec3(0,0,1), agentVel[id]);
+
+        // new way --> doesnt work yet
+        agentDir[id] = agentDir[id]*t+(1-t)*atan2(agentVel[id].x, agentVel[id].z);
+        // println(agentDir[id]);
     }
 }
 
@@ -481,7 +488,10 @@ void draw() {
         if (!simPaused) updateKiwiFrame(id);
         pushMatrix();
             translate(agentPos[id].x, agentPos[id].y, agentPos[id].z);
-            rotateY(agentRot[id]);
+            // for new way
+            rotateY(agentDir[id]);
+            // for old way
+            // rotateY(agentRot[id]);
             scale(kiwiScale);
             shape(shapes[agentFrame[id]]);
         popMatrix();
