@@ -72,7 +72,7 @@ int numGoalAgents = 3;
 float k_goal = 500;  
 
 // TTC multiplier
-float k_avoid = 50000000;
+float k_avoid = 5000;
 
 // max values for velocity and acceleration
 float maxVel = 300;
@@ -162,7 +162,7 @@ void setup(){
 
   //Set initial agent positions and goals
   agentPos[0] = new Vec2(220,610);
-  agentPos[1] = new Vec2(320,610);
+  agentPos[1] = new Vec2(300,610);
   agentPos[2] = new Vec2(320,420);
   goalPos[0] = new Vec2(200,420);
   goalPos[1] = new Vec2(120,120);

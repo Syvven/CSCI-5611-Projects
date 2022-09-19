@@ -1,6 +1,6 @@
 // Testing for 3d and eventually making a 3d boid simulation
 int kiwiFrames = 4;
-Vec3 backF = new Vec3(50,50,50); // grayish
+Vec3 backF = new Vec3(0,0,0); // grayish
 
 PShape kiwi;
 float kiwiWidth = 1; // units // Scale(10) --> 10 units
@@ -24,10 +24,10 @@ float sceneZ = 1500;
 float speed = 10;
 
 Vec3[] floor = new Vec3[]{
-    new Vec3(sceneX/2,0,sceneZ/2),
-    new Vec3(sceneX/2,0,-sceneZ/2),
-    new Vec3(-sceneX/2,0,-sceneZ/2),
-    new Vec3(-sceneX/2,0,sceneZ/2)
+    new Vec3(sceneX/2+20,0,sceneZ/2+20),
+    new Vec3(sceneX/2+20,0,-sceneZ/2-20),
+    new Vec3(-sceneX/2-20,0,-sceneZ/2-20),
+    new Vec3(-sceneX/2-20,0,sceneZ/2+20)
 };
 
 // camera, centering, and key handling things
@@ -61,11 +61,11 @@ boolean debug = false;
 ////////////// FORCES //////////////////////////
 
 // max vel and acc changes
-float maxVel = 5000;
-float maxAcc = 700;
+float maxVel = 80;
+float maxAcc = 200;
 
 // TTC
-float k_avoid = 500;
+float k_avoid = 50;
 float maxTTCTime = 3;
 
 // wall forces
@@ -73,23 +73,23 @@ int numPlanes = 4;
 Vec3[][] planes = new Vec3[numPlanes][2];
 float wallPadding = 30;
 float maxTimeToPlane = 3;
-float wallAvoid = 500;
+float wallAvoid = 50;
 
 // Separation Force
 float sepMaxDist = agentHBRad*2;
-float sepScale = 300;
+float sepScale = 30;
 
 // Cohesion Force
 float cohMaxDist = agentHBRad*2+30;
-float cohScale = 100;
+float cohScale = 10;
 
 // Align Force
 float alignMaxDist = agentHBRad*2+15;
-float alignScale = 100;
+float alignScale = 2;
 
 // Cam Force
 float camMaxDist = 1000;
-float camScale = 100;
+float camScale = 10;
 
 // float angle;
 // float concentration;
@@ -176,7 +176,11 @@ void reset() {
 //////////////// UPDATING FUNCTIONS ///////////////////////////////
 
 void updateKiwiFrame(int id) {
-    agentTime[id] += agentVel[id].length()*0.001;
+    /*  
+        updates each kiwi's frame at different time to 
+        make it look a bit better 
+    */
+    agentTime[id] += agentVel[id].length()*0.005;
     if (agentTime[id] > 1/kiwi_framerate) {
         agentTime[id] = 0;
         agentSwitchFrame[id]++;
@@ -196,10 +200,13 @@ Vec3 computeTTW(Vec3 aPos, Vec3 aVel, int numRays) {
             aPos, aVel
         );
         
+        // apply a repel force? I don't know if this is a good approach
+        // TODO: Ask Prof Guy or TA for other options / advice
         if (!Float.isNaN(ttc) && ttc <= maxTimeToPlane && ttc > 0) {
             Vec3 intPoint = aPos.plus(aVel.times(ttc));
             Vec3 repel = aPos.minus(intPoint);
             repel.mul(wallAvoid);
+            repel.clampToLength(maxAcc);
             acc.add(repel);
         }
     }
@@ -241,6 +248,7 @@ Vec3 computeAgentForces(int id) {
                 Vec3 sepForce = agentPos[id].minus(agentPos[jd]);
                 sepForce.mul(sepScale/dist);
                 sepForce.y = 0;
+                sepForce.clampToLength(maxAcc);
                 acc.add(sepForce);
             }
 
@@ -263,7 +271,7 @@ Vec3 computeAgentForces(int id) {
         cohForce.normalize();
         cohForce.y = 0;
         cohForce.mul(cohScale);
-
+        cohForce.clampToLength(maxAcc);
         acc.add(cohForce);
     }
 
@@ -273,7 +281,8 @@ Vec3 computeAgentForces(int id) {
         Vec3 alignForce = avgVel.minus(agentVel[id]);
         alignForce.normalize();
         alignForce.y = 0;
-        acc.add(alignForce.times(alignScale));
+        alignForce.times(alignScale);
+        acc.add(alignForce);
     }
 
     // Mouse Force
@@ -286,6 +295,7 @@ Vec3 computeAgentForces(int id) {
         camForce.normalize();
         camForce.mul(camScale);
         camForce.y = 0;
+        camForce.clampToLength(maxAcc);
         acc.add(camForce);
     }
 
@@ -293,6 +303,7 @@ Vec3 computeAgentForces(int id) {
         Vec3 camForce = agentPos[id].minus(camPos);
         camForce.mul(camScale/camDist);
         camForce.y = 0;
+        camForce.clampToLength(maxAcc);
         acc.add(camForce);
     }
 
@@ -311,10 +322,33 @@ void update(float dt) {
     }
 
     for (int id = 0; id < numAgents; id++) {
-        agentVel[id].add(agentAcc[id].times(dt));
-        agentVel[id].clampToLength(maxVel);
         agentPos[id].add(agentVel[id].times(dt));
+        agentVel[id].add(agentAcc[id].times(dt));
 
+        if (agentVel[id].length() > maxVel) {
+            agentVel[id] = agentVel[id].normalized().times(maxVel);
+        }
+        // agentVel[id] = interpolate(agentVel[id], target, 0.09);
+        
+
+        // float randomWalk = random(100);
+        // if (randomWalk > 98) {
+        //     Vec3 targetVel = new Vec3(
+        //         -10+random(20),
+        //         0,
+        //         -10+random(20)
+        //     );
+
+        //     // agentVel[id] = interpolate(agentVel[id], targetVel, 0.09);
+        // }
+
+        // introduce orientation
+        // vector or angle
+        // start -> way model is laoding -- 0 deg
+        // timestep -> new vel from boid --> dorient= t*dorient+(1-t)*atan2(vel.y,vel.x)
+        // --> smaller t = more floaty? tune it
+
+        // more? t --> function of velocity
         agentRot[id] = rotateTo(agentDir, agentVel[id]);
     }
 }

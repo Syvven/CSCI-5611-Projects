@@ -8,10 +8,10 @@ class Camera
 {
   Camera()
   {
-    position      = new PVector( 0, 0, 0 ); // initial position
+    position      = new PVector( 600, -600, 600 ); // initial position
     theta         = 0; // rotation around Y axis. Starts with forward direction as ( 0, 0, -1 )
     phi           = 0; // rotation around X axis. Starts with up direction as ( 0, 1, 0 )
-    moveSpeed     = 50;
+    moveSpeed     = 60;
     turnSpeed     = 1.7; // radians/sec
     boostSpeed    = 5;  // extra speed boost for when you press shift
     
