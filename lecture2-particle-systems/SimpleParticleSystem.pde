@@ -51,7 +51,7 @@
 //     impart some momentum on the particles. Update the collision response to capture this
 //     effect in some way. There is no perfect answer here, but try to find something that
 //     looks natural.
-//  Done? Maybe?
+//  Done
 
 // Challenge:
 //  1. Delete particles which have been around too long (and allow new ones to be created)

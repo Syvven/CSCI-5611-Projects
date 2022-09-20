@@ -66,11 +66,14 @@ class Camera
     aspectRatio = width / (float) height;
     perspective( fovy, aspectRatio, nearPlane, farPlane );
     if (centerAgent) {
-      camera(
-        position.x, position.y, position.z,
-        agentPos[centerAgentID].x, agentPos[centerAgentID].y, agentPos[centerAgentID].z,
-        upDir.x, upDir.y, upDir.z 
-      );
+      // pushMatrix();
+      //   translate(agentPos[centerAgentID].x, agentPos[centerAgentID].y, agentPos[centerAgentID].z);
+        camera(
+          position.x, position.y, position.z,
+          agentPos[centerAgentID].x, agentPos[centerAgentID].y, agentPos[centerAgentID].z,
+          upDir.x, upDir.y, upDir.z 
+        );
+      // popMatrix();
     } else {
       camera( 
         position.x, position.y, position.z,

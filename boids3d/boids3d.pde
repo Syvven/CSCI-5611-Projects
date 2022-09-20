@@ -1,6 +1,32 @@
+/******************************************************************************************
+
+3D Kiwi Prison Expiriment
+Noah Hendrickson 5520241
+CSCI 5611 Homework #1
+
+*******************************************************************************************
+Credits:
+
+Moai Model: 
+   https://sketchfab.com/3d-models/low-poly-moai-a6613687895d4eb0a778242083ebb824
+
+Kiwi Model: 
+   Lauren Oliver (Design Major @ UMN and also the brainchild behind some aspects)
+
+Fence Model: 
+   https://www.turbosquid.com/3d-models/3d-metal-fence-1393026
+
+Conkcrete Texture: 
+   https://img.freepik.com/free-photo/blank-concrete-white-wall-texture-background_1017-15560.jpg?w=2000
+
+******************************************************************************************/
+
+
 // Testing for 3d and eventually making a 3d boid simulation
 int kiwiFrames = 4;
 Vec3 backF = new Vec3(0,0,0); // grayish
+
+PImage conkcrete;
 
 PShape kiwi;
 float kiwiWidth = 1; // units // Scale(10) --> 10 units
@@ -14,6 +40,19 @@ float fenceLength = 2.4; // units // Scale(10) --> 24 units
 float fenceHeight = 2; // units // Scale(10) --> 20 units
 int fenceScale = 125;
 
+// Moai
+// 4 --> 1 for each corner
+PShape moai;
+Vec3 moaiDir = new Vec3(0,0,1);
+int moaiScale = 3;
+float moaiPadding = 70;
+float moaiAffectRad = 50;
+int maxMoai = 4;
+int numMoai = 2;
+// true == healing, false = sickness
+boolean[] healingMoai = new boolean[numMoai];
+Vec3[] moaiPos = new Vec3[numMoai];
+
 PShape[] shapes = new PShape[kiwiFrames];
 int[] times = new int[kiwiFrames];
 
@@ -21,13 +60,15 @@ float sceneX = 1500;
 float sceneY = 1500;
 float sceneZ = 1500;
 
-float speed = 10;
+// speed of gamers
+float speed = 70;
 
-Vec3[] floor = new Vec3[]{
-    new Vec3(sceneX/2+20,0,sceneZ/2+20),
-    new Vec3(sceneX/2+20,0,-sceneZ/2-20),
-    new Vec3(-sceneX/2-20,0,-sceneZ/2-20),
-    new Vec3(-sceneX/2-20,0,sceneZ/2+20)
+// vertices for drawing floor
+Vec3[][] floor = new Vec3[][]{
+    {new Vec3(sceneX/2+20,0,sceneZ/2+20),new Vec3(0,0,0)},
+    {new Vec3(sceneX/2+20,0,-sceneZ/2-20),new Vec3(0,1,0)},
+    {new Vec3(-sceneX/2-20,0,-sceneZ/2-20),new Vec3(1,0,0)},
+    {new Vec3(-sceneX/2-20,0,sceneZ/2+20),new Vec3(1,1,0)}
 };
 
 // camera, centering, and key handling things
@@ -48,7 +89,8 @@ float agentTime[] = new float[numAgents];
 int agentSwitchFrame[] = new int[numAgents];
 int agentFrame[] = new int[numAgents];
 float agentDir[] = new float[numAgents];
-float t = 0.98;
+float tbase = 0.90;
+float t;
 
 // variables for the outer fencing
 int numFencesX = int(ceil(sceneX/(fenceLength*fenceScale)));
@@ -57,13 +99,25 @@ int numFencesZ = int(ceil(sceneZ/(fenceLength*fenceScale)));
 // useful things
 float ninety, oneeighty, twoseventy;
 float epsilon = 1e-6;
-boolean debug = false;
+boolean debug = true;
 
 ////////////// FORCES //////////////////////////
 
+// Infection
+int maxInfected = int(numAgents/2);
+int numInfected = 0;
+ArrayList<Integer> infectedAgents = new ArrayList<Integer>();
+float[] infectedTimer = new float[numAgents];
+boolean[] isInfected = new boolean[numAgents];
+float maxInfectedTime = 20;
+int numFlies = 10;
+float mutateChance = 99.95;
+float flyYOffset = 15;
+
+
 // max vel and acc changes
-float maxVel = 80;
-float maxAcc = 200;
+float maxVel = 200;
+float maxAcc = 400;
 
 // TTC
 float k_avoid = 50;
@@ -74,7 +128,7 @@ int numPlanes = 4;
 Vec3[][] planes = new Vec3[numPlanes][2];
 float wallPadding = 30;
 float maxTimeToPlane = 3;
-float wallAvoid = 50;
+float wallAvoid = 100000;
 
 // Separation Force
 float sepMaxDist = agentHBRad*2;
@@ -86,7 +140,7 @@ float cohScale = 10;
 
 // Align Force
 float alignMaxDist = agentHBRad*2+15;
-float alignScale = 2;
+float alignScale = 1;
 
 // Cam Force
 float camMaxDist = 1000;
@@ -98,6 +152,11 @@ float camScale = 10;
 
 // PVector half = new PVector();
 // PVector mouse = new PVector();
+
+// Kiwi Frame Info
+// -> Frames 1 and 3 around for 5 frames
+// -> 2 and 4 are 2 frames
+float kiwi_framerate = 56;
 
 void setup() {
     size(1200, 1200, P3D);
@@ -122,7 +181,6 @@ void setup() {
     String base = "data/kiwi";
     for (int i = 1; i <= kiwiFrames; i++) {
         String file = base + i + ".obj";
-        println(file);
         shapes[i-1] = loadShape(file);
     }
     times[0] = 5; times[2] = 5;
@@ -134,45 +192,73 @@ void setup() {
 
     PImage mask = loadImage("data/FenceOpacity.png");
 
+    conkcrete = loadImage("data/conkcrete.jpg");
+
+    moai = loadShape("data/moai_low_poly.obj");
+
     texture.mask(mask);
     fence.setTexture(texture);
 
     // setup planes here --> [0] --> center [1] --> normal
 
     // this sets up the 4 main walls
-    planes[0][0] = new Vec3(sceneX*0.5-wallPadding,-sceneY*0.5,0);
+    planes[0][0] = new Vec3(sceneX*0.5,-sceneY*0.5,0);
     planes[0][1] = new Vec3(1,0,0);
 
-    planes[1][0] = new Vec3(-sceneX*0.5+wallPadding,-sceneY*0.5,0);
+    planes[1][0] = new Vec3(-sceneX*0.5,-sceneY*0.5,0);
     planes[1][1] = new Vec3(-1,0,0);
 
-    planes[2][0] = new Vec3(0,-sceneY*0.5,sceneZ*0.5-wallPadding);
+    planes[2][0] = new Vec3(0,-sceneY*0.5,sceneZ*0.5);
     planes[2][1] = new Vec3(0,0,1);
 
-    planes[3][0] = new Vec3(0,-sceneY*0.5,-sceneZ*0.5+wallPadding);
+    planes[3][0] = new Vec3(0,-sceneY*0.5,-sceneZ*0.5);
     planes[3][1] = new Vec3(0,0,-1);
 }
 
+// mainly here for resetting
 void start() {
     // set up agent things
     for (int id = 0; id < numAgents; id++) {
         // each agent at a random position within the walls
         agentPos[id] = new Vec3(
-            (-sceneX*0.5)+(wallPadding+agentHBRad)+70+random(2*((sceneX*0.5)-(2*wallPadding)-agentHBRad-70)),
+            random(-sceneX*0.5+wallPadding*5+70, sceneX*0.5-5*wallPadding-70),
             -0.71*kiwiScale,
-            (-sceneZ*0.5)+(wallPadding+agentHBRad)+70+random(2*((sceneZ*0.5)-(2*wallPadding)-agentHBRad-70))
+            random(-sceneZ*0.5+wallPadding*5+70, sceneZ*0.5-5*wallPadding-70)
         );
-        agentVel[id] = new Vec3(-200+random(400), 0, -200+random(400));
-        agentVel[id].setToLength(speed);
+        agentVel[id] = new Vec3(random(-100,100), 0, random(-100,100));
+        if (agentVel[id].length() > maxVel) {
+            agentVel[id] = agentVel[id].normalized().times(maxVel);
+        }
+   
         agentAcc[id] = new Vec3(0,0,0);
         agentTime[id] = random(5);
         agentFrame[id] = int(random(kiwiFrames));
         agentDir[id] = atan2(agentVel[id].x, agentVel[id].z);
+        isInfected[id] = false;
+        infectedTimer[id] = 0;
+        
     }
-}
+    infectedAgents = new ArrayList<Integer>();
+    numInfected = 0;
 
-void reset() {  
-    start();
+    int i = 0;
+    for (; i <= ceil(numMoai/2); i++) {
+        moaiPos[i] = new Vec3(
+            (i==0)?(-sceneX*0.5+moaiPadding):(sceneX*0.5-moaiPadding),
+            0,
+            (i==0)?(-sceneZ*0.5+moaiPadding):(sceneZ*0.5-moaiPadding)
+        );
+    }
+
+    for (; i < numMoai; i++) {
+        moaiPos[i] = new Vec3(
+            (i==2)?(-sceneX*0.5-moaiPadding):(sceneX*0.5-moaiPadding),
+            0,
+            (i==2)?(sceneZ*0.5-moaiPadding):(-sceneZ*0.5+moaiPadding)
+        );
+    }
+
+    t = tbase;
 }
 
 //////////////// UPDATING FUNCTIONS ///////////////////////////////
@@ -207,7 +293,7 @@ Vec3 computeTTW(Vec3 aPos, Vec3 aVel, int numRays) {
         if (!Float.isNaN(ttc) && ttc <= maxTimeToPlane && ttc > 0) {
             Vec3 intPoint = aPos.plus(aVel.times(ttc));
             Vec3 repel = aPos.minus(intPoint);
-            repel.mul(wallAvoid);
+            repel.mul(wallAvoid*(1/ttc));
             repel.clampToLength(maxAcc);
             acc.add(repel);
         }
@@ -235,6 +321,7 @@ Vec3 computeAgentForces(int id) {
     Vec3 avgPos = new Vec3(0,0,0);
     Vec3 avgVel = new Vec3(0,0,0);
     int numAlign = 0; int numCohesion = 0;
+    
     for (int jd = 0; jd < numAgents; jd++) {
         if (id != jd) {
             // TTC force
@@ -254,14 +341,16 @@ Vec3 computeAgentForces(int id) {
                 acc.add(sepForce);
             }
 
+            // average for cohesion
             if (dist <= cohMaxDist) {
-            avgPos.add(agentPos[jd]);
-            numCohesion++;
+                avgPos.add(agentPos[jd]);
+                numCohesion++;
             }
 
+            // average for alignment
             if (dist <= alignMaxDist) {
-            avgVel.add(agentVel[jd]);
-            numAlign++;
+                avgVel.add(agentVel[jd]);
+                numAlign++;
             }
         }
     }
@@ -287,11 +376,13 @@ Vec3 computeAgentForces(int id) {
         acc.add(alignForce);
     }
 
-    // Mouse Force
+    // Cam (mouse) force
     Vec3 camPos = new Vec3(camera.position.x, camera.position.y, camera.position.z);
     camPos.y = agentPos[id].y;
     float camDist = agentPos[id].distanceTo(camPos);
 
+    // attraction force of camera
+    // TODO: Make this where mouse is pointing
     if (leftHeld && camDist <= camMaxDist) {
         Vec3 camForce = camPos.minus(agentPos[id]);
         camForce.normalize();
@@ -301,6 +392,8 @@ Vec3 computeAgentForces(int id) {
         acc.add(camForce);
     }
 
+    // repulsion force of camera
+    // TODO: Make this where mouse is pointing
     if (rightHeld && camDist <= camMaxDist) {
         Vec3 camForce = agentPos[id].minus(camPos);
         camForce.mul(camScale/camDist);
@@ -318,19 +411,21 @@ Vec3 computeAgentForces(int id) {
 void update(float dt) {
     checkPressed();
 
+    // compute forces for each agent
     for (int id = 0; id < numAgents; id++) {
         agentAcc[id] = computeAgentForces(id);
     }
 
+    // update position, velocity, rotation
     for (int id = 0; id < numAgents; id++) {
-        agentPos[id].add(agentVel[id].times(dt));
+        // increase pos and vel
         agentVel[id].add(agentAcc[id].times(dt));
+        agentPos[id].add(agentVel[id].times(dt));
 
+        // make velocity comply with the speed limit
         if (agentVel[id].length() > maxVel) {
             agentVel[id] = agentVel[id].normalized().times(maxVel);
         }
-        // agentVel[id] = interpolate(agentVel[id], target, 0.09);
-        
 
         // float randomWalk = random(100);
         // if (randomWalk > 98) {
@@ -340,29 +435,46 @@ void update(float dt) {
         //         -10+random(20)
         //     );
 
-        //     // agentVel[id] = interpolate(agentVel[id], targetVel, 0.09);
-        // }
-
-        // introduce orientation
-        // vector or angle
-        // start -> way model is laoding -- 0 deg
-        // timestep -> new vel from boid --> dorient= t*dorient+(1-t)*atan2(vel.y,vel.x)
-        // --> smaller t = more floaty? tune it
-
-        // more? t --> function of velocity
-
         // old way --> bad, has jittering
         // agentRot[id] = rotateTo(new Vec3(0,0,1), agentVel[id]);
 
-        // new way --> doesnt work yet
+        // new way --> t = f(v) --> theta = theta*t+(1-t)*atan2(v.x, v.z)
+        // credit to Professor Guy for this hack
+        t = tbase-agentVel[id].length()*0.1;
+        if (t > 0.99) t = 0.99;
+        if (t < 0.91) t = 0.96;
         agentDir[id] = agentDir[id]*t+(1-t)*atan2(agentVel[id].x, agentVel[id].z);
-        // println(agentDir[id]);
+    }
+
+    // determine infection stuff
+    for (int id = 0; id < numAgents; id++) {
+        if (!isInfected[id] && numInfected < maxInfected) {
+            boolean mutate = (random(100) > mutateChance) ? true : false;
+            if (mutate) {
+                println("Mutating");
+                numInfected++;
+                infectedAgents.add(id);
+                isInfected[id] = true;
+            }
+            continue;
+        } 
+
+        if (isInfected[id]) {
+            infectedTimer[id] += dt;
+            if (infectedTimer[id] > maxInfectedTime) {
+                numInfected--;
+                isInfected[id] = true;
+                infectedAgents.remove((Integer)id);
+                infectedTimer[id] = 0;
+            }
+        }
     }
 }
 
 ///////////////////////////////////////////////////////////////////////////////////////
 ////////////// DRAW FUNCTIONS /////////////////////////////////////////////////////////
 
+// debug / measuring drawing
 void drawBounds() {
     // x axis --> red
     stroke(255,0,0);
@@ -399,11 +511,14 @@ void drawBounds() {
     }
 }
 
+// drawing borders of the scene
 void drawFencesAndFloor() {
     fill(11, 43, 20);
+    textureMode(NORMAL);
     beginShape();
+        texture(conkcrete);
         for (var vertex : floor) {
-            vertex(vertex.x, vertex.y, vertex.z);
+            vertex(vertex[0].x, vertex[0].y, vertex[0].z, vertex[1].x, vertex[1].y);
         }
     endShape(CLOSE);
 
@@ -442,15 +557,37 @@ void drawFencesAndFloor() {
     }
 }
 
-// Kiwi Frame Info
-// -> Frames 1 and 3 around for 5 frams
-// -> 2 and 4 are 2 frames
+// draws infection for debugging and deciding
+void drawInfection() {
+    stroke(0,255,0);
+    strokeWeight(1);
+    noFill();
+    for (var agent : infectedAgents) {
+        Vec3 pos = agentPos[agent];
+        pushMatrix();
+            translate(pos.x, pos.y-flyYOffset, pos.z);
+            sphere(agentHBRad);
+        popMatrix();
+    }
+}
 
-float total_time = 0;
-int switchframe = 0;
-int frame = 0;
-float kiwi_framerate = 28;
-float rot = 0;
+// draws the healing and hurting moai
+void drawMoai() {
+    for (int i = 0; i < numMoai; i++) {
+        Vec3 center = new Vec3(0,0,0);
+        float rot = rotateTo(moaiDir, center.minus(moaiPos[i]));
+        pushMatrix();
+            translate(moaiPos[i].x, moaiPos[i].y, moaiPos[i].z);
+            rotateZ(oneeighty);
+            rotateY(-rot);
+            scale(moaiScale);
+            shape(moai);
+            sphere(moaiAffectRad);
+        popMatrix();
+    }
+}
+
+// draw func
 void draw() {
     background(backF.x, backF.y, backF.z);
 
@@ -483,6 +620,10 @@ void draw() {
     // safe to comment out once everything is ready
     if (debug) drawBounds();
 
+    // Draws the infection
+    drawInfection();
+    drawMoai();
+
     // draw each agent
     for (int id = 0; id < numAgents; id++) {
         if (!simPaused) updateKiwiFrame(id);
@@ -496,6 +637,7 @@ void draw() {
             shape(shapes[agentFrame[id]]);
         popMatrix();
     }
+    
     // draw fences after because of some weird masking quirks
     drawFencesAndFloor();
 }
@@ -524,7 +666,7 @@ void mouseReleased() {
 void keyPressed()
 {
   camera.HandleKeyPressed();
-  if (key == 'c' || key == 'C') {
+  if (key == 'c') {
     if (!centerAgent) {
         centerAgent = true;
         centerAgentID = 0;
@@ -537,8 +679,8 @@ void keyPressed()
     }
   }
   if (key == 'p' || key == 'P') simPaused = !simPaused;
-  if (key == 'r') reset();
-  if (keyCode == BACKSPACE) centerAgent = false;
+  if (key == 'r') start();
+  if (key == 'C') centerAgent = false;
 }
 
 void keyReleased()
