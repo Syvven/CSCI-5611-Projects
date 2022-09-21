@@ -1,5 +1,5 @@
-static int maxParticles = 180; // per moai
-float genRate = 90; // per moai
+static int maxParticles = 500; // per moai
+float genRate = maxParticles; // per moai
 float maxLife = maxParticles/genRate;
 Vec3 gravity = new Vec3(0,60,0);
 ArrayList<Vec3>[] pos = new ArrayList[numMoai];
@@ -28,14 +28,14 @@ void updateParticles(float dt) {
                     moaiNosePos[m].z
                 ));
                 vel[m].add(new Vec3(
-                    -48,
-                    48,
-                    -24
+                    -112 + random(-48, 48),
+                    112,
+                    -32 + random(-48, 48)
                 ));
                 vel[m].add(new Vec3(
-                    -24,
-                    48,
-                    -48
+                    -32 + random(-48, 48),
+                    112,
+                    -112 + random(-48, 48)
                 ));
                 life[m].add(0.0);
                 life[m].add(0.0);

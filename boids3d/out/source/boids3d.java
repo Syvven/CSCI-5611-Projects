@@ -186,7 +186,7 @@ float kiwi_framerate = 56;
 
  public void setup() {
     /* size commented out by preprocessor */;
-    hint(ENABLE_DEPTH_SORT);
+    // hint(ENABLE_DEPTH_SORT);
     blendMode(BLEND);
     surface.setTitle("3d Stuff");
     surface.setResizable(true);
@@ -704,12 +704,12 @@ float kiwi_framerate = 56;
         popMatrix();
         
         noStroke();
-        fill(0,40);
+        fill(0,0,255,20);
         for (int p = 0; p < numParticles[i]; p++) {
             pushMatrix();
                 Vec3 curr = pos[i].get(p);
                 translate(curr.x, curr.y, curr.z);
-                sphere(10);
+                sphere(2);
             popMatrix();
         }
         noFill();
@@ -1038,8 +1038,8 @@ class Camera
 //   box( 20 );
 //   popMatrix();
 // }
-static int maxParticles = 180; // per moai
-float genRate = 90; // per moai
+static int maxParticles = 500; // per moai
+float genRate = maxParticles; // per moai
 float maxLife = maxParticles/genRate;
 Vec3 gravity = new Vec3(0,60,0);
 ArrayList<Vec3>[] pos = new ArrayList[numMoai];
@@ -1068,14 +1068,14 @@ float partRad = 1;
                     moaiNosePos[m].z
                 ));
                 vel[m].add(new Vec3(
-                    -48,
-                    48,
-                    -24
+                    -112 + random(-48, 48),
+                    112,
+                    -32 + random(-48, 48)
                 ));
                 vel[m].add(new Vec3(
-                    -24,
-                    48,
-                    -48
+                    -32 + random(-48, 48),
+                    112,
+                    -112 + random(-48, 48)
                 ));
                 life[m].add(0.0f);
                 life[m].add(0.0f);

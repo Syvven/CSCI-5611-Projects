@@ -169,7 +169,7 @@ float kiwi_framerate = 56;
 
 void setup() {
     size(1200, 1200, P3D);
-    hint(ENABLE_DEPTH_SORT);
+    // hint(ENABLE_DEPTH_SORT);
     blendMode(BLEND);
     surface.setTitle("3d Stuff");
     surface.setResizable(true);
@@ -687,12 +687,12 @@ void drawMoai() {
         popMatrix();
         
         noStroke();
-        fill(0,40);
+        fill(0,0,255,20);
         for (int p = 0; p < numParticles[i]; p++) {
             pushMatrix();
                 Vec3 curr = pos[i].get(p);
                 translate(curr.x, curr.y, curr.z);
-                sphere(10);
+                sphere(2);
             popMatrix();
         }
         noFill();
