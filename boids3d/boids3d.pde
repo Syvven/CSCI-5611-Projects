@@ -24,7 +24,7 @@ Conkcrete Texture:
 
 // Testing for 3d and eventually making a 3d boid simulation
 int kiwiFrames = 4;
-Vec3 backF = new Vec3(0,0,0); // grayish
+Vec3 backF = new Vec3(150,150,150); // grayish
 
 PImage conkcrete;
 
@@ -58,6 +58,8 @@ Vec3[] moaiNosePos = new Vec3[numMoai];
 
 PShape[] shapes = new PShape[kiwiFrames];
 int[] times = new int[kiwiFrames];
+PImage mist;
+PShape mistShape;
 
 float sceneX = 1500;
 float sceneY = 1500;
@@ -203,6 +205,13 @@ void setup() {
 
     PImage mask = loadImage("data/FenceOpacity.png");
 
+    mist = loadImage("data/mist.png");
+
+    noStroke();
+    mistShape = createShape(SPHERE, 10);
+    mistShape.setTexture(mist);
+    strokeWeight(1);
+
     conkcrete = loadImage("data/conkcrete.jpg");
 
     moai = loadShape("data/moai_low_poly.obj");
@@ -282,7 +291,8 @@ void start() {
         agentDir[id] = atan2(agentVel[id].x, agentVel[id].z);
         isInfected[id] = false;
         infectedTimer[id] = 0;
-        
+        flyCenter[i] = new ArrayList<Vec3>();
+        numKiwiParticles[i] = 0;
     }
     infectedAgents = new ArrayList<Integer>();
     numInfected = 0;
@@ -687,12 +697,14 @@ void drawMoai() {
         popMatrix();
         
         noStroke();
-        fill(0,0,255,20);
         for (int p = 0; p < numParticles[i]; p++) {
             pushMatrix();
+                fill(255,150-life[i].get(p)*140);
+                noStroke();
                 Vec3 curr = pos[i].get(p);
                 translate(curr.x, curr.y, curr.z);
-                sphere(2);
+                // shape(mistShape);
+                sphere(10);
             popMatrix();
         }
         noFill();
@@ -705,10 +717,11 @@ void draw() {
 
     // Sets the default ambient 
     // and directional light
+    lights();
     colorMode(HSB, 360, 100, 100);
     lightFalloff(1,0,0);
-    lightSpecular(0,0,10);
-    ambientLight(0,0,70);
+    lightSpecular(0,0,30);
+    ambientLight(0,0,100);
     directionalLight(128,128,128, 0,0,0);
     colorMode(RGB, 255, 255, 255);
 
@@ -728,7 +741,8 @@ void draw() {
     
     if (!simPaused) {
         update(1/frameRate);
-        updateParticles(1/frameRate);
+        updateMoaiParticles(1/frameRate);
+        updateInfectionParticles(1/frameRate);
     }
 
     // draws things needed for understanding coordinate system
@@ -737,7 +751,7 @@ void draw() {
 
     // Draws the infection
     //drawInfection();
-    drawMoai();
+    
 
     // draw each agent
     for (int id = 0; id < numAgents; id++) {
@@ -753,8 +767,12 @@ void draw() {
         popMatrix();
     }
     
+    
     // draw fences after because of some weird masking quirks
     drawFencesAndFloor();
+    drawMoai();
+    
+    
 }
 
 //////////////////////////////////////////////////////////////////////////

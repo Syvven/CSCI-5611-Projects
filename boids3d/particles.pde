@@ -1,15 +1,43 @@
 static int maxParticles = 500; // per moai
-float genRate = maxParticles; // per moai
-float maxLife = maxParticles/genRate;
+float genRate = maxParticles/1.5; // per moai
+float maxLife = 1.5;
 Vec3 gravity = new Vec3(0,60,0);
 ArrayList<Vec3>[] pos = new ArrayList[numMoai];
 ArrayList<Vec3>[] vel = new ArrayList[numMoai];
 ArrayList<Float>[] life = new ArrayList[numMoai];
 int[] numParticles = new int[numMoai];
 float COR = 0;
-float partRad = 1;
+float partRad = 10;
 
-void updateParticles(float dt) {
+int maxAgentParticles = 20;
+float agentGenRate = 5;
+ArrayList<Vec3>[] flyCenter = new ArrayList[numAgents];
+int[] numKiwiParticles = new int[numAgents];
+int sparkleLife = 1;
+
+void updateInfectionParticles(float dt) {
+    float toGen_float = agentGenRate*dt;
+    int toGen = int(toGen_float);
+    float fractPart = toGen_float-toGen;
+    if (random(1) < fractPart) toGen++;
+    for (int i = 0; i < numAgents; i++) {
+        for (int j = 0; j < toGen; j++) {
+            float newx = random(-1,1);
+            float newy = random(-1,1);
+            newy = -1*abs(newy);
+            float newz = random(-1,1);
+            if (newx != 0 || newy != 0 || newz != 0) {
+                Vec3 point = new Vec3(newx, newy, newz);
+                point = point.normalized().times(agentHBRad);
+                // flyCenter[i].add(point);
+                numKiwiParticles[i]++;
+            }
+            
+        }
+    }
+}
+
+void updateMoaiParticles(float dt) {
     float toGen_float = genRate*dt;
     int toGen = int(toGen_float);
     float fractPart = toGen_float-toGen;
@@ -28,14 +56,14 @@ void updateParticles(float dt) {
                     moaiNosePos[m].z
                 ));
                 vel[m].add(new Vec3(
-                    -112 + random(-48, 48),
+                    -112 + random(-70, 70),
                     112,
-                    -32 + random(-48, 48)
+                    -32 + random(-70, 70)
                 ));
                 vel[m].add(new Vec3(
-                    -32 + random(-48, 48),
+                    -32 + random(-70,70),
                     112,
-                    -112 + random(-48, 48)
+                    -112 + random(-70, 70)
                 ));
                 life[m].add(0.0);
                 life[m].add(0.0);

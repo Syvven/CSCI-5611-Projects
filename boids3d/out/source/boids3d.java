@@ -41,7 +41,7 @@ Conkcrete Texture:
 
 // Testing for 3d and eventually making a 3d boid simulation
 int kiwiFrames = 4;
-Vec3 backF = new Vec3(0,0,0); // grayish
+Vec3 backF = new Vec3(150,150,150); // grayish
 
 PImage conkcrete;
 
@@ -75,6 +75,8 @@ Vec3[] moaiNosePos = new Vec3[numMoai];
 
 PShape[] shapes = new PShape[kiwiFrames];
 int[] times = new int[kiwiFrames];
+PImage mist;
+PShape mistShape;
 
 float sceneX = 1500;
 float sceneY = 1500;
@@ -220,6 +222,13 @@ float kiwi_framerate = 56;
 
     PImage mask = loadImage("data/FenceOpacity.png");
 
+    mist = loadImage("data/mist.png");
+
+    noStroke();
+    mistShape = createShape(SPHERE, 10);
+    mistShape.setTexture(mist);
+    strokeWeight(1);
+
     conkcrete = loadImage("data/conkcrete.jpg");
 
     moai = loadShape("data/moai_low_poly.obj");
@@ -299,7 +308,8 @@ float kiwi_framerate = 56;
         agentDir[id] = atan2(agentVel[id].x, agentVel[id].z);
         isInfected[id] = false;
         infectedTimer[id] = 0;
-        
+        flyCenter[i] = new ArrayList<Vec3>();
+        numKiwiParticles[i] = 0;
     }
     infectedAgents = new ArrayList<Integer>();
     numInfected = 0;
@@ -704,12 +714,14 @@ float kiwi_framerate = 56;
         popMatrix();
         
         noStroke();
-        fill(0,0,255,20);
         for (int p = 0; p < numParticles[i]; p++) {
             pushMatrix();
+                fill(255,150-life[i].get(p)*140);
+                noStroke();
                 Vec3 curr = pos[i].get(p);
                 translate(curr.x, curr.y, curr.z);
-                sphere(2);
+                // shape(mistShape);
+                sphere(10);
             popMatrix();
         }
         noFill();
@@ -722,10 +734,11 @@ float kiwi_framerate = 56;
 
     // Sets the default ambient 
     // and directional light
+    lights();
     colorMode(HSB, 360, 100, 100);
     lightFalloff(1,0,0);
-    lightSpecular(0,0,10);
-    ambientLight(0,0,70);
+    lightSpecular(0,0,30);
+    ambientLight(0,0,100);
     directionalLight(128,128,128, 0,0,0);
     colorMode(RGB, 255, 255, 255);
 
@@ -745,7 +758,8 @@ float kiwi_framerate = 56;
     
     if (!simPaused) {
         update(1/frameRate);
-        updateParticles(1/frameRate);
+        updateMoaiParticles(1/frameRate);
+        updateInfectionParticles(1/frameRate);
     }
 
     // draws things needed for understanding coordinate system
@@ -754,7 +768,7 @@ float kiwi_framerate = 56;
 
     // Draws the infection
     //drawInfection();
-    drawMoai();
+    
 
     // draw each agent
     for (int id = 0; id < numAgents; id++) {
@@ -770,8 +784,12 @@ float kiwi_framerate = 56;
         popMatrix();
     }
     
+    
     // draw fences after because of some weird masking quirks
     drawFencesAndFloor();
+    drawMoai();
+    
+    
 }
 
 //////////////////////////////////////////////////////////////////////////
@@ -1039,17 +1057,45 @@ class Camera
 //   popMatrix();
 // }
 static int maxParticles = 500; // per moai
-float genRate = maxParticles; // per moai
-float maxLife = maxParticles/genRate;
+float genRate = maxParticles/1.5f; // per moai
+float maxLife = 1.5f;
 Vec3 gravity = new Vec3(0,60,0);
 ArrayList<Vec3>[] pos = new ArrayList[numMoai];
 ArrayList<Vec3>[] vel = new ArrayList[numMoai];
 ArrayList<Float>[] life = new ArrayList[numMoai];
 int[] numParticles = new int[numMoai];
 float COR = 0;
-float partRad = 1;
+float partRad = 10;
 
- public void updateParticles(float dt) {
+int maxAgentParticles = 20;
+float agentGenRate = 5;
+ArrayList<Vec3>[] flyCenter = new ArrayList[numAgents];
+int[] numKiwiParticles = new int[numAgents];
+int sparkleLife = 1;
+
+ public void updateInfectionParticles(float dt) {
+    float toGen_float = agentGenRate*dt;
+    int toGen = PApplet.parseInt(toGen_float);
+    float fractPart = toGen_float-toGen;
+    if (random(1) < fractPart) toGen++;
+    for (int i = 0; i < numAgents; i++) {
+        for (int j = 0; j < toGen; j++) {
+            float newx = random(-1,1);
+            float newy = random(-1,1);
+            newy = -1*abs(newy);
+            float newz = random(-1,1);
+            if (newx != 0 || newy != 0 || newz != 0) {
+                Vec3 point = new Vec3(newx, newy, newz);
+                point = point.normalized().times(agentHBRad);
+                // flyCenter[i].add(point);
+                numKiwiParticles[i]++;
+            }
+            
+        }
+    }
+}
+
+ public void updateMoaiParticles(float dt) {
     float toGen_float = genRate*dt;
     int toGen = PApplet.parseInt(toGen_float);
     float fractPart = toGen_float-toGen;
@@ -1068,14 +1114,14 @@ float partRad = 1;
                     moaiNosePos[m].z
                 ));
                 vel[m].add(new Vec3(
-                    -112 + random(-48, 48),
+                    -112 + random(-70, 70),
                     112,
-                    -32 + random(-48, 48)
+                    -32 + random(-70, 70)
                 ));
                 vel[m].add(new Vec3(
-                    -32 + random(-48, 48),
+                    -32 + random(-70,70),
                     112,
-                    -112 + random(-48, 48)
+                    -112 + random(-70, 70)
                 ));
                 life[m].add(0.0f);
                 life[m].add(0.0f);
