@@ -1,5 +1,5 @@
 static int maxParticles = 500; // per moai
-float genRate = maxParticles/1.5; // per moai
+float genRate = 100; // per moai
 float maxLife = 1.5;
 Vec3 gravity = new Vec3(0,60,0);
 ArrayList<Vec3>[] pos = new ArrayList[numMoai];
@@ -13,7 +13,7 @@ int maxAgentParticles = 20;
 float agentGenRate = 5;
 ArrayList<Vec3>[] flyCenter = new ArrayList[numAgents];
 int[] numKiwiParticles = new int[numAgents];
-int sparkleLife = 1;
+int life = 1;
 
 void updateInfectionParticles(float dt) {
     float toGen_float = agentGenRate*dt;
@@ -44,6 +44,8 @@ void updateMoaiParticles(float dt) {
     if (random(1) < fractPart) toGen++;
     for (int m = 0; m < numMoai; m++) {
         if (numParticles[m] < maxParticles) {
+            float xsign = -1*(moaiPos[m].x/abs(moaiPos[m].x));
+            float zsign = -1*(moaiPos[m].z/abs(moaiPos[m].z));
             for (int p = 0; p < toGen; p+=2) {
                 pos[m].add(new Vec3(
                     moaiNosePos[m].x,
@@ -56,14 +58,14 @@ void updateMoaiParticles(float dt) {
                     moaiNosePos[m].z
                 ));
                 vel[m].add(new Vec3(
-                    -112 + random(-70, 70),
+                    xsign*112 + random(-70, 70),
                     112,
-                    -32 + random(-70, 70)
+                    zsign*32 + random(-70, 70)
                 ));
                 vel[m].add(new Vec3(
-                    -32 + random(-70,70),
+                    xsign*32 + random(-70,70),
                     112,
-                    -112 + random(-70, 70)
+                    zsign*112 + random(-70, 70)
                 ));
                 life[m].add(0.0);
                 life[m].add(0.0);
