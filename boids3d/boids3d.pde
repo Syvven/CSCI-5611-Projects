@@ -53,6 +53,7 @@ int numMoai = 2;
 boolean[] healingMoai = new boolean[numMoai];
 Vec3[] moaiPos = new Vec3[numMoai];
 
+
 PShape[] shapes = new PShape[kiwiFrames];
 int[] times = new int[kiwiFrames];
 
@@ -89,6 +90,7 @@ float agentTime[] = new float[numAgents];
 int agentSwitchFrame[] = new int[numAgents];
 int agentFrame[] = new int[numAgents];
 float agentDir[] = new float[numAgents];
+Vec3[] closestMoai = new Vec3[numAgents];
 float tbase = 0.90;
 float t;
 
@@ -109,11 +111,15 @@ int numInfected = 0;
 ArrayList<Integer> infectedAgents = new ArrayList<Integer>();
 float[] infectedTimer = new float[numAgents];
 boolean[] isInfected = new boolean[numAgents];
-float maxInfectedTime = 20;
+float maxInfectedTime = 60;
 int numFlies = 10;
 float mutateChance = 99.95;
 float flyYOffset = 15;
-
+float infectedRepelScale = 100;
+// only forces that should apply to infected kiwis are 
+// attraction to the moai forces and TTC forces
+float moaiSpeed = 30;
+float moaiGoalScale = 100;
 
 // max vel and acc changes
 float maxVel = 200;
@@ -128,7 +134,7 @@ int numPlanes = 4;
 Vec3[][] planes = new Vec3[numPlanes][2];
 float wallPadding = 30;
 float maxTimeToPlane = 3;
-float wallAvoid = 100000;
+float wallAvoid = 1000;
 
 // Separation Force
 float sepMaxDist = agentHBRad*2;
@@ -217,6 +223,23 @@ void setup() {
 
 // mainly here for resetting
 void start() {
+    int i = 0;
+    for (; i <= ceil(numMoai/2); i++) {
+        moaiPos[i] = new Vec3(
+            (i==0)?(-sceneX*0.5+moaiPadding):(sceneX*0.5-moaiPadding),
+            0,
+            (i==0)?(-sceneZ*0.5+moaiPadding):(sceneZ*0.5-moaiPadding)
+        );
+    }
+
+    for (; i < numMoai; i++) {
+        moaiPos[i] = new Vec3(
+            (i==2)?(-sceneX*0.5-moaiPadding):(sceneX*0.5-moaiPadding),
+            0,
+            (i==2)?(sceneZ*0.5-moaiPadding):(-sceneZ*0.5+moaiPadding)
+        );
+    }
+
     // set up agent things
     for (int id = 0; id < numAgents; id++) {
         // each agent at a random position within the walls
@@ -240,23 +263,6 @@ void start() {
     }
     infectedAgents = new ArrayList<Integer>();
     numInfected = 0;
-
-    int i = 0;
-    for (; i <= ceil(numMoai/2); i++) {
-        moaiPos[i] = new Vec3(
-            (i==0)?(-sceneX*0.5+moaiPadding):(sceneX*0.5-moaiPadding),
-            0,
-            (i==0)?(-sceneZ*0.5+moaiPadding):(sceneZ*0.5-moaiPadding)
-        );
-    }
-
-    for (; i < numMoai; i++) {
-        moaiPos[i] = new Vec3(
-            (i==2)?(-sceneX*0.5-moaiPadding):(sceneX*0.5-moaiPadding),
-            0,
-            (i==2)?(sceneZ*0.5-moaiPadding):(-sceneZ*0.5+moaiPadding)
-        );
-    }
 
     t = tbase;
 }
@@ -294,7 +300,7 @@ Vec3 computeTTW(Vec3 aPos, Vec3 aVel, int numRays) {
             Vec3 intPoint = aPos.plus(aVel.times(ttc));
             Vec3 repel = aPos.minus(intPoint);
             repel.mul(wallAvoid*(1/ttc));
-            repel.clampToLength(maxAcc);
+            // repel.clampToLength(maxAcc);
             acc.add(repel);
         }
     }
@@ -330,6 +336,8 @@ Vec3 computeAgentForces(int id) {
                 agentPos[jd], agentVel[jd], agentHBRad
             ));
 
+            if (isInfected[id]) continue;
+
             float dist = agentPos[id].distanceTo(agentPos[jd]);
 
             // Separation Force
@@ -337,7 +345,7 @@ Vec3 computeAgentForces(int id) {
                 Vec3 sepForce = agentPos[id].minus(agentPos[jd]);
                 sepForce.mul(sepScale/dist);
                 sepForce.y = 0;
-                sepForce.clampToLength(maxAcc);
+                // sepForce.clampToLength(maxAcc);
                 acc.add(sepForce);
             }
 
@@ -355,6 +363,16 @@ Vec3 computeAgentForces(int id) {
         }
     }
 
+    if (isInfected[id]) {
+        Vec3 goal_vel = closestMoai[id].minus(agentPos[id]);
+        goal_vel.y = 0;
+        goal_vel = goal_vel.normalized().times(moaiSpeed);
+        Vec3 goal_force = goal_vel.minus(agentVel[id]);
+
+        acc.add(goal_force.times(moaiGoalScale));
+        return acc;
+    }
+
     // Cohesion Force
     if (numCohesion > 0) {
         avgPos.x /= numCohesion; avgPos.z /= numCohesion;
@@ -362,7 +380,7 @@ Vec3 computeAgentForces(int id) {
         cohForce.normalize();
         cohForce.y = 0;
         cohForce.mul(cohScale);
-        cohForce.clampToLength(maxAcc);
+        // cohForce.clampToLength(maxAcc);
         acc.add(cohForce);
     }
 
@@ -373,6 +391,7 @@ Vec3 computeAgentForces(int id) {
         alignForce.normalize();
         alignForce.y = 0;
         alignForce.times(alignScale);
+        // alignForce.clampToLength(maxAcc);
         acc.add(alignForce);
     }
 
@@ -388,7 +407,7 @@ Vec3 computeAgentForces(int id) {
         camForce.normalize();
         camForce.mul(camScale);
         camForce.y = 0;
-        camForce.clampToLength(maxAcc);
+        // camForce.clampToLength(maxAcc);
         acc.add(camForce);
     }
 
@@ -398,7 +417,7 @@ Vec3 computeAgentForces(int id) {
         Vec3 camForce = agentPos[id].minus(camPos);
         camForce.mul(camScale/camDist);
         camForce.y = 0;
-        camForce.clampToLength(maxAcc);
+        // camForce.clampToLength(maxAcc);
         acc.add(camForce);
     }
 
@@ -414,6 +433,9 @@ void update(float dt) {
     // compute forces for each agent
     for (int id = 0; id < numAgents; id++) {
         agentAcc[id] = computeAgentForces(id);
+        if (agentAcc[id].length() > maxAcc) {
+            agentAcc[id] = agentAcc[id].normalized().times(maxAcc);
+        }
     }
 
     // update position, velocity, rotation
@@ -455,6 +477,16 @@ void update(float dt) {
                 numInfected++;
                 infectedAgents.add(id);
                 isInfected[id] = true;
+                float min = Float.POSITIVE_INFINITY;
+                int minM = -1;
+                for (int m = 0; m < numMoai; m++) {
+                    float dist = agentPos[id].distanceTo(moaiPos[m]);
+                    if (min > dist) {
+                        min = dist;
+                        minM = m;
+                    }
+                }
+                closestMoai[id] = moaiPos[minM];
             }
             continue;
         } 
