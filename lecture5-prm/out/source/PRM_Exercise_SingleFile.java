@@ -69,6 +69,7 @@ Challenge:
   Done
 
   2. Let the user use the mouse to click and drag the obstacles.
+  Done
 */
 
 // max distance between nodes

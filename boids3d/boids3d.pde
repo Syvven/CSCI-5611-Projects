@@ -291,7 +291,7 @@ void start() {
         agentDir[id] = atan2(agentVel[id].x, agentVel[id].z);
         isInfected[id] = false;
         infectedTimer[id] = 0;
-        flyCenter[i] = new ArrayList<Vec3>();
+        flyCenter[id] = new ArrayList<Vec3>();
         numKiwiParticles[i] = 0;
     }
     infectedAgents = new ArrayList<Integer>();
@@ -676,11 +676,15 @@ void drawInfection() {
     strokeWeight(1);
     noFill();
     for (var agent : infectedAgents) {
-        Vec3 pos = agentPos[agent];
-        pushMatrix();
-            translate(pos.x, pos.y-flyYOffset, pos.z);
-            sphere(agentHBRad);
-        popMatrix();
+        for (var point : flyCenter[agent]) {
+            pushMatrix();
+                point(
+                    agentPos[agent].x + point.x,
+                    agentPos[agent].y + point.y,
+                    agentPos[agent].z + point.z
+                );
+            popMatrix();
+        }
     }
 }
 
@@ -750,7 +754,7 @@ void draw() {
     if (debug) drawBounds();
 
     // Draws the infection
-    //drawInfection();
+    drawInfection();
     
 
     // draw each agent

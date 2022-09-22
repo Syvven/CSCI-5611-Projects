@@ -308,7 +308,7 @@ float kiwi_framerate = 56;
         agentDir[id] = atan2(agentVel[id].x, agentVel[id].z);
         isInfected[id] = false;
         infectedTimer[id] = 0;
-        flyCenter[i] = new ArrayList<Vec3>();
+        flyCenter[id] = new ArrayList<Vec3>();
         numKiwiParticles[i] = 0;
     }
     infectedAgents = new ArrayList<Integer>();
@@ -693,11 +693,15 @@ float kiwi_framerate = 56;
     strokeWeight(1);
     noFill();
     for (var agent : infectedAgents) {
-        Vec3 pos = agentPos[agent];
-        pushMatrix();
-            translate(pos.x, pos.y-flyYOffset, pos.z);
-            sphere(agentHBRad);
-        popMatrix();
+        for (var point : flyCenter[agent]) {
+            pushMatrix();
+                point(
+                    agentPos[agent].x + point.x,
+                    agentPos[agent].y + point.y,
+                    agentPos[agent].z + point.z
+                );
+            popMatrix();
+        }
     }
 }
 
@@ -767,7 +771,7 @@ float kiwi_framerate = 56;
     if (debug) drawBounds();
 
     // Draws the infection
-    //drawInfection();
+    drawInfection();
     
 
     // draw each agent
@@ -1067,19 +1071,19 @@ int[] numParticles = new int[numMoai];
 float COR = 0;
 float partRad = 10;
 
-int maxAgentParticles = 20;
+int maxAgentParticles = 10;
 float agentGenRate = 5;
 ArrayList<Vec3>[] flyCenter = new ArrayList[numAgents];
 int[] numKiwiParticles = new int[numAgents];
-int life = 1;
+int[] lifeArr = new int[10];
 
  public void updateInfectionParticles(float dt) {
     float toGen_float = agentGenRate*dt;
     int toGen = PApplet.parseInt(toGen_float);
     float fractPart = toGen_float-toGen;
     if (random(1) < fractPart) toGen++;
-    for (int i = 0; i < numAgents; i++) {
-        for (int j = 0; j < toGen; j++) {
+    for (var agent : infectedAgents) {
+        for (int j = 0; j < maxAgentParticles; j++) {
             float newx = random(-1,1);
             float newy = random(-1,1);
             newy = -1*abs(newy);
@@ -1087,10 +1091,11 @@ int life = 1;
             if (newx != 0 || newy != 0 || newz != 0) {
                 Vec3 point = new Vec3(newx, newy, newz);
                 point = point.normalized().times(agentHBRad);
-                // flyCenter[i].add(point);
-                numKiwiParticles[i]++;
+                // println(agent);
+                // println(flyCenter);
+                flyCenter[agent].add(point);
+                // numKiwiParticles[agent]++;
             }
-            
         }
     }
 }

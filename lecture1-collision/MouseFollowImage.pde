@@ -82,10 +82,11 @@ void update(float dt){
         dir.mul(speed*dt);
         vel = interpolate(vel, dir, accel);
         pos.add(vel);
-        rot = atan2(img_dir.y - vel.y,img_dir.x - vel.x);
-        println(rot);
+        // rot = atan2(img_dir.y - vel.y,img_dir.x - vel.x);
+        rot = rotateTo(img_dir, vel);
     } else {
         vel.x = 0; vel.y = 0;
+        pos.x = mouseX; pos.y = mouseY;
     }
 }
 
@@ -216,4 +217,10 @@ float dot(Vec2 a, Vec2 b){
 
 Vec2 projAB(Vec2 a, Vec2 b){
   return b.times(a.x*b.x + a.y*b.y);
+}
+
+float rotateTo(Vec2 a, Vec2 b) {
+    float cross = a.x*b.y-a.y*b.x;
+    // float first = cross.x+cross.y+cross.z;
+    return atan2(cross, dot(a,b));
 }

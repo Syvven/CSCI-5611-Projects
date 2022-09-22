@@ -61,26 +61,28 @@
 //  Done
 
 //  3. Change the color of the particles as a function of the bounce 
+//  Done
 
 
 
 //Simulation paramaters
 static int maxParticles = 4000;
 float sphereRadius = 60;
-float r = 0.1;
-float genRate = 400;
+float r = 10;
+float genRate = 200;
 float obstacleSpeed = 200;
 float obstacleVertSpeed = sqrt((200*200)/2);
 float COR = 0.7;
 float friction = 0.005;
 Vec2 gravity = new Vec2(0,300);
-float maxlife = maxParticles/genRate;
+float maxlife = 11;
 
 //Initalalize variable
 Vec2 spherePos;
 ArrayList<Vec2> pos;
 ArrayList<Vec2> vel;
 ArrayList<Float> life;
+ArrayList<int[]> col = new ArrayList<int[]>();
 int numParticles;
 
 void reset() {
@@ -93,9 +95,12 @@ void reset() {
 
 void setup(){
   reset();
-  size(640,480, P3D);
+  size(1200,1200, P3D);
   surface.setTitle("Particle System [CSCI 5611 Example]");
-  strokeWeight(2); //Draw thicker lines 
+  surface.setResizable(true);
+  surface.setLocation(600,50);
+  strokeWeight(0); //Draw thicker lines 
+  blendMode(BLEND);
 }
 
 Vec2 obstacleVel = new Vec2(0,0);
@@ -116,6 +121,9 @@ void update(float dt){
       pos.add(new Vec2(20+random(20),200+random(20)));
       vel.add(new Vec2(30+random(60),-200+random(10))); 
       life.add(0.0);
+      col.add(new int[]{
+        100,30,50
+      });
       numParticles += 1;
     }
   }
@@ -180,6 +188,7 @@ void update(float dt){
       Vec2 curr_vel = vel.get(i);
 
       curr_pos.add(curr_vel.times(dt)); //Update position based on velocity
+      float mag = curr_vel.length();
       
       if (curr_pos.y > height - r){
         curr_pos.y = height - r;
@@ -210,13 +219,21 @@ void update(float dt){
       }
 
       curr_vel.add(acc.times(dt));
-      
+      float afterMag = curr_vel.length();
+      float magDif = mag - afterMag;
+
+      int[] curr_col = col.get(i);
+      curr_col[0] += magDif;
+      curr_col[1] -= magDif;
+
+      col.set(i, curr_col);
       pos.set(i, curr_pos);
       vel.set(i, curr_vel);
     } else {
       pos.remove(i);
       vel.remove(i);
       life.remove(i);
+      col.remove(i);
       numParticles--;
     }    
   }
@@ -263,8 +280,10 @@ void draw(){
   background(255); //White background
   stroke(0,0,0);
   for (int i = 0; i < numParticles; i++){
-    float col = life.get(i);
-    fill((col*13)%255, (col*27)%255, (col*43)%255);
+    float colo = life.get(i);
+    // fill((col*13)%255, (col*27)%255, (col*43)%255, 15*maxlife-15*col);
+    int[] curr_col = col.get(i);
+    fill(curr_col[0], curr_col[1], curr_col[2], 15*maxlife-15*colo);
     circle(pos.get(i).x, pos.get(i).y, r*2); //(x, y, diameter)
   }
   
