@@ -190,23 +190,29 @@ int strokeWidth = 2;
     //      Also, replan for these new obstacles.
     reset();
   }
+  boolean recheck = false;
   for (Vec2 boxTopLeft : boxes) {
     if (keyCode == RIGHT){
       boxTopLeft.x += 10;
+      recheck = true;
     }
     if (keyCode == LEFT){
       boxTopLeft.x -= 10;
+      recheck = true;
     }
     if (keyCode == UP){
       boxTopLeft.y -= 10;
+      recheck = true;
     }
     if (keyCode == DOWN){
       boxTopLeft.y += 10;
+      recheck = true;
+    }
+    if (recheck) {
+      connectNeighbors();
+      runBFS(closestNode(startPos),closestNode(goalPos)); 
     }
   }
-  
-  connectNeighbors();
-  runBFS(closestNode(startPos),closestNode(goalPos)); 
 }
 
 // called continuously while dragging
@@ -227,7 +233,8 @@ int strokeWidth = 2;
  public void mouseReleased() {
   // println("let go");
   if (mouseDragging) {
-    connectNeighbors();
+    // buildPRM(circlePos, circleRad, boxes, boxW, boxH); // this ?
+    connectNeighbors(); // or just this?
     runBFS(closestNode(startPos),closestNode(goalPos)); 
   }
   mouseDragging = false;
