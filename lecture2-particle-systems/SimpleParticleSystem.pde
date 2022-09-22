@@ -95,7 +95,7 @@ void reset() {
 
 void setup(){
   reset();
-  size(1200,1200, P3D);
+  size(2000,2000, P3D);
   surface.setTitle("Particle System [CSCI 5611 Example]");
   surface.setResizable(true);
   surface.setLocation(600,50);

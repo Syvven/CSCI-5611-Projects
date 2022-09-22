@@ -115,12 +115,12 @@ ArrayList<Vec2> reactiveAgents = new ArrayList<Vec2>();
 Vec2[] goalPos = new Vec2[maxNumAgents];
 
 // Obstacle Things
-float obstDrawRadius = 0;
-float obstRadius = 5;
-int numObst;
+float obstDrawRadius = 50;
+float obstRadius = 55;
+int numObst = 2;
 Vec2[] obstPos;
 Vec2[] obstVel;
-float maxTimeToObstacle = 3;
+float maxTimeToObstacle = 5;
 
 // two points define a line segment
 // which is a wall in this scenario
@@ -134,7 +134,9 @@ float epsilon = 0.001;
 
 void setup(){
   // size(850,650);
-  size(850,650,P3D); //Smoother
+  int x = displayWidth-100;
+  int y = displayHeight-100;
+  size(2460, 1340,P3D); //Smoother
   frameRate(144);
 
   /////////////// Relic of Old Wall Tech /////////////////////////
@@ -144,8 +146,16 @@ void setup(){
   // numObst += (height/obstRadius)*2;
   // int numObstY = int(height/obstRadius);
 
-  // obstPos = new Vec2[numObst];
-  // obstVel = new Vec2[numObst];
+  obstPos = new Vec2[numObst];
+  obstVel = new Vec2[numObst];
+
+  for (int i = 0; i < numObst; i++) {
+    obstPos[i] = new Vec2(
+      random(0, width),
+      random(0, height)
+    );
+    obstVel[i] = new Vec2(0,0);
+  }
 
   // for (int i = 0; i < numObstX; i++) {
   //   obstPos[i*2] = new Vec2(i*obstRadius,0); 
@@ -180,7 +190,7 @@ void setup(){
   //Set initial velocities to cary agents towards their goals
   for (int i = 0; i < numAgents; i++){
     if (i >= numGoalAgents) {
-      agentVel[i] = new Vec2(30+random(60),-200+random(10));
+      agentVel[i] = new Vec2(random(-100, 100),random(-100, 100));
       agentAcc[i] = new Vec2(0,0);
       if (agentVel[i].length() > 0)
         agentVel[i].clampToLength(goalSpeed);
@@ -360,14 +370,14 @@ Vec2 computeAgentForces(int id){
 
   // // obstacle separation forces for when they get stuck in the obstacle
   // // uncomment if using obstacles
-  // for (int ob = 0; ob < numObst; ob++) {
-  //   float dist = agentPos[id].distanceTo(obstPos[ob]);
-  //   if (dist <= obstRadius+agentRad) {
-  //     Vec2 sepForce = agentPos[id].minus(obstPos[ob]);
-  //     sepForce.mul(sepScale/dist);
-  //     acc.add(sepForce);
-  //   }
-  // }
+  for (int ob = 0; ob < numObst; ob++) {
+    float dist = agentPos[id].distanceTo(obstPos[ob]);
+    if (dist <= obstRadius+agentRad) {
+      Vec2 sepForce = agentPos[id].minus(obstPos[ob]);
+      sepForce.mul(sepScale/dist);
+      acc.add(sepForce);
+    }
+  }
 
   // calculation of cohesion force
   if (num_neighbors_c > 0) {
@@ -437,9 +447,9 @@ void draw(){
   //Draw the green goal agents
   fill(20,200,150);
   // // uncomment if using obstacles
-  // for (int i = 0; i < numObst; i++) {
-  //   circle(obstPos[i].x, obstPos[i].y, obstDrawRadius*2);
-  // }
+  for (int i = 0; i < numObst; i++) {
+    circle(obstPos[i].x, obstPos[i].y, obstDrawRadius*2);
+  }
 
   for (int i = 0; i < numGoalAgents; i++) {
     circle(agentPos[i].x, agentPos[i].y, goalAgentDrawRad*2);

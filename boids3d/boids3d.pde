@@ -624,17 +624,7 @@ void drawBounds() {
     }
 }
 
-// drawing borders of the scene
-void drawFencesAndFloor() {
-    fill(11, 43, 20);
-    textureMode(NORMAL);
-    beginShape();
-        texture(conkcrete);
-        for (var vertex : floor) {
-            vertex(vertex[0].x, vertex[0].y, vertex[0].z, vertex[1].x, vertex[1].y);
-        }
-    endShape(CLOSE);
-
+void drawFences() {
     for (int i = 0; i < numFencesX; i++) {
         pushMatrix();
             translate(-sceneX/2,0,-sceneZ*0.5+fenceLength*fenceScale*0.5+i*fenceLength*fenceScale);
@@ -668,6 +658,18 @@ void drawFencesAndFloor() {
             shape(fence);
         popMatrix();
     }
+}
+
+// drawing borders of the scene
+void drawFloor() {
+    fill(11, 43, 20);
+    textureMode(NORMAL);
+    beginShape();
+        texture(conkcrete);
+        for (var vertex : floor) {
+            vertex(vertex[0].x, vertex[0].y, vertex[0].z, vertex[1].x, vertex[1].y);
+        }
+    endShape(CLOSE);
 }
 
 // draws infection for debugging and deciding
@@ -773,10 +775,9 @@ void draw() {
     
     
     // draw fences after because of some weird masking quirks
-    drawFencesAndFloor();
+    drawFloor();
     drawMoai();
-    
-    
+    drawFences();
 }
 
 //////////////////////////////////////////////////////////////////////////

@@ -50,14 +50,16 @@
 int strokeWidth = 2;
 PImage img;
 PImage img2;
+PImage bg;
 Vec2 pos; //Image position
 Vec2 vel; //Image velocity
 Vec2 img_dir; //Image direction
+float w, h;
 
 void setup(){
   size(640,480);
   surface.setTitle("Mouse Following Image [CSCI 5611 Example]");
-  
+  surface.setResizable(true);
   //Initial circle position
   pos = new Vec2(200,200);
   
@@ -66,6 +68,11 @@ void setup(){
   img = loadImage("cat.png");
   img.resize(img.width/3, img.height/3);
   img_dir = new Vec2(-1, 0);
+
+  bg = loadImage("space.png");
+  bg.resize(width, height);
+  w = width;
+  h = height;
   
   strokeWeight(strokeWidth); //Draw thicker lines 
 }
@@ -92,7 +99,10 @@ void update(float dt){
 
 void draw(){
     update(1/frameRate);
-    background(255,255,255); //White background
+    if (width != w || height != h) {
+      bg.resize(width, height);
+    }
+    background(bg); //White background
     stroke(0, 0, 0);
     fill(100,20,10);
 

@@ -301,29 +301,9 @@ void setup() {
     graph4[5].add(6); graph4[5].add(0); 
     graph4[6].add(7); graph4[6].add(0); 
 
-
-
-    // println("List of Neighbors:");
-    // println(neighbors);
-
     //Set start and goal
     int start = 0;
     int goal = 7;
-
-    // while (!goalFound) {
-        
-
-    //     if (currDepth >= maxDepth) {
-    //         continue;
-    //     }
-
-    //     maxDepth++;
-    //     // println(maxDepth);
-    //     currDepth = 0;
-    //     fringe = new ArrayList();
-    //     fringe.add(start);
-    //     parent = new int[numNodes];
-    // }
 
     // tree
     // int[] parent = bfs(graph1, start, goal);
@@ -486,7 +466,7 @@ void setup() {
     // Depth Limited / Iterative Deepening both take visited away
 
     // Depth Limited Search on Cycle Graph
-    // int depth = 10;
+    // int depth = 6;
     // println("Starting Search With Depth " + depth);
     // boolean[] found = dls(graph3, depth, start, goal);
     // if (found[0]) {
@@ -510,7 +490,7 @@ void setup() {
             -> Additionally, if depth => 10, the search finds a non-optimal solution
     */
     
-    boolean[] found = iddfs(graph4, start, goal);
+    boolean[] found = iddfs(graph3, start, goal);
     if (found[0]) {
         println("Goal Found!");
     } else if (!found[0] && found[1]) {
