@@ -127,12 +127,22 @@ void testPRM(){
   connectNeighbors(circlePos, circleRad, numObstacles, nodePos, numNodes);
   
   startTime = System.nanoTime();
-  curPath = planPath(startPos, goalPos, circlePos, circleRad, numObstacles, nodePos, numNodes);
+  curPath = planPath(startPos, goalPos, circlePos, circleRad, numObstacles, nodePos, numNodes, false);
   endTime = System.nanoTime();
   pathQuality();
   
+  println("BFS Path:");
   println("Nodes:", numNodes," Obstacles:", numObstacles," Time (us):", int((endTime-startTime)/1000),
-          " Path Len:", pathLength, " Path Segment:", curPath.size()+1,  " Num Collisions:", numCollisions);
+          " Path Len:", pathLength, " Path Segment:", curPath.size()+1,  " Num Collisions:", numCollisions, '\n');
+
+  startTime = System.nanoTime();
+  curPath = planPath(startPos, goalPos, circlePos, circleRad, numObstacles, nodePos, numNodes, true);
+  endTime = System.nanoTime();
+  pathQuality();
+
+  println("A* Path:");
+  println("Nodes:", numNodes," Obstacles:", numObstacles," Time (us):", int((endTime-startTime)/1000),
+          " Path Len:", pathLength, " Path Segment:", curPath.size()+1,  " Num Collisions:", numCollisions, '\n');
 }
 
 void draw(){
@@ -241,5 +251,22 @@ void mousePressed(){
     goalPos = new Vec2(mouseX, mouseY);
     //println("New Goal is",goalPos.x, goalPos.y);
   }
-  curPath = planPath(startPos, goalPos, circlePos, circleRad, numObstacles, nodePos, numNodes);
+
+  long startTime = System.nanoTime();
+  curPath = planPath(startPos, goalPos, circlePos, circleRad, numObstacles, nodePos, numNodes, false);
+  long endTime = System.nanoTime();
+  pathQuality();
+  
+  println("BFS Path:");
+  println("Nodes:", numNodes," Obstacles:", numObstacles," Time (us):", int((endTime-startTime)/1000),
+          " Path Len:", pathLength, " Path Segment:", curPath.size()+1,  " Num Collisions:", numCollisions, '\n');
+
+  startTime = System.nanoTime();
+  curPath = planPath(startPos, goalPos, circlePos, circleRad, numObstacles, nodePos, numNodes, true);
+  endTime = System.nanoTime();
+  pathQuality();
+  
+  println("A* Path:");
+  println("Nodes:", numNodes," Obstacles:", numObstacles," Time (us):", int((endTime-startTime)/1000),
+          " Path Len:", pathLength, " Path Segment:", curPath.size()+1,  " Num Collisions:", numCollisions, '\n');
 }
