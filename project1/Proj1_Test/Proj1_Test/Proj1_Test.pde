@@ -127,7 +127,7 @@ void testPRM(){
   connectNeighbors(circlePos, circleRad, numObstacles, nodePos, numNodes);
   
   startTime = System.nanoTime();
-  curPath = planPath(startPos, goalPos, circlePos, circleRad, numObstacles, nodePos, numNodes, false);
+  curPath = planPath(startPos, goalPos, circlePos, circleRad, numObstacles, nodePos, numNodes, 1);
   endTime = System.nanoTime();
   pathQuality();
   
@@ -136,13 +136,22 @@ void testPRM(){
           " Path Len:", pathLength, " Path Segment:", curPath.size()+1,  " Num Collisions:", numCollisions, '\n');
 
   startTime = System.nanoTime();
-  curPath = planPath(startPos, goalPos, circlePos, circleRad, numObstacles, nodePos, numNodes, true);
+  curPath = planPath(startPos, goalPos, circlePos, circleRad, numObstacles, nodePos, numNodes, 2);
   endTime = System.nanoTime();
   pathQuality();
 
   println("A* Path:");
   println("Nodes:", numNodes," Obstacles:", numObstacles," Time (us):", int((endTime-startTime)/1000),
           " Path Len:", pathLength, " Path Segment:", curPath.size()+1,  " Num Collisions:", numCollisions, '\n');
+
+  // startTime = System.nanoTime();
+  // curPath = planPath(startPos, goalPos, circlePos, circleRad, numObstacles, nodePos, numNodes, 3);
+  // endTime = System.nanoTime();
+  // pathQuality();
+
+  // println("New A* Path:");
+  // println("Nodes:", numNodes," Obstacles:", numObstacles," Time (us):", int((endTime-startTime)/1000),
+  //         " Path Len:", pathLength, " Path Segment:", curPath.size()+1,  " Num Collisions:", numCollisions, '\n');
 }
 
 void draw(){
@@ -253,7 +262,7 @@ void mousePressed(){
   }
 
   long startTime = System.nanoTime();
-  curPath = planPath(startPos, goalPos, circlePos, circleRad, numObstacles, nodePos, numNodes, false);
+  curPath = planPath(startPos, goalPos, circlePos, circleRad, numObstacles, nodePos, numNodes, 1);
   long endTime = System.nanoTime();
   pathQuality();
   
@@ -262,11 +271,20 @@ void mousePressed(){
           " Path Len:", pathLength, " Path Segment:", curPath.size()+1,  " Num Collisions:", numCollisions, '\n');
 
   startTime = System.nanoTime();
-  curPath = planPath(startPos, goalPos, circlePos, circleRad, numObstacles, nodePos, numNodes, true);
+  curPath = planPath(startPos, goalPos, circlePos, circleRad, numObstacles, nodePos, numNodes, 2);
   endTime = System.nanoTime();
   pathQuality();
   
   println("A* Path:");
   println("Nodes:", numNodes," Obstacles:", numObstacles," Time (us):", int((endTime-startTime)/1000),
           " Path Len:", pathLength, " Path Segment:", curPath.size()+1,  " Num Collisions:", numCollisions, '\n');
+
+  // startTime = System.nanoTime();
+  // curPath = planPath(startPos, goalPos, circlePos, circleRad, numObstacles, nodePos, numNodes, 3);
+  // endTime = System.nanoTime();
+  // pathQuality();
+
+  // println("New A* Path:");
+  // println("Nodes:", numNodes," Obstacles:", numObstacles," Time (us):", int((endTime-startTime)/1000),
+  //         " Path Len:", pathLength, " Path Segment:", curPath.size()+1,  " Num Collisions:", numCollisions, '\n');
 }

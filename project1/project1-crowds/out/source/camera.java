@@ -16,326 +16,219 @@ import java.io.InputStream;
 import java.io.OutputStream;
 import java.io.IOException;
 
-public class Proj1_Test extends PApplet {
+public class camera extends PApplet {
 
-//CSCI 5611 - Graph Search & Planning
-//PRM Sample Code [Proj 1]
-//Instructor: Stephen J. Guy <sjguy@umn.edu>
+// Created for CSCI 5611 by Liam Tyler
 
-//This is a test harness designed to help you test & debug your PRM.
+// WASD keys move the camera relative to its current orientation
+// Arrow keys rotate the camera's orientation
+// Holding shift boosts the move speed
 
-//USAGE:
-// On start-up your PRM will be tested on a random scene and the results printed
-// Left clicking will set a red goal, right clicking the blue start
-// The arrow keys will move the circular obstacle with the heavy outline
-// Pressing 'r' will randomize the obstacles and re-run the tests
+boolean centerMode = false;
 
-//Change the below parameters to change the scenario/roadmap size
-int numObstacles = 100;
-int numNodes  = 100;
-  
-  
-//A list of circle obstacles
-static int maxNumObstacles = 1000;
-Vec2 circlePos[] = new Vec2[maxNumObstacles]; //Circle positions
-float circleRad[] = new float[maxNumObstacles];  //Circle radii
-
-Vec2 startPos = new Vec2(100,500);
-Vec2 goalPos = new Vec2(500,200);
-
-static int maxNumNodes = 1000;
-Vec2[] nodePos = new Vec2[maxNumNodes];
-
-//Generate non-colliding PRM nodes
- public void generateRandomNodes(int numNodes, Vec2[] circleCenters, float[] circleRadii){
-  for (int i = 0; i < numNodes; i++){
-    Vec2 randPos = new Vec2(random(width),random(height));
-    boolean insideAnyCircle = pointInCircleList(circleCenters,circleRadii,numObstacles,randPos,2);
-    //boolean insideBox = pointInBox(boxTopLeft, boxW, boxH, randPos);
-    while (insideAnyCircle){
-      randPos = new Vec2(random(width),random(height));
-      insideAnyCircle = pointInCircleList(circleCenters,circleRadii,numObstacles,randPos,2);
-      //insideBox = pointInBox(boxTopLeft, boxW, boxH, randPos);
-    }
-    nodePos[i] = randPos;
-  }
-}
-
- public void placeRandomObstacles(int numObstacles){
-  //Initial obstacle position
-  for (int i = 0; i < numObstacles; i++){
-    circlePos[i] = new Vec2(random(50,950),random(50,700));
-    circleRad[i] = (10+40*pow(random(1),3));
-  }
-  circleRad[0] = 30; //Make the first obstacle big
-}
-
-ArrayList<Integer> curPath;
-
-int strokeWidth = 2;
- public void setup(){
-  /* size commented out by preprocessor */;
-  testPRM();
-}
-
-int numCollisions;
-float pathLength;
-boolean reachedGoal;
- public void pathQuality(){
-  Vec2 dir;
-  hitInfo hit;
-  float segmentLength;
-  numCollisions = 9999; pathLength = 9999;
-  if (curPath.size() == 1 && curPath.get(0) == -1) return; //No path found  
-  
-  pathLength = 0; numCollisions = 0;
-  
-  if (curPath.size() == 0 ){ //Path found with no nodes (direct start-to-goal path)
-    segmentLength = startPos.distanceTo(goalPos);
-    pathLength += segmentLength;
-    dir = goalPos.minus(startPos).normalized();
-    hit = rayCircleListIntersect(circlePos, circleRad, numObstacles, startPos, dir, segmentLength);
-    if (hit.hit) numCollisions += 1;
-    return;
-  }
-  
-  segmentLength = startPos.distanceTo(nodePos[curPath.get(0)]);
-  pathLength += segmentLength;
-  dir = nodePos[curPath.get(0)].minus(startPos).normalized();
-  hit = rayCircleListIntersect(circlePos, circleRad, numObstacles, startPos, dir, segmentLength);
-  if (hit.hit) numCollisions += 1;
-  
-  
-  for (int i = 0; i < curPath.size()-1; i++){
-    int curNode = curPath.get(i);
-    int nextNode = curPath.get(i+1);
-    segmentLength = nodePos[curNode].distanceTo(nodePos[nextNode]);
-    pathLength += segmentLength;
+class Camera
+{
+  Camera()
+  {
+    position      = new PVector( 600, -600, 600 ); // initial position
+    theta         = 0; // rotation around Y axis. Starts with forward direction as ( 0, 0, -1 )
+    phi           = 0; // rotation around X axis. Starts with up direction as ( 0, 1, 0 )
+    moveSpeed     = 60;
+    turnSpeed     = 1.7f; // radians/sec
+    boostSpeed    = 5;  // extra speed boost for when you press shift
     
-    dir = nodePos[nextNode].minus(nodePos[curNode]).normalized();
-    hit = rayCircleListIntersect(circlePos, circleRad, numObstacles, nodePos[curNode], dir, segmentLength);
-    if (hit.hit) numCollisions += 1;
+    // dont need to change these
+    shiftPressed = false;
+    negativeMovement = new PVector( 0, 0, 0 );
+    positiveMovement = new PVector( 0, 0, 0 );
+    verticalMovement = new PVector( 0, 0, 0 );
+    negativeTurn     = new PVector( 0, 0 ); // .x for theta, .y for phi
+    positiveTurn     = new PVector( 0, 0 );
+    fovy             = PI / 4;
+    aspectRatio      = width / (float) height;
+    nearPlane        = 0.1f;
+    farPlane         = 10000;
   }
   
-  int lastNode = curPath.get(curPath.size()-1);
-  segmentLength = nodePos[lastNode].distanceTo(goalPos);
-  pathLength += segmentLength;
-  dir = goalPos.minus(nodePos[lastNode]).normalized();
-  hit = rayCircleListIntersect(circlePos, circleRad, numObstacles, nodePos[lastNode], dir, segmentLength);
-  if (hit.hit) numCollisions += 1;
-}
+   public void Update(float dt)
+  {
+    theta += turnSpeed * ( negativeTurn.x + positiveTurn.x)*dt;
+    
+    // cap the rotation about the X axis to be less than 90 degrees to avoid gimble lock
+    float maxAngleInRadians = 85 * PI / 180;
+    phi = min( maxAngleInRadians, max( -maxAngleInRadians, phi + turnSpeed * ( negativeTurn.y + positiveTurn.y ) * dt ) );
+    
+    // re-orienting the angles to match the wikipedia formulas: https://en.wikipedia.org/wiki/Spherical_coordinate_system
+    // except that their theta and phi are named opposite
+    float t = theta + PI / 2;
+    float p = phi + PI / 2;
+    PVector forwardDir = new PVector( sin( p ) * cos( t ),   cos( p ),   -sin( p ) * sin ( t ) );
+    PVector upDir      = new PVector( sin( phi ) * cos( t ), cos( phi ), -sin( t ) * sin( phi ) );
+    PVector rightDir   = new PVector( cos( theta ), 0, -sin( theta ) );
+    if (negativeMovement.mag() > 0) negativeMovement.normalize();
+    if (positiveMovement.mag() > 0) positiveMovement.normalize();
+    if (verticalMovement.mag() > 0) verticalMovement.normalize();
 
- public Vec2 sampleFreePos(){
-  Vec2 randPos = new Vec2(random(width),random(height));
-  boolean insideAnyCircle = pointInCircleList(circlePos,circleRad,numObstacles,randPos,2);
-  while (insideAnyCircle){
-    randPos = new Vec2(random(width),random(height));
-    insideAnyCircle = pointInCircleList(circlePos,circleRad,numObstacles,randPos,2);
-  }
-  return randPos;
-}
+    if (shiftPressed){
+      positiveMovement.mult(boostSpeed);
+      negativeMovement.mult(boostSpeed);
+      verticalMovement.mult(boostSpeed);
+    }
 
- public void testPRM(){
-  long startTime, endTime;
+    PVector velocity   = new PVector( 
+      negativeMovement.x + positiveMovement.x + verticalMovement.x, 
+      negativeMovement.y + positiveMovement.y + verticalMovement.y, 
+      negativeMovement.z + positiveMovement.z 
+    );
+
+    position.add( PVector.mult( forwardDir, moveSpeed * velocity.z * dt ) );
+    position.add( PVector.mult( upDir,      moveSpeed * velocity.y * dt ) );
+    position.add( PVector.mult( rightDir,   moveSpeed * velocity.x * dt ) );
+    
+    aspectRatio = width / (float) height;
+    perspective( fovy, aspectRatio, nearPlane, farPlane );
   
-  placeRandomObstacles(numObstacles);
-  
-  startPos = sampleFreePos();
-  goalPos = sampleFreePos();
-
-  generateRandomNodes(numNodes, circlePos, circleRad);
-  connectNeighbors(circlePos, circleRad, numObstacles, nodePos, numNodes);
-  
-  startTime = System.nanoTime();
-  curPath = planPath(startPos, goalPos, circlePos, circleRad, numObstacles, nodePos, numNodes, 1);
-  endTime = System.nanoTime();
-  pathQuality();
-  
-  println("BFS Path:");
-  println("Nodes:", numNodes," Obstacles:", numObstacles," Time (us):", PApplet.parseInt((endTime-startTime)/1000),
-          " Path Len:", pathLength, " Path Segment:", curPath.size()+1,  " Num Collisions:", numCollisions, '\n');
-
-  startTime = System.nanoTime();
-  curPath = planPath(startPos, goalPos, circlePos, circleRad, numObstacles, nodePos, numNodes, 2);
-  endTime = System.nanoTime();
-  pathQuality();
-
-  println("A* Path:");
-  println("Nodes:", numNodes," Obstacles:", numObstacles," Time (us):", PApplet.parseInt((endTime-startTime)/1000),
-          " Path Len:", pathLength, " Path Segment:", curPath.size()+1,  " Num Collisions:", numCollisions, '\n');
-
-  // startTime = System.nanoTime();
-  // curPath = planPath(startPos, goalPos, circlePos, circleRad, numObstacles, nodePos, numNodes, 3);
-  // endTime = System.nanoTime();
-  // pathQuality();
-
-  // println("New A* Path:");
-  // println("Nodes:", numNodes," Obstacles:", numObstacles," Time (us):", int((endTime-startTime)/1000),
-  //         " Path Len:", pathLength, " Path Segment:", curPath.size()+1,  " Num Collisions:", numCollisions, '\n');
-}
-
- public void draw(){
-  //println("FrameRate:",frameRate);
-  strokeWeight(1);
-  background(200); //Grey background
-  stroke(0,0,0);
-  fill(255,255,255);
-  
-  
-  //Draw the circle obstacles
-  for (int i = 0; i < numObstacles; i++){
-    Vec2 c = circlePos[i];
-    float r = circleRad[i];
-    circle(c.x,c.y,r*2);
-  }
-  //Draw the first circle a little special b/c the user controls it
-  fill(240);
-  strokeWeight(2);
-  circle(circlePos[0].x,circlePos[0].y,circleRad[0]*2);
-  strokeWeight(1);
-  
-  //Draw PRM Nodes
-  fill(0);
-  for (int i = 0; i < numNodes; i++){
-    circle(nodePos[i].x,nodePos[i].y,5);
+    camera( 
+      position.x, position.y, position.z,
+      position.x + forwardDir.x, position.y + forwardDir.y, position.z + forwardDir.z,
+      upDir.x, upDir.y, upDir.z 
+    );
   }
   
-  //Draw graph
-  stroke(100,100,100);
-  strokeWeight(1);
-  for (int i = 0; i < numNodes; i++){
-    for (int j : neighbors[i]){
-      line(nodePos[i].x,nodePos[i].y,nodePos[j].x,nodePos[j].y);
+  // only need to change if you want difrent keys for the controls
+   public void HandleKeyPressed()
+  {
+    if ( key == 'w' || key == 'W' ) positiveMovement.z = 1;
+    if ( key == 's' || key == 'S' ) negativeMovement.z = -1;
+    if ( key == 'a' || key == 'A' ) negativeMovement.x = -1;
+    if ( key == 'd' || key == 'D' ) positiveMovement.x = 1;
+    if ( key == 'q' || key == 'Q' ) positiveMovement.y = 1;
+    if ( key == 'e' || key == 'E' ) negativeMovement.y = -1;
+    if ( key == ' ' ) verticalMovement.y = -1;
+    if ( key == 'R' ){
+      Camera defaults = new Camera();
+      position = defaults.position;
+      theta = defaults.theta;
+      phi = defaults.phi;
+    }
+    
+    if ( keyCode == LEFT )  negativeTurn.x = 1;
+    if ( keyCode == RIGHT ) positiveTurn.x = -0.5f;
+    if ( keyCode == UP )    positiveTurn.y = 0.5f;
+    if ( keyCode == DOWN )  negativeTurn.y = -1;
+    if ( keyCode == CONTROL ) verticalMovement.y = 1;
+    
+    if ( keyCode == SHIFT ) shiftPressed = true; 
+  }
+  
+  // only need to change if you want difrent keys for the controls
+   public void HandleKeyReleased()
+  {
+    if ( key == 'w' || key == 'W' ) positiveMovement.z = 0;
+    if ( key == 'q' || key == 'Q' ) positiveMovement.y = 0;
+    if ( key == 'd' || key == 'D' ) positiveMovement.x = 0;
+    if ( key == 'a' || key == 'A' ) negativeMovement.x = 0;
+    if ( key == 's' || key == 'S' ) negativeMovement.z = 0;
+    if ( key == 'e' || key == 'E' ) negativeMovement.y = 0;
+    if ( key == ' ' ) verticalMovement.y = 0;
+    if ( key == 'c' ) centerMode = true;
+    if ( key == 'C' ) centerMode = false;
+    
+    if ( keyCode == LEFT  ) negativeTurn.x = 0;
+    if ( keyCode == RIGHT ) positiveTurn.x = 0;
+    if ( keyCode == UP    ) positiveTurn.y = 0;
+    if ( keyCode == DOWN  ) negativeTurn.y = 0;
+    if ( keyCode == CONTROL ) verticalMovement.y = 0;
+    
+    if ( keyCode == SHIFT ){
+      shiftPressed = false;
+      positiveMovement.mult(1.0f/boostSpeed);
+      negativeMovement.mult(1.0f/boostSpeed);
     }
   }
   
-  //Draw Start and Goal
-  fill(20,60,250);
-  //circle(nodePos[startNode].x,nodePos[startNode].y,20);
-  circle(startPos.x,startPos.y,20);
-  fill(250,30,50);
-  //circle(nodePos[goalNode].x,nodePos[goalNode].y,20);
-  circle(goalPos.x,goalPos.y,20);
+  // only necessary to change if you want different start position, orientation, or speeds
+  PVector position;
+  float theta;
+  float phi;
+  float moveSpeed;
+  float turnSpeed;
+  float boostSpeed;
   
-  if (curPath.size() >0 && curPath.get(0) == -1) return; //No path found
-  
-  //Draw Planned Path
-  stroke(20,255,40);
-  strokeWeight(5);
-  if (curPath.size() == 0){
-    line(startPos.x,startPos.y,goalPos.x,goalPos.y);
-    return;
-  }
-  line(startPos.x,startPos.y,nodePos[curPath.get(0)].x,nodePos[curPath.get(0)].y);
-  for (int i = 0; i < curPath.size()-1; i++){
-    int curNode = curPath.get(i);
-    int nextNode = curPath.get(i+1);
-    line(nodePos[curNode].x,nodePos[curNode].y,nodePos[nextNode].x,nodePos[nextNode].y);
-  }
-  line(goalPos.x,goalPos.y,nodePos[curPath.get(curPath.size()-1)].x,nodePos[curPath.get(curPath.size()-1)].y);
-  
-}
+  // probably don't need / want to change any of the below variables
+  float fovy;
+  float aspectRatio;
+  float nearPlane;
+  float farPlane;  
+  PVector negativeMovement;
+  PVector positiveMovement;
+  PVector verticalMovement;
+  PVector negativeTurn;
+  PVector positiveTurn;
+  boolean shiftPressed;
+};
 
-boolean shiftDown = false;
- public void keyPressed(){
-  if (key == 'r'){
-    testPRM();
-    return;
-  }
-  
-  if (keyCode == SHIFT){
-    shiftDown = true;
-  }
-  
-  float speed = 10;
-  if (shiftDown) speed = 30;
-  if (keyCode == RIGHT){
-    circlePos[0].x += speed;
-  }
-  if (keyCode == LEFT){
-    circlePos[0].x -= speed;
-  }
-  if (keyCode == UP){
-    circlePos[0].y -= speed;
-  }
-  if (keyCode == DOWN){
-    circlePos[0].y += speed;
-  }
-  connectNeighbors(circlePos, circleRad, numObstacles, nodePos, numNodes);
-  curPath = planPath(startPos, goalPos, circlePos, circleRad, numObstacles, nodePos, numNodes);
-}
 
- public void keyReleased(){
-  if (keyCode == SHIFT){
-    shiftDown = false;
-  }
-}
 
- public void mousePressed(){
-  if (mouseButton == RIGHT){
-    startPos = new Vec2(mouseX, mouseY);
-    //println("New Start is",startPos.x, startPos.y);
-  }
-  else{
-    goalPos = new Vec2(mouseX, mouseY);
-    //println("New Goal is",goalPos.x, goalPos.y);
-  }
 
-  long startTime = System.nanoTime();
-  curPath = planPath(startPos, goalPos, circlePos, circleRad, numObstacles, nodePos, numNodes, 1);
-  long endTime = System.nanoTime();
-  pathQuality();
-  
-  println("BFS Path:");
-  println("Nodes:", numNodes," Obstacles:", numObstacles," Time (us):", PApplet.parseInt((endTime-startTime)/1000),
-          " Path Len:", pathLength, " Path Segment:", curPath.size()+1,  " Num Collisions:", numCollisions, '\n');
+// ----------- Example using Camera class -------------------- //
+// Camera camera;
 
-  startTime = System.nanoTime();
-  curPath = planPath(startPos, goalPos, circlePos, circleRad, numObstacles, nodePos, numNodes, 2);
-  endTime = System.nanoTime();
-  pathQuality();
-  
-  println("A* Path:");
-  println("Nodes:", numNodes," Obstacles:", numObstacles," Time (us):", PApplet.parseInt((endTime-startTime)/1000),
-          " Path Len:", pathLength, " Path Segment:", curPath.size()+1,  " Num Collisions:", numCollisions, '\n');
-
-  // startTime = System.nanoTime();
-  // curPath = planPath(startPos, goalPos, circlePos, circleRad, numObstacles, nodePos, numNodes, 3);
-  // endTime = System.nanoTime();
-  // pathQuality();
-
-  // println("New A* Path:");
-  // println("Nodes:", numNodes," Obstacles:", numObstacles," Time (us):", int((endTime-startTime)/1000),
-  //         " Path Len:", pathLength, " Path Segment:", curPath.size()+1,  " Num Collisions:", numCollisions, '\n');
-}
-// //Compute collision tests. Code from the in-class exercises may be helpful ehre.
-
-// //Returns true if the point is inside a circle
-// //You must consider a point as colliding if it's distance is <= eps
-// boolean pointInCircle(Vec2 center, float r, Vec2 pointPos, float eps){
-//   return false;
+// void setup()
+// {
+//   size(600, 600, P3D);
+//   camera = new Camera();
 // }
 
-// //Returns true if the point is inside a list of circle
-// //You must consider a point as colliding if it's distance is <= eps
-// boolean pointInCircleList(Vec2[] centers, float[] radii, int numObstacles, Vec2 pointPos, float eps){
-//   return false;
+// void keyPressed()
+// {
+//   camera.HandleKeyPressed();
 // }
 
-
-// class hitInfo{
-//   public boolean hit = false;
-//   public float t = 9999999;
+// void keyReleased()
+// {
+//   camera.HandleKeyReleased();
 // }
 
-// hitInfo rayCircleIntersect(Vec2 center, float r, Vec2 l_start, Vec2 l_dir, float max_t){
-//   hitInfo hit = new hitInfo();
-//   return hit;
-// }
+// void draw() {
+//   background(255);
+//   noLights();
 
-// hitInfo rayCircleListIntersect(Vec2[] centers, float[] radii,  int numObstacles, Vec2 l_start, Vec2 l_dir, float max_t){
-//   hitInfo hit = new hitInfo();
-//   return hit;
+//   camera.Update(1.0/frameRate);
+  
+//   // draw six cubes surrounding the origin (front, back, left, right, top, bottom)
+//   fill( 0, 0, 255 );
+//   pushMatrix();
+//   translate( 0, 0, -50 );
+//   box( 20 );
+//   popMatrix();
+  
+//   pushMatrix();
+//   translate( 0, 0, 50 );
+//   box( 20 );
+//   popMatrix();
+  
+//   fill( 255, 0, 0 );
+//   pushMatrix();
+//   translate( -50, 0, 0 );
+//   box( 20 );
+//   popMatrix();
+  
+//   pushMatrix();
+//   translate( 50, 0, 0 );
+//   box( 20 );
+//   popMatrix();
+  
+//   fill( 0, 255, 0 );
+//   pushMatrix();
+//   translate( 0, 50, 0 );
+//   box( 20 );
+//   popMatrix();
+  
+//   pushMatrix();
+//   translate( 0, -50, 0 );
+//   box( 20 );
+//   popMatrix();
 // }
 //You will only be turning in this file
 //Your solution will be graded based on it's runtime (smaller is better), 
@@ -887,6 +780,243 @@ class hitInfo{
   return hit;
 }
 
+// Project 1 Part 2
+/////////////////////////////
+
+// scene dimensions
+float sceneX = 1500;
+float sceneY = 1500;
+float sceneZ = 1500;
+
+// node stuff
+static int numNodes = 100;
+static int maxNumNodes = 1000;
+
+// obstacles
+ArrayList<Vec3> circleVel = new ArrayList<Vec3>();
+ArrayList<Vec3> circlePos = new ArrayList<Vec3>();
+ArrayList<Float> circleRad = new ArrayList<Float>();
+ArrayList<Vec3> circleColor = new ArrayList<Vec3>();
+static int initObstacles = 200;
+int numObstacles = initObstacles;
+
+Camera camera;
+
+// useful things
+float ninety, oneeighty, twoseventy, threesixty;
+float epsilon = 1e-6f;
+
+// drawing info
+int strokeWidth = 2;
+PImage conkcrete;
+
+// key state variables
+boolean moveObjects = false;
+boolean mouseCast = false;
+Vec3 mouseRay, mouseOrig;
+
+// vertices for drawing floor
+Vec3[][] floor = new Vec3[][]{
+    {new Vec3(sceneX/2+20,0,sceneZ/2+20),new Vec3(0,0,0)},
+    {new Vec3(sceneX/2+20,0,-sceneZ/2-20),new Vec3(0,1,0)},
+    {new Vec3(-sceneX/2-20,0,-sceneZ/2-20),new Vec3(1,0,0)},
+    {new Vec3(-sceneX/2-20,0,sceneZ/2+20),new Vec3(1,1,0)}
+};
+
+ public void setup() {
+    /* size commented out by preprocessor */;
+    surface.setTitle("CSCI 5611 Project 1 Part 2");
+    surface.setResizable(true);
+    surface.setLocation(500,500);
+    strokeWeight(2);
+
+    camera = new Camera();
+
+    // useful things
+    oneeighty = radians(180);
+    ninety = radians(90);
+    twoseventy = radians(270);
+    threesixty = radians(360);
+
+    // image/model loading
+    conkcrete = loadImage("data/conkcrete.jpg");
+
+    placeRandomObstacles();
+}
+
+ public void placeRandomObstacles(){
+  //Initial obstacle position
+  circleRad.add(30.0f); //Make the first obstacle big
+  circlePos.add(new Vec3(
+      random(-sceneX*0.5f,sceneX*0.5f),
+      -circleRad.get(0),
+      random(-sceneZ*0.5f,sceneZ*0.5f)
+  ));
+  circleColor.add(new Vec3(
+      random(255),
+      random(255),
+      random(255)
+  ));
+
+  for (int i = 1; i < numObstacles; i++){
+    circleRad.add((10+40*pow(random(1),3)));
+    circlePos.add(new Vec3(
+        random(-sceneX*0.5f,sceneX*0.5f),
+        -circleRad.get(i),
+        random(-sceneZ*0.5f,sceneZ*0.5f)
+    ));
+    circleColor.add(new Vec3(
+        random(255),
+        random(255),
+        random(255)
+    ));
+  }
+  circleRad.set(0, 30.0f); //Make the first obstacle big
+}
+
+ public void reset() {
+    
+}
+
+ public void update() {
+    
+}
+
+// draws coordinate system of scene for debugging
+ public void drawBounds() {
+    // x axis --> red
+    stroke(255,0,0);
+    line(0,0,0,3000,0,0);
+    line(0,0,0,-3000,0,0);
+    
+
+    // y axis --> green
+    stroke(0,255,0);
+    line(0,0,0,0,3000,0);
+    line(0,0,0,0,-3000,0);
+
+    // z axis --> blue
+    stroke(0,0,255);
+    line(0,0,0,0,0,3000);
+    line(0,0,0,0,0,-3000);
+}
+
+// drawing borders of the scene
+ public void drawFloor() {
+    fill(11, 43, 20);
+    textureMode(NORMAL);
+    beginShape();
+        texture(conkcrete);
+        for (var vertex : floor) {
+            vertex(vertex[0].x, vertex[0].y, vertex[0].z, vertex[1].x, vertex[1].y);
+        }
+    endShape(CLOSE);
+}
+
+// draw obstacles :)
+ public void drawObstacles() {
+    noStroke();
+    for (int i = 0; i < numObstacles; i++) {
+        Vec3 currPos = circlePos.get(i);
+        Vec3 currCol = circleColor.get(i);
+        float currRad = circleRad.get(i);
+        fill(currCol.x, currCol.y, currCol.z);
+        pushMatrix();
+            translate(currPos.x, currPos.y, currPos.z);
+            sphere(currRad);
+        popMatrix();
+    }   
+    strokeWeight(strokeWidth);
+}
+
+// void drawMouseRay() {
+//   strokeWeight(3);
+//   stroke(0);
+//   line(
+//     mouseOrig.x, 
+//     mouseOrig.y, 
+//     mouseOrig.z,
+//     mouseOrig.x + mouseRay.x*10000, 
+//     mouseOrig.y + mouseRay.y*10000, 
+//     mouseOrig.z + mouseRay.z*10000
+//   );
+//   strokeWeight(strokeWidth);
+// }
+
+// main draw loop
+ public void draw() {
+    background(50);
+
+    // Sets the default ambient 
+    // and directional light
+    colorMode(HSB, 360, 100, 100);
+    lightFalloff(1,0,0);
+    lightSpecular(0,0,10);
+    ambientLight(0,0,100);
+    directionalLight(128,128,128, 0,0,0);
+    colorMode(RGB, 255, 255, 255);
+
+    // concentration = map(cos(frameCount * .01), -1, 1, 12, 100);
+    // mouse.set(mouseX - half.x, mouseY - half.y, viewOff);
+    // mouse.normalize();
+
+    // // Flash light.
+    // spotLight(
+    //     191, 170, 133,
+    //     0, 0, viewOff,
+    //     mouse.x, mouse.y, -1,
+    //     angle, concentration
+    // );
+
+    camera.Update(1.0f/frameRate);
+
+    // used for understanding where the bounds of the scene are
+    drawFloor();
+    drawBounds();
+    drawObstacles();
+    // if (mouseCast) {
+    //   drawMouseRay();
+    // }
+    checkPressed();
+    update();
+}
+
+ public void checkPressed() {
+
+}
+
+ public void mouseWheel(MouseEvent event) {
+    
+}
+
+ public void mouseReleased() {
+  // mouseCast = true;
+  // mouseRay = cameraRay(mouseX, mouseY);
+  // mouseOrig = new Vec3(camera.position.x, camera.position.y, camera.position.z);
+}
+
+ public void keyPressed()
+{
+  camera.HandleKeyPressed();
+  if (key == 'v') {
+    moveObjects = !moveObjects;
+  }
+}
+
+ public void keyReleased()
+{
+  camera.HandleKeyReleased();
+}
+
+// Vec3 cameraRay(float x, float y) {
+//   float imageAspectRatio = camera.aspectRatio;  //assuming width > height 
+//   float px = (2 * ((x + 0.5) / displayWidth) - 1) * tan(camera.fovy / 2 * PI / 180) * imageAspectRatio; 
+//   float py = (1 - 2 * ((y + 0.5) / displayHeight) * tan(camera.fovy / 2 * PI / 180)); 
+//   Vec3 rayOrigin = new Vec3(camera.position.x, camera.position.y, camera.position.z); 
+//   Vec3 rayDirection = new Vec3(px, py, -1);  //note that this just equal to Vec3f(Px, Py, -1); 
+//   rayDirection = rayDirection.normalized();  //it's a direction so don't forget to normalize
+//   return rayDirection;
+// }
 //Vector Library
 //CSCI 5611 Vector 2 Library [Example]
 // Stephen J. Guy <sjguy@umn.edu>
@@ -974,10 +1104,6 @@ public class Vec2 {
   return a.plus((b.minus(a)).times(t));
 }
 
- public float interpolate(float a, float b, float t){
-  return a + ((b-a)*t);
-}
-
  public float dot(Vec2 a, Vec2 b){
   return a.x*b.x + a.y*b.y;
 }
@@ -985,12 +1111,207 @@ public class Vec2 {
  public Vec2 projAB(Vec2 a, Vec2 b){
   return b.times(a.x*b.x + a.y*b.y);
 }
+////////////////////////////////////////////////////////////////////////////////
+
+// CSCI 5611 Vector 3 Library
+// Noah J Hendrickson <hend0800@umn.edu>
+
+public class Vec3 {
+    public float x, y, z;
+
+    public Vec3(float x, float y, float z){
+        this.x = x;
+        this.y = y;
+        this.z = z;
+    }
+
+    public String toString(){
+        return "(" + x + "," + y + "," + z + ")";
+    }
+
+    public float length(){
+        return sqrt(x*x+y*y+z*z);
+    }
+
+    public float lengthSqr() {
+        return x*x+y*y+z*z;
+    }
+
+    public Vec3 plus(Vec3 rhs){
+        return new Vec3(x+rhs.x, y+rhs.y, z+rhs.z);
+    }
+
+    public void add(Vec3 rhs){
+        x += rhs.x;
+        y += rhs.y;
+        z += rhs.z;
+    }
+
+    public Vec3 minus(Vec3 rhs){
+        return new Vec3(x-rhs.x, y-rhs.y, z-rhs.z);
+    }
+
+    public void subtract(Vec3 rhs){
+        x -= rhs.x;
+        y -= rhs.y;
+        z -= rhs.z;
+    }
+
+    public Vec3 times(float rhs){
+        return new Vec3(x*rhs, y*rhs, z*rhs);
+    }
+
+    public void mul(float rhs){
+        x *= rhs;
+        y *= rhs;
+        z *= rhs;
+    }
+
+    public void clampToLength(float maxL){
+        float magnitude = sqrt(x*x + y*y + z*z);
+        if (magnitude > maxL){
+            x *= maxL/magnitude;
+            y *= maxL/magnitude;
+            z *= maxL/magnitude;
+        }
+    }
+
+    public void setToLength(float newL){
+        float magnitude = sqrt(x*x + y*y);
+        if (magnitude <= epsilon) return;
+        x *= newL/magnitude;
+        y *= newL/magnitude;
+        z *= newL/magnitude;
+    }
+
+    public void normalize(){
+        float magnitude = sqrt(x*x + y*y + z*z);
+        if (magnitude > epsilon) {
+            x /= magnitude;
+            y /= magnitude;
+            z /= magnitude;
+        }
+    }
+
+    public Vec3 normalized(){
+        float magnitude = sqrt(x*x + y*y + z*z);
+        if (magnitude > epsilon) return new Vec3(x/magnitude, y/magnitude, z/magnitude);
+        return new Vec3(x,y,z);
+    }
+
+    public float distanceTo(Vec3 rhs){
+        float dx = rhs.x - x;
+        float dy = rhs.y - y;
+        float dz = rhs.z - z;
+        return sqrt(dx*dx + dy*dy + dz*dz);
+    }
+
+    public void rotateAroundZ(float rad) {
+        x = cos(rad)*x-sin(rad)*y;
+        y = sin(rad)*x+cos(rad)*y;
+        z = z;
+    }
+
+    public void rotateAroundY(float rad) {
+        x = cos(rad)*x+sin(rad)*z;
+        y = y;
+        z = -sin(rad)*x+cos(rad)*z;
+    }
+
+    public void rotateAroundX(float rad) {
+        x = x;
+        y = cos(rad)*y-sin(rad)*z;
+        z = sin(rad)*y+cos(rad)*z;
+    }
+
+    public Vec3 rotatedAroundZ(float rad) {
+        float newx = cos(rad)*x-sin(rad)*y;
+        float newy = sin(rad)*x+cos(rad)*y;
+        float newz = z;
+        return new Vec3(newx, newy, newz);
+    }
+
+    public Vec3 rotatedAroundY(float rad) {
+        float newx = cos(rad)*x+sin(rad)*z;
+        float newy = y;
+        float newz = -sin(rad)*x+cos(rad)*z;
+        return new Vec3(newx, newy, newz);
+    }
+
+    public Vec3 rotatedAroundX(float rad) {
+        float newx = x;
+        float newy = cos(rad)*y-sin(rad)*z;
+        float newz = sin(rad)*y+cos(rad)*z;
+        return new Vec3(newx, newy, newz);
+    }
+}
+
+ public Vec3 interpolate(Vec3 a, Vec3 b, float t){
+  return a.plus((b.minus(a)).times(t));
+  // a + ((b-a)*t)
+}
+
+ public float interpolate(float a, float b, float t){
+  return a + ((b-a)*t);
+}
+
+ public float dot(Vec3 a, Vec3 b){
+  return a.x*b.x + a.y*b.y + a.z*b.z;
+}
+
+ public Vec3 cross(Vec3 a, Vec3 b) {
+    float newx = a.y*b.z - a.z*b.y;
+    float newy = a.z*b.x - a.x*b.z;
+    float newz = a.x*b.y - a.y*b.x;
+
+    return new Vec3(newx, newy, newz);
+}
+
+ public Vec3 projAB(Vec3 a, Vec3 b){
+  return b.times(a.x*b.x + a.y*b.y + a.z*b.z);
+}
+
+ public float rotateTo(Vec3 a, Vec3 b) {
+    Vec3 cross = cross(a, b);
+    float first = cross.x+cross.y+cross.z;
+    return atan2(first, dot(a,b));
+}
+
+// for detecting the edges of the area
+ public float rayIntersectPlaneTime(Vec3 normal, Vec3 normPoint, Vec3 origin, Vec3 ray) {
+    float denom = dot(normal, ray);
+    if (denom > epsilon) {
+        Vec3 pl = normPoint.minus(origin);
+        float t = dot(pl, normal) / denom;
+        if (t >= 0) return t;
+        return Float.NaN;
+    }
+    return Float.NaN;
+}
+
+// for detecting collisions between other keewers
+ public float rayIntersectSphereTime(Vec3 center, float radius, Vec3 origin, Vec3 ray) {
+    Vec3 toCircle = center.minus(origin);
+
+    float a = ray.length()*ray.length(); // square the length of the ray
+    float b = -2*dot(ray, toCircle); // 2*dot between ray and dir from pos to center of circle
+    float c = toCircle.lengthSqr() - (radius*radius); // difference of squares
+
+    float d = b*b - 4*a*c; // discriminant
+
+    if (d >= 0) {
+        float t = (-b-sqrt(d))/(2*a); // only need first intersection
+        if (t >= 0) return t; // only return if going to collide
+        return Float.NaN; 
+    }
+    return Float.NaN; // no colliding
+}
 
 
-  public void settings() { size(1024, 768); }
+  public void settings() { size(1200, 1200, P3D); }
 
   static public void main(String[] passedArgs) {
-    String[] appletArgs = new String[] { "Proj1_Test" };
+    String[] appletArgs = new String[] { "camera" };
     if (passedArgs != null) {
       PApplet.main(concat(appletArgs, passedArgs));
     } else {

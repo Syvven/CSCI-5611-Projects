@@ -4,6 +4,8 @@
 // Arrow keys rotate the camera's orientation
 // Holding shift boosts the move speed
 
+boolean centerMode = false;
+
 class Camera
 {
   Camera()
@@ -65,6 +67,7 @@ class Camera
     
     aspectRatio = width / (float) height;
     perspective( fovy, aspectRatio, nearPlane, farPlane );
+  
     camera( 
       position.x, position.y, position.z,
       position.x + forwardDir.x, position.y + forwardDir.y, position.z + forwardDir.z,
@@ -108,6 +111,8 @@ class Camera
     if ( key == 's' || key == 'S' ) negativeMovement.z = 0;
     if ( key == 'e' || key == 'E' ) negativeMovement.y = 0;
     if ( key == ' ' ) verticalMovement.y = 0;
+    if ( key == 'c' ) centerMode = true;
+    if ( key == 'C' ) centerMode = false;
     
     if ( keyCode == LEFT  ) negativeTurn.x = 0;
     if ( keyCode == RIGHT ) positiveTurn.x = 0;
