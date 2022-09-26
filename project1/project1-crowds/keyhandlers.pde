@@ -21,6 +21,7 @@ void keyReleased()
 {
   camera.HandleKeyReleased();
   if (key == 'r') reset();
+  if (key == 'p') paused = !paused;
 }
 
 // Vec3 cameraRay(float x, float y) {

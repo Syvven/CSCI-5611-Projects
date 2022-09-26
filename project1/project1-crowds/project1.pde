@@ -11,7 +11,7 @@ int kiwiFrames = 4;
 PShape[] shapes = new PShape[kiwiFrames];
 int[] times = new int[kiwiFrames];
 PShape kiwi;
-int kiwiScale = 20;
+int kiwiScale = 10;
 float kiwiWidth = 1*kiwiScale; // units // Scale(10) --> 10 units
 float kiwiLength = 2.5*kiwiScale; // units // Scale(10) --> 22.5 units
 float kiwiHeight = 1.75*kiwiScale; // units // Scale(10) --> 17.5 units
@@ -22,7 +22,7 @@ float kiwi_framerate = 24;
 float kiwiYOffset = -0.71*kiwiScale; // model starts below floor, offset height a bit to have it normal
 
 // agent info
-Vec3 agentVel = new Vec3(1,1,1);
+Vec2 agentVel = new Vec2(1,1);
 Vec3 agentPos = new Vec3(-sceneX/2+25,kiwiYOffset,-sceneZ/2+25);
 Vec2 startPos = new Vec2(-sceneX/2+25,-sceneZ/2+25);
 Vec2 goalPos = new Vec2(sceneX/2-25, sceneZ/2-25);
@@ -56,10 +56,17 @@ PImage conkcrete;
 // key state variables
 boolean moveObjects = false;
 boolean mouseCast = false;
+boolean paused = true;
 Vec3 mouseRay, mouseOrig;
 
 // pathing
-
+int indexCounter;
+int startNode;
+int currNode;
+Vec2 currPos;
+int nextNode;
+Vec2 nextPos;
+int goalNode;
 
 void setup() {
     size(1200, 1200, P3D);
@@ -92,6 +99,9 @@ void setup() {
     sphereDetail(10);
 
     t = tbase;
+    for (int i = 0; i < maxNumObstacles; i++) {
+        validCircles[i] = false;
+    } 
 
     initiatePathfinding();
 }
@@ -136,8 +146,27 @@ void reset() {
     kiwiTime = 0;
     kiwiSwitchFrame = 0;
     currFrame = 0;
+    initiatePathfinding();
 }
 
 void initiatePathfinding() {
-
+    for (int i = 0; i < circlePos.size(); i++) {
+        Vec3 pos = circlePos.get(i);
+        float rad = circleColRad.get(i);
+        if (pos.y > -agentColRad*2-circleDrawRad.get(i)) {
+            validCircles[i] = true;
+        } 
+        circlePosArr[i] = new Vec2(pos.x, pos.z);
+        circleRadArr[i] = rad;
+    }
+    testPRM();
+    println(curPath);
+    indexCounter = 1;
+    startNode = curPath.get(0);
+    currNode = startNode; 
+    nextNode = curPath.get(1);
+    goalNode = curPath.get(curPath.size()-1);
+    currPos = nodePos[currNode];
+    nextPos = nodePos[nextNode];
+    agentVel = nextPos.minus(currPos).normalized().times(goalSpeed);
 }

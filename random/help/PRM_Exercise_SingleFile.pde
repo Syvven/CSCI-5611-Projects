@@ -202,6 +202,7 @@ void moveAgent(float dt){
       
     } else {
       // get next index in path
+      
     nextIndex = path.get(i); 
     despos = nodePos[nextIndex];
     vel = despos.minus(pos);

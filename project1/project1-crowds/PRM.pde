@@ -400,31 +400,6 @@ ArrayList<Integer> runAStarNew(Vec2[] nodePos, int numNodes, int startID, int go
   return path;
 }
 
-//Compute collision tests. Code from the in-class exercises may be helpful ehre.
-
-//Returns true if the point is inside a circle
-//You must consider a point as colliding if it's distance is <= eps
-boolean pointInCircle(Vec2 center, float r, Vec2 pointPos, float eps){
-  float dist = pointPos.distanceTo(center);
-  if (dist < r+eps){ //small safety factor
-    return true;
-  }
-  return false;
-}
-
-//Returns true if the point is inside a list of circle
-//You must consider a point as colliding if it's distance is <= eps
-boolean pointInCircleList(Vec2[] centers, float[] radii, int numObstacles, Vec2 pointPos, float eps){
-  for (int i = 0; i < numObstacles; i++){
-    Vec2 center =  centers[i];
-    float r = radii[i];
-    if (pointInCircle(center,r,pointPos, eps)){
-      return true;
-    }
-  }
-  return false;
-}
-
 
 class hitInfo{
   public boolean hit = false;

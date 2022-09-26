@@ -2,9 +2,9 @@
 void draw() {
     // updates things
     camera.Update(1.0/frameRate);
-    updateKiwiFrame();
+    if (!paused) updateKiwiFrame();
     checkPressed();
-    update();
+    if (!paused) update(1.0/frameRate);
 
     background(0);
     lightFalloff(1, 0, 0);
@@ -45,6 +45,68 @@ void draw() {
     drawKiwi();
     drawFloor();
 }
+
+// void draw(){
+//   //println("FrameRate:",frameRate);
+//   strokeWeight(1);
+//   background(200); //Grey background
+//   stroke(0,0,0);
+//   fill(255,255,255);
+  
+  
+//   //Draw the circle obstacles
+//   for (int i = 0; i < numObstacles; i++){
+//     Vec2 c = circlePosArr[i];
+//     float r = circleRadArr[i];
+//     circle(c.x,c.y,r*2);
+//   }
+//   //Draw the first circle a little special b/c the user controls it
+//   fill(240);
+//   strokeWeight(2);
+//   circle(circlePosArr[0].x,circlePosArr[0].y,circleRadArr[0]*2);
+//   strokeWeight(1);
+  
+//   //Draw PRM Nodes
+//   fill(0);
+//   for (int i = 0; i < numNodes; i++){
+//     circle(nodePos[i].x,nodePos[i].y,5);
+//   }
+  
+//   //Draw graph
+//   stroke(100,100,100);
+//   strokeWeight(1);
+//   for (int i = 0; i < numNodes; i++){
+//     for (int j : neighbors[i]){
+//       line(nodePos[i].x,nodePos[i].y,nodePos[j].x,nodePos[j].y);
+//     }
+//   }
+  
+//   //Draw Start and Goal
+//   fill(20,60,250);
+//   //circle(nodePos[startNode].x,nodePos[startNode].y,20);
+//   circle(startPos.x,startPos.y,20);
+//   fill(250,30,50);
+//   //circle(nodePos[goalNode].x,nodePos[goalNode].y,20);
+//   circle(goalPos.x,goalPos.y,20);
+  
+//   if (curPath.size() >0 && curPath.get(0) == -1) return; //No path found
+  
+//   //Draw Planned Path
+//   stroke(20,255,40);
+//   strokeWeight(5);
+//   if (curPath.size() == 0){
+//     line(startPos.x,startPos.y,goalPos.x,goalPos.y);
+//     return;
+//   }
+//   line(startPos.x,startPos.y,nodePos[curPath.get(0)].x,nodePos[curPath.get(0)].y);
+//   for (int i = 0; i < curPath.size()-1; i++){
+//     int curNode = curPath.get(i);
+//     int nextNode = curPath.get(i+1);
+//     line(nodePos[curNode].x,nodePos[curNode].y,nodePos[nextNode].x,nodePos[nextNode].y);
+//   }
+//   line(goalPos.x,goalPos.y,nodePos[curPath.get(curPath.size()-1)].x,nodePos[curPath.get(curPath.size()-1)].y);
+  
+// }
 
 // draws coordinate system of scene for debugging
 void drawBounds() {
@@ -118,11 +180,11 @@ void drawKiwi() {
         scale(kiwiScale);
         shape(shapes[currFrame]);
     popMatrix();
-    pushMatrix();
-        noFill();
-        strokeWeight(strokeWidth);
-        stroke(255);
-        translate(agentPos.x, agentPos.y, agentPos.z);
-        sphere(agentColRad);
-    popMatrix();
+    // pushMatrix();
+    //     noFill();
+    //     strokeWeight(strokeWidth);
+    //     stroke(255);
+    //     translate(agentPos.x, agentPos.y, agentPos.z);
+    //     sphere(agentColRad);
+    // popMatrix();
 }

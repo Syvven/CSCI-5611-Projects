@@ -632,31 +632,6 @@ class Node implements Comparable<Node> {
   return path;
 }
 
-//Compute collision tests. Code from the in-class exercises may be helpful ehre.
-
-//Returns true if the point is inside a circle
-//You must consider a point as colliding if it's distance is <= eps
- public boolean pointInCircle(Vec2 center, float r, Vec2 pointPos, float eps){
-  float dist = pointPos.distanceTo(center);
-  if (dist < r+eps){ //small safety factor
-    return true;
-  }
-  return false;
-}
-
-//Returns true if the point is inside a list of circle
-//You must consider a point as colliding if it's distance is <= eps
- public boolean pointInCircleList(Vec2[] centers, float[] radii, int numObstacles, Vec2 pointPos, float eps){
-  for (int i = 0; i < numObstacles; i++){
-    Vec2 center =  centers[i];
-    float r = radii[i];
-    if (pointInCircle(center,r,pointPos, eps)){
-      return true;
-    }
-  }
-  return false;
-}
-
 
 class hitInfo{
   public boolean hit = false;
@@ -720,9 +695,9 @@ class hitInfo{
  public void draw() {
     // updates things
     camera.Update(1.0f/frameRate);
-    updateKiwiFrame();
+    if (!paused) updateKiwiFrame();
     checkPressed();
-    update();
+    if (!paused) update(1.0f/frameRate);
 
     background(0);
     lightFalloff(1, 0, 0);
@@ -763,6 +738,68 @@ class hitInfo{
     drawKiwi();
     drawFloor();
 }
+
+// void draw(){
+//   //println("FrameRate:",frameRate);
+//   strokeWeight(1);
+//   background(200); //Grey background
+//   stroke(0,0,0);
+//   fill(255,255,255);
+  
+  
+//   //Draw the circle obstacles
+//   for (int i = 0; i < numObstacles; i++){
+//     Vec2 c = circlePosArr[i];
+//     float r = circleRadArr[i];
+//     circle(c.x,c.y,r*2);
+//   }
+//   //Draw the first circle a little special b/c the user controls it
+//   fill(240);
+//   strokeWeight(2);
+//   circle(circlePosArr[0].x,circlePosArr[0].y,circleRadArr[0]*2);
+//   strokeWeight(1);
+  
+//   //Draw PRM Nodes
+//   fill(0);
+//   for (int i = 0; i < numNodes; i++){
+//     circle(nodePos[i].x,nodePos[i].y,5);
+//   }
+  
+//   //Draw graph
+//   stroke(100,100,100);
+//   strokeWeight(1);
+//   for (int i = 0; i < numNodes; i++){
+//     for (int j : neighbors[i]){
+//       line(nodePos[i].x,nodePos[i].y,nodePos[j].x,nodePos[j].y);
+//     }
+//   }
+  
+//   //Draw Start and Goal
+//   fill(20,60,250);
+//   //circle(nodePos[startNode].x,nodePos[startNode].y,20);
+//   circle(startPos.x,startPos.y,20);
+//   fill(250,30,50);
+//   //circle(nodePos[goalNode].x,nodePos[goalNode].y,20);
+//   circle(goalPos.x,goalPos.y,20);
+  
+//   if (curPath.size() >0 && curPath.get(0) == -1) return; //No path found
+  
+//   //Draw Planned Path
+//   stroke(20,255,40);
+//   strokeWeight(5);
+//   if (curPath.size() == 0){
+//     line(startPos.x,startPos.y,goalPos.x,goalPos.y);
+//     return;
+//   }
+//   line(startPos.x,startPos.y,nodePos[curPath.get(0)].x,nodePos[curPath.get(0)].y);
+//   for (int i = 0; i < curPath.size()-1; i++){
+//     int curNode = curPath.get(i);
+//     int nextNode = curPath.get(i+1);
+//     line(nodePos[curNode].x,nodePos[curNode].y,nodePos[nextNode].x,nodePos[nextNode].y);
+//   }
+//   line(goalPos.x,goalPos.y,nodePos[curPath.get(curPath.size()-1)].x,nodePos[curPath.get(curPath.size()-1)].y);
+  
+// }
 
 // draws coordinate system of scene for debugging
  public void drawBounds() {
@@ -836,13 +873,13 @@ class hitInfo{
         scale(kiwiScale);
         shape(shapes[currFrame]);
     popMatrix();
-    pushMatrix();
-        noFill();
-        strokeWeight(strokeWidth);
-        stroke(255);
-        translate(agentPos.x, agentPos.y, agentPos.z);
-        sphere(agentColRad);
-    popMatrix();
+    // pushMatrix();
+    //     noFill();
+    //     strokeWeight(strokeWidth);
+    //     stroke(255);
+    //     translate(agentPos.x, agentPos.y, agentPos.z);
+    //     sphere(agentColRad);
+    // popMatrix();
 }
  public void checkPressed() {
 
@@ -867,6 +904,7 @@ class hitInfo{
 {
   camera.HandleKeyReleased();
   if (key == 'r') reset();
+  if (key == 'p') paused = !paused;
 }
 
 // Vec3 cameraRay(float x, float y) {
@@ -879,12 +917,13 @@ class hitInfo{
 //   return rayDirection;
 // }
 //Change the below parameters to change the scenario/roadmap size
-static int numNodes  = 100;
+static int numNodes  = 200;
   
 //A list of circle obstacles
 static int maxNumObstacles = 1000;
 static int initObstacles = 200;
 int numObstacles = initObstacles;
+boolean[] validCircles = new boolean[maxNumObstacles];
 Vec2 circlePosArr[] = new Vec2[maxNumObstacles]; //Circle positions
 float circleRadArr[] = new float[maxNumObstacles];  //Circle radii
 
@@ -896,11 +935,11 @@ ArrayList<Integer> curPath = new ArrayList<Integer>();
 //Generate non-colliding PRM nodes
  public void generateRandomNodes(int numNodes, Vec2[] circleCenters, float[] circleRadii){
   for (int i = 0; i < numNodes; i++){
-    Vec2 randPos = new Vec2(random(width),random(height));
+    Vec2 randPos = new Vec2(random(-sceneX*0.5f, sceneX*0.5f),random(-sceneZ*0.5f, sceneZ*0.5f));
     boolean insideAnyCircle = pointInCircleList(circleCenters,circleRadii,numObstacles,randPos,2);
     //boolean insideBox = pointInBox(boxTopLeft, boxW, boxH, randPos);
     while (insideAnyCircle){
-      randPos = new Vec2(random(width),random(height));
+      randPos = new Vec2(random(-sceneX*0.5f, sceneX*0.5f),random(-sceneZ*0.5f, sceneZ*0.5f));
       insideAnyCircle = pointInCircleList(circleCenters,circleRadii,numObstacles,randPos,2);
       //insideBox = pointInBox(boxTopLeft, boxW, boxH, randPos);
     }
@@ -966,40 +1005,53 @@ boolean reachedGoal;
 }
 
  public void testPRM(){
-  long startTime, endTime;
+    long startTime, endTime;
+
+    generateRandomNodes(numNodes, circlePosArr, circleRadArr);
+    connectNeighbors(circlePosArr, circleRadArr, numObstacles, nodePos, numNodes);
   
-  startPos = sampleFreePos();
-  goalPos = sampleFreePos();
-
-  generateRandomNodes(numNodes, circlePosArr, circleRadArr);
-  connectNeighbors(circlePosArr, circleRadArr, numObstacles, nodePos, numNodes);
+//   startTime = System.nanoTime();
+//   curPath = planPath(startPos, goalPos, circlePosArr, circleRadArr, numObstacles, nodePos, numNodes, 1);
+//   endTime = System.nanoTime();
+//   pathQuality();
   
-  startTime = System.nanoTime();
-  curPath = planPath(startPos, goalPos, circlePosArr, circleRadArr, numObstacles, nodePos, numNodes, 1);
-  endTime = System.nanoTime();
-  pathQuality();
-  
-  println("BFS Path:");
-  println("Nodes:", numNodes," Obstacles:", numObstacles," Time (us):", PApplet.parseInt((endTime-startTime)/1000),
-          " Path Len:", pathLength, " Path Segment:", curPath.size()+1,  " Num Collisions:", numCollisions, '\n');
+//   println("BFS Path:");
+//   println("Nodes:", numNodes," Obstacles:", numObstacles," Time (us):", int((endTime-startTime)/1000),
+//           " Path Len:", pathLength, " Path Segment:", curPath.size()+1,  " Num Collisions:", numCollisions, '\n');
 
-  startTime = System.nanoTime();
-  curPath = planPath(startPos, goalPos, circlePosArr, circleRadArr, numObstacles, nodePos, numNodes, 2);
-  endTime = System.nanoTime();
-  pathQuality();
+    startTime = System.nanoTime();
+    curPath = planPath(startPos, goalPos, circlePosArr, circleRadArr, numObstacles, nodePos, numNodes, 2);
+    endTime = System.nanoTime();
+    pathQuality();
 
-  println("A* Path:");
-  println("Nodes:", numNodes," Obstacles:", numObstacles," Time (us):", PApplet.parseInt((endTime-startTime)/1000),
-          " Path Len:", pathLength, " Path Segment:", curPath.size()+1,  " Num Collisions:", numCollisions, '\n');
+    println("A* Path:");
+    println("Nodes:", numNodes," Obstacles:", numObstacles," Time (us):", PApplet.parseInt((endTime-startTime)/1000),
+            " Path Len:", pathLength, " Path Segment:", curPath.size()+1,  " Num Collisions:", numCollisions, '\n');
+}
 
-  // startTime = System.nanoTime();
-  // curPath = planPath(startPos, goalPos, circlePosArr, circleRadArr, numObstacles, nodePos, numNodes, 3);
-  // endTime = System.nanoTime();
-  // pathQuality();
+//Returns true if the point is inside a circle
+//You must consider a point as colliding if it's distance is <= eps
+ public boolean pointInCircle(Vec2 center, float r, Vec2 pointPos, float eps){
+    float dist = pointPos.distanceTo(center);
+    if (dist < r+eps){ //small safety factor
+        return true;
+    }
+    return false;
+}
 
-  // println("New A* Path:");
-  // println("Nodes:", numNodes," Obstacles:", numObstacles," Time (us):", int((endTime-startTime)/1000),
-  //         " Path Len:", pathLength, " Path Segment:", curPath.size()+1,  " Num Collisions:", numCollisions, '\n');
+//Returns true if the point is inside a list of circle
+//You must consider a point as colliding if it's distance is <= eps
+ public boolean pointInCircleList(Vec2[] centers, float[] radii, int numObstacles, Vec2 pointPos, float eps){
+    for (int i = 0; i < numObstacles; i++){
+        if (validCircles[i]) {
+            Vec2 center =  centers[i];
+            float r = radii[i];
+            if (pointInCircle(center,r,pointPos, eps)){
+                return true;
+            }
+        } 
+    }
+    return false;
 }
 // Project 1 Part 2
 /////////////////////////////
@@ -1014,7 +1066,7 @@ int kiwiFrames = 4;
 PShape[] shapes = new PShape[kiwiFrames];
 int[] times = new int[kiwiFrames];
 PShape kiwi;
-int kiwiScale = 20;
+int kiwiScale = 10;
 float kiwiWidth = 1*kiwiScale; // units // Scale(10) --> 10 units
 float kiwiLength = 2.5f*kiwiScale; // units // Scale(10) --> 22.5 units
 float kiwiHeight = 1.75f*kiwiScale; // units // Scale(10) --> 17.5 units
@@ -1025,7 +1077,7 @@ float kiwi_framerate = 24;
 float kiwiYOffset = -0.71f*kiwiScale; // model starts below floor, offset height a bit to have it normal
 
 // agent info
-Vec3 agentVel = new Vec3(1,1,1);
+Vec2 agentVel = new Vec2(1,1);
 Vec3 agentPos = new Vec3(-sceneX/2+25,kiwiYOffset,-sceneZ/2+25);
 Vec2 startPos = new Vec2(-sceneX/2+25,-sceneZ/2+25);
 Vec2 goalPos = new Vec2(sceneX/2-25, sceneZ/2-25);
@@ -1059,10 +1111,17 @@ PImage conkcrete;
 // key state variables
 boolean moveObjects = false;
 boolean mouseCast = false;
+boolean paused = true;
 Vec3 mouseRay, mouseOrig;
 
 // pathing
-
+int indexCounter;
+int startNode;
+int currNode;
+Vec2 currPos;
+int nextNode;
+Vec2 nextPos;
+int goalNode;
 
  public void setup() {
     /* size commented out by preprocessor */;
@@ -1095,6 +1154,9 @@ Vec3 mouseRay, mouseOrig;
     sphereDetail(10);
 
     t = tbase;
+    for (int i = 0; i < maxNumObstacles; i++) {
+        validCircles[i] = false;
+    } 
 
     initiatePathfinding();
 }
@@ -1139,13 +1201,47 @@ Vec3 mouseRay, mouseOrig;
     kiwiTime = 0;
     kiwiSwitchFrame = 0;
     currFrame = 0;
+    initiatePathfinding();
 }
 
  public void initiatePathfinding() {
-
+    for (int i = 0; i < circlePos.size(); i++) {
+        Vec3 pos = circlePos.get(i);
+        float rad = circleColRad.get(i);
+        if (pos.y > -agentColRad*2-circleDrawRad.get(i)) {
+            validCircles[i] = true;
+        } 
+        circlePosArr[i] = new Vec2(pos.x, pos.z);
+        circleRadArr[i] = rad;
+    }
+    testPRM();
+    println(curPath);
+    indexCounter = 1;
+    startNode = curPath.get(0);
+    currNode = startNode; 
+    nextNode = curPath.get(1);
+    goalNode = curPath.get(curPath.size()-1);
+    currPos = nodePos[currNode];
+    nextPos = nodePos[nextNode];
+    agentVel = nextPos.minus(currPos).normalized().times(goalSpeed);
 }
- public void update() {
-    
+ public void update(float dt) {
+    println(agentPos.distanceTo(nextPos));
+    if (agentPos.distanceTo(nextPos) < 50) {
+        if (nextNode == goalNode) {
+            agentPos = new Vec3(goalPos.x, kiwiYOffset, goalPos.y);
+            agentVel = new Vec2(0,0);
+        } else {
+            indexCounter++;
+            currNode = nextNode;
+            currPos = nextPos;
+            nextNode = curPath.get(indexCounter);
+            nextPos = nodePos[nextNode];
+            agentVel = nextPos.minus(currPos);
+            agentVel = agentVel.normalized().times(goalSpeed);
+        }
+    }
+    agentPos.add(agentVel.times(dt));
 }
 
  public void updateKiwiFrame() {
@@ -1289,6 +1385,11 @@ public class Vec3 {
         z += rhs.z;
     }
 
+    public void add(Vec2 rhs) {
+        x+=rhs.x;
+        z+=rhs.y;
+    }
+
     public Vec3 minus(Vec3 rhs){
         return new Vec3(x-rhs.x, y-rhs.y, z-rhs.z);
     }
@@ -1346,6 +1447,12 @@ public class Vec3 {
         float dy = rhs.y - y;
         float dz = rhs.z - z;
         return sqrt(dx*dx + dy*dy + dz*dz);
+    }
+
+    public float distanceTo(Vec2 rhs) {
+        float dx = rhs.x - x;
+        float dz = rhs.y - z;
+        return (sqrt(dx*dx+dz*dz));
     }
 
     public void rotateAroundZ(float rad) {

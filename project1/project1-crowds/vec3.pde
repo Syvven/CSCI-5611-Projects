@@ -34,6 +34,11 @@ public class Vec3 {
         z += rhs.z;
     }
 
+    public void add(Vec2 rhs) {
+        x+=rhs.x;
+        z+=rhs.y;
+    }
+
     public Vec3 minus(Vec3 rhs){
         return new Vec3(x-rhs.x, y-rhs.y, z-rhs.z);
     }
@@ -91,6 +96,12 @@ public class Vec3 {
         float dy = rhs.y - y;
         float dz = rhs.z - z;
         return sqrt(dx*dx + dy*dy + dz*dz);
+    }
+
+    public float distanceTo(Vec2 rhs) {
+        float dx = rhs.x - x;
+        float dz = rhs.y - z;
+        return (sqrt(dx*dx+dz*dz));
     }
 
     public void rotateAroundZ(float rad) {
