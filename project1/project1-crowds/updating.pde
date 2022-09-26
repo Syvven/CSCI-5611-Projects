@@ -1,20 +1,27 @@
 void update(float dt) {
     println(agentPos.distanceTo(nextPos));
-    if (agentPos.distanceTo(nextPos) < 50) {
+    if (agentPos.distanceTo(nextPos) < goalSpeed*dt) {
         if (nextNode == goalNode) {
+            agentPos = new Vec3(nextPos.x, agentPos.y, nextPos.y);
+            nextPos = goalPos;
+            nextNode = -1;
+            agentVel = nextPos.minus(currPos).normalized().times(goalSpeed);
+        } else if (nextNode == -1) {
             agentPos = new Vec3(goalPos.x, kiwiYOffset, goalPos.y);
             agentVel = new Vec2(0,0);
         } else {
+            agentPos = new Vec3(nextPos.x, agentPos.y, nextPos.y);
             indexCounter++;
             currNode = nextNode;
             currPos = nextPos;
             nextNode = curPath.get(indexCounter);
             nextPos = nodePos[nextNode];
-            agentVel = nextPos.minus(currPos);
-            agentVel = agentVel.normalized().times(goalSpeed);
+            agentVel = nextPos.minus(currPos).normalized().times(goalSpeed);
         }
+    } else {
+        agentPos.add(agentVel.times(dt));
     }
-    agentPos.add(agentVel.times(dt));
+    
 }
 
 void updateKiwiFrame() {

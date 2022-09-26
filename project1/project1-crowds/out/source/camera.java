@@ -737,14 +737,9 @@ class hitInfo{
     colorMode(RGB, 255, 255, 255);
     drawKiwi();
     drawFloor();
-}
 
-// void draw(){
-//   //println("FrameRate:",frameRate);
-//   strokeWeight(1);
-//   background(200); //Grey background
-//   stroke(0,0,0);
-//   fill(255,255,255);
+    stroke(0,0,0);
+  fill(255,255,255);
   
   
 //   //Draw the circle obstacles
@@ -753,26 +748,26 @@ class hitInfo{
 //     float r = circleRadArr[i];
 //     circle(c.x,c.y,r*2);
 //   }
-//   //Draw the first circle a little special b/c the user controls it
+  //Draw the first circle a little special b/c the user controls it
 //   fill(240);
 //   strokeWeight(2);
 //   circle(circlePosArr[0].x,circlePosArr[0].y,circleRadArr[0]*2);
 //   strokeWeight(1);
   
-//   //Draw PRM Nodes
+  //Draw PRM Nodes
 //   fill(0);
 //   for (int i = 0; i < numNodes; i++){
 //     circle(nodePos[i].x,nodePos[i].y,5);
 //   }
   
-//   //Draw graph
-//   stroke(100,100,100);
-//   strokeWeight(1);
-//   for (int i = 0; i < numNodes; i++){
-//     for (int j : neighbors[i]){
-//       line(nodePos[i].x,nodePos[i].y,nodePos[j].x,nodePos[j].y);
-//     }
-//   }
+  //Draw graph
+  stroke(100,100,100);
+  strokeWeight(1);
+  for (int i = 0; i < numNodes; i++){
+    for (int j : neighbors[i]){
+      line(nodePos[i].x, 0, nodePos[i].y,nodePos[j].x,0,nodePos[j].y);
+    }
+  }
   
 //   //Draw Start and Goal
 //   fill(20,60,250);
@@ -782,22 +777,84 @@ class hitInfo{
 //   //circle(nodePos[goalNode].x,nodePos[goalNode].y,20);
 //   circle(goalPos.x,goalPos.y,20);
   
+  if (curPath.size() >0 && curPath.get(0) == -1) return; //No path found
+  
+  //Draw Planned Path
+  stroke(20,255,40);
+  strokeWeight(5);
+  if (curPath.size() == 0){
+    line(startPos.x,0,startPos.y,goalPos.x,0,goalPos.y);
+    return;
+  }
+  line(startPos.x,0,startPos.y,nodePos[curPath.get(0)].x,0,nodePos[curPath.get(0)].y);
+  for (int i = 0; i < curPath.size()-1; i++){
+    int curNode = curPath.get(i);
+    int nextNode = curPath.get(i+1);
+    line(nodePos[curNode].x,0,nodePos[curNode].y,nodePos[nextNode].x,0,nodePos[nextNode].y);
+  }
+  line(goalPos.x,0,goalPos.y,nodePos[curPath.get(curPath.size()-1)].x,0,nodePos[curPath.get(curPath.size()-1)].y);
+  
+}
+
+// void draw(){
+//   //println("FrameRate:",frameRate);
+//   strokeWeight(1);
+//   background(200); //Grey background
+// //   stroke(0,0,0);
+//   fill(255,255,255);
+  
+  
+// //   //Draw the circle obstacles
+// //   for (int i = 0; i < numObstacles; i++){
+// //     Vec2 c = circlePosArr[i];
+// //     float r = circleRadArr[i];
+// //     circle(c.x,c.y,r*2);
+// //   }
+//   //Draw the first circle a little special b/c the user controls it
+// //   fill(240);
+// //   strokeWeight(2);
+// //   circle(circlePosArr[0].x,circlePosArr[0].y,circleRadArr[0]*2);
+// //   strokeWeight(1);
+  
+//   //Draw PRM Nodes
+// //   fill(0);
+// //   for (int i = 0; i < numNodes; i++){
+// //     circle(nodePos[i].x,nodePos[i].y,5);
+// //   }
+  
+//   //Draw graph
+//   stroke(100,100,100);
+//   strokeWeight(1);
+//   for (int i = 0; i < numNodes; i++){
+//     for (int j : neighbors[i]){
+//       line(nodePos[i].x, 0, nodePos[i].y,nodePos[j].x,0,nodePos[j].y);
+//     }
+//   }
+  
+// //   //Draw Start and Goal
+// //   fill(20,60,250);
+// //   //circle(nodePos[startNode].x,nodePos[startNode].y,20);
+// //   circle(startPos.x,startPos.y,20);
+// //   fill(250,30,50);
+// //   //circle(nodePos[goalNode].x,nodePos[goalNode].y,20);
+// //   circle(goalPos.x,goalPos.y,20);
+  
 //   if (curPath.size() >0 && curPath.get(0) == -1) return; //No path found
   
 //   //Draw Planned Path
 //   stroke(20,255,40);
 //   strokeWeight(5);
 //   if (curPath.size() == 0){
-//     line(startPos.x,startPos.y,goalPos.x,goalPos.y);
+//     line(startPos.x,0,startPos.y,goalPos.x,0,goalPos.y);
 //     return;
 //   }
-//   line(startPos.x,startPos.y,nodePos[curPath.get(0)].x,nodePos[curPath.get(0)].y);
+//   line(startPos.x,0,startPos.y,nodePos[curPath.get(0)].x,0,nodePos[curPath.get(0)].y);
 //   for (int i = 0; i < curPath.size()-1; i++){
 //     int curNode = curPath.get(i);
 //     int nextNode = curPath.get(i+1);
-//     line(nodePos[curNode].x,nodePos[curNode].y,nodePos[nextNode].x,nodePos[nextNode].y);
+//     line(nodePos[curNode].x,0,nodePos[curNode].y,nodePos[nextNode].x,0,nodePos[nextNode].y);
 //   }
-//   line(goalPos.x,goalPos.y,nodePos[curPath.get(curPath.size()-1)].x,nodePos[curPath.get(curPath.size()-1)].y);
+//   line(goalPos.x,0,goalPos.y,nodePos[curPath.get(curPath.size()-1)].x,0,nodePos[curPath.get(curPath.size()-1)].y);
   
 // }
 
@@ -1216,32 +1273,39 @@ int goalNode;
     }
     testPRM();
     println(curPath);
-    indexCounter = 1;
+    indexCounter = 0;
     startNode = curPath.get(0);
     currNode = startNode; 
-    nextNode = curPath.get(1);
+    nextNode = startNode;
     goalNode = curPath.get(curPath.size()-1);
-    currPos = nodePos[currNode];
+    currPos = new Vec2(agentPos.x, agentPos.z);
     nextPos = nodePos[nextNode];
     agentVel = nextPos.minus(currPos).normalized().times(goalSpeed);
 }
  public void update(float dt) {
     println(agentPos.distanceTo(nextPos));
-    if (agentPos.distanceTo(nextPos) < 50) {
+    if (agentPos.distanceTo(nextPos) < goalSpeed*dt) {
         if (nextNode == goalNode) {
+            agentPos = new Vec3(nextPos.x, agentPos.y, nextPos.y);
+            nextPos = goalPos;
+            nextNode = -1;
+            agentVel = nextPos.minus(currPos).normalized().times(goalSpeed);
+        } else if (nextNode == -1) {
             agentPos = new Vec3(goalPos.x, kiwiYOffset, goalPos.y);
             agentVel = new Vec2(0,0);
         } else {
+            agentPos = new Vec3(nextPos.x, agentPos.y, nextPos.y);
             indexCounter++;
             currNode = nextNode;
             currPos = nextPos;
             nextNode = curPath.get(indexCounter);
             nextPos = nodePos[nextNode];
-            agentVel = nextPos.minus(currPos);
-            agentVel = agentVel.normalized().times(goalSpeed);
+            agentVel = nextPos.minus(currPos).normalized().times(goalSpeed);
         }
+    } else {
+        agentPos.add(agentVel.times(dt));
     }
-    agentPos.add(agentVel.times(dt));
+    
 }
 
  public void updateKiwiFrame() {

@@ -161,12 +161,12 @@ void initiatePathfinding() {
     }
     testPRM();
     println(curPath);
-    indexCounter = 1;
+    indexCounter = 0;
     startNode = curPath.get(0);
     currNode = startNode; 
-    nextNode = curPath.get(1);
+    nextNode = startNode;
     goalNode = curPath.get(curPath.size()-1);
-    currPos = nodePos[currNode];
+    currPos = new Vec2(agentPos.x, agentPos.z);
     nextPos = nodePos[nextNode];
     agentVel = nextPos.minus(currPos).normalized().times(goalSpeed);
 }
