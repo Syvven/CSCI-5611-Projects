@@ -32,6 +32,9 @@ public class Vec2 {
   }
   
   public Vec2 minus(Vec2 rhs){
+    if (rhs == null) {
+      return new Vec2(x, y);
+    }
     return new Vec2(x-rhs.x, y-rhs.y);
   }
   

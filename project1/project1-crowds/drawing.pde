@@ -28,31 +28,28 @@ void draw() {
 
     // used for understanding where the bounds of the scene are
     // drawBounds();
-    drawObstacles();
     // if (mouseCast) {
     //   drawMouseRay();
     // }
 
-    colorMode(HSB, 360, 100, 100);
-    lightFalloff(0.1, 0, 0);
-    spotLight(
-        360,100, 100,
-        agentPos.x, agentPos.y-80*kiwiScale, agentPos.z,
-        0,1,0,
-        ninety*0.25,
-        500
-    );
-    
-    colorMode(RGB, 255, 255, 255);
-    drawKiwi();
-    drawFloor();
+    // colorMode(HSB, 360, 100, 100);
+    // lightFalloff(0.1, 0, 0);
+    // spotLight(
+    //     360,100, 100,
+    //     agentPos.x, agentPos.y-80*kiwiScale, agentPos.z,
+    //     0,1,0,
+    //     ninety*0.25,
+    //     500
+    // );
+    // colorMode(RGB, 255, 255, 255);
 
-    stroke(0,0,0);
-    fill(255,255,255);
-  
+    // draws obstacles, agent and floor if you want
+    drawObstacles();
+    drawKiwi();
+    // drawFloor();
   
     //Draw graph
-    stroke(100,100,100);
+    stroke(50,50,50);
     strokeWeight(1);
     for (int i = 0; i < numNodes+2; i++){
         for (int j : neighbors[i]){
@@ -61,20 +58,20 @@ void draw() {
     }
 
     
-    if (curPath.size() >0 && curPath.get(0) == -1) return; //No path found
+    // if (curPath.size() >0 && curPath.get(0) == -1) return; //No path found
     
-    //Draw Planned Path
-    stroke(20,255,40);
-    strokeWeight(5);
-    if (curPath.size() == 0){
-        line(startPos.x,0,startPos.y,goalPos.x,0,goalPos.y);
-        return;
-    }
-    for (int i = 0; i < curPath.size()-1; i++){
-        int curNode = curPath.get(i);
-        int nextNode = curPath.get(i+1);
-        line(newNodePos[curNode].x,0,newNodePos[curNode].y,newNodePos[nextNode].x,0,newNodePos[nextNode].y);
-    }
+    // //Draw Planned Path
+    // stroke(20,255,40);
+    // strokeWeight(5);
+    // if (curPath.size() == 0){
+    //     line(startPos.x,0,startPos.y,goalPos.x,0,goalPos.y);
+    //     return;
+    // }
+    // for (int i = 0; i < curPath.size()-1; i++){
+    //     int curNode = curPath.get(i);
+    //     int nextNode = curPath.get(i+1);
+    //     line(newNodePos[curNode].x,0,newNodePos[curNode].y,newNodePos[nextNode].x,0,newNodePos[nextNode].y);
+    // }
 }
 
 // draws coordinate system of scene for debugging
@@ -96,37 +93,36 @@ void drawBounds() {
     line(0,0,0,0,0,-3000);
 }
 
-// drawing borders of the scene
-void drawFloor() {
-    noStroke();
-    fill(11, 43, 20);
-    float x = sceneX/100;
-    float z = sceneZ/100;
-    for (int i = 0; i < 100; i++) {
-        for (int j = 0; j < 100; j++) {
-            pushMatrix();
-                translate((-sceneX*0.5) + i*x, 5, (-sceneZ*0.5) + j*z);
-                box(x, 10, z);
-            popMatrix();
-        }
-    }
-    strokeWeight(strokeWidth);
-}
+// // drawing borders of the scene
+// void drawFloor() {
+//     noStroke();
+//     fill(1,0,0);
+//     float x = sceneX/100;
+//     float z = sceneZ/100;
+//     for (int i = 0; i < 100; i++) {
+//         for (int j = 0; j < 100; j++) {
+//             pushMatrix();
+//                 translate((-sceneX*0.5) + i*x, 5, (-sceneZ*0.5) + j*z);
+//                 box(x, 10, z);
+//             popMatrix();
+//         }
+//     }
+//     strokeWeight(strokeWidth);
+// }
 
 // draw obstacles :)
 void drawObstacles() {
-    noStroke();
+    noFill();
     for (int i = 0; i < numObstacles; i++) {
         Vec3 currPos = circlePos.get(i);
         Vec3 currCol = circleColor.get(i);
         float currRad = circleDrawRad.get(i);
-        fill(currCol.x, currCol.y, currCol.z);
+        // fill(currCol.x, currCol.y, currCol.z);
         pushMatrix();
             translate(currPos.x, currPos.y, currPos.z);
-            sphere(currRad);
+            shape(circleShape.get(i));
         popMatrix();
     }   
-    strokeWeight(strokeWidth);
 }
 
 // void drawMouseRay() {
@@ -149,6 +145,8 @@ void drawKiwi() {
         scale(kiwiScale);
         shape(shapes[currFrame]);
     popMatrix();
+
+    // draws the collision
     // pushMatrix();
     //     noFill();
     //     strokeWeight(strokeWidth);

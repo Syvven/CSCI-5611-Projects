@@ -3,7 +3,7 @@ static int numNodes  = 200;
   
 //A list of circle obstacles
 static int maxNumObstacles = 1000;
-static int initObstacles = 200;
+static int initObstacles = 250;
 int numObstacles = initObstacles;
 boolean[] validCircles = new boolean[maxNumObstacles];
 Vec2 circlePosArr[] = new Vec2[maxNumObstacles]; //Circle positions
@@ -50,9 +50,9 @@ void pathQuality(){
     return;
   }
   
-  segmentLength = startPos.distanceTo(nodePos[curPath.get(1)]);
+  segmentLength = startPos.distanceTo(newNodePos[curPath.get(1)]);
   pathLength += segmentLength;
-  dir = nodePos[curPath.get(1)].minus(startPos).normalized();
+  dir = newNodePos[curPath.get(1)].minus(startPos).normalized();
   hit = rayCircleListIntersect(circlePosArr, circleRadArr, numObstacles, startPos, dir, segmentLength);
   if (hit.hit) numCollisions += 1;
   
@@ -60,18 +60,18 @@ void pathQuality(){
   for (int i = 1; i < curPath.size()-2; i++){
     int curNode = curPath.get(i);
     int nextNode = curPath.get(i+1);
-    segmentLength = nodePos[curNode].distanceTo(nodePos[nextNode]);
+    segmentLength = newNodePos[curNode].distanceTo(newNodePos[nextNode]);
     pathLength += segmentLength;
     
-    dir = nodePos[nextNode].minus(nodePos[curNode]).normalized();
+    dir = newNodePos[nextNode].minus(newNodePos[curNode]).normalized();
     hit = rayCircleListIntersect(circlePosArr, circleRadArr, numObstacles, nodePos[curNode], dir, segmentLength);
     if (hit.hit) numCollisions += 1;
   }
   
   int lastNode = curPath.get(curPath.size()-2);
-  segmentLength = nodePos[lastNode].distanceTo(goalPos);
+  segmentLength = newNodePos[lastNode].distanceTo(goalPos);
   pathLength += segmentLength;
-  dir = goalPos.minus(nodePos[lastNode]).normalized();
+  dir = goalPos.minus(newNodePos[lastNode]).normalized();
   hit = rayCircleListIntersect(circlePosArr, circleRadArr, numObstacles, nodePos[lastNode], dir, segmentLength);
   if (hit.hit) numCollisions += 1;
 }
