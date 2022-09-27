@@ -96,7 +96,7 @@ void setup() {
     times[0] = 5; times[2] = 5;
     times[1] = 2; times[3] = 2;
     
-    sphereDetail(10);
+    sphereDetail(15);
 
     t = tbase;
     for (int i = 0; i < maxNumObstacles; i++) {
@@ -143,30 +143,30 @@ void placeRandomObstacles(){
 
 void reset() {
     placeRandomObstacles();
+    initiatePathfinding();
     kiwiTime = 0;
     kiwiSwitchFrame = 0;
     currFrame = 0;
-    initiatePathfinding();
+    agentPos = new Vec3(startPos.x, kiwiYOffset, startPos.y);
 }
 
 void initiatePathfinding() {
     for (int i = 0; i < circlePos.size(); i++) {
         Vec3 pos = circlePos.get(i);
         float rad = circleColRad.get(i);
-        if (pos.y > -agentColRad*2-circleDrawRad.get(i)) {
+        if (pos.y+circleDrawRad.get(i) > -agentColRad*2) {
             validCircles[i] = true;
         } 
         circlePosArr[i] = new Vec2(pos.x, pos.z);
         circleRadArr[i] = rad;
     }
     testPRM();
-    println(curPath);
     indexCounter = 0;
     startNode = curPath.get(0);
     currNode = startNode; 
     nextNode = startNode;
     goalNode = curPath.get(curPath.size()-1);
     currPos = new Vec2(agentPos.x, agentPos.z);
-    nextPos = nodePos[nextNode];
+    nextPos = newNodePos[nextNode];
     agentVel = nextPos.minus(currPos).normalized().times(goalSpeed);
 }

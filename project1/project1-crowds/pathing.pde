@@ -41,7 +41,7 @@ void pathQuality(){
   
   pathLength = 0; numCollisions = 0;
   
-  if (curPath.size() == 0 ){ //Path found with no nodes (direct start-to-goal path)
+  if (curPath.size() == 2){ //Path found with no nodes (direct start-to-goal path)
     segmentLength = startPos.distanceTo(goalPos);
     pathLength += segmentLength;
     dir = goalPos.minus(startPos).normalized();
@@ -50,14 +50,14 @@ void pathQuality(){
     return;
   }
   
-  segmentLength = startPos.distanceTo(nodePos[curPath.get(0)]);
+  segmentLength = startPos.distanceTo(nodePos[curPath.get(1)]);
   pathLength += segmentLength;
-  dir = nodePos[curPath.get(0)].minus(startPos).normalized();
+  dir = nodePos[curPath.get(1)].minus(startPos).normalized();
   hit = rayCircleListIntersect(circlePosArr, circleRadArr, numObstacles, startPos, dir, segmentLength);
   if (hit.hit) numCollisions += 1;
   
   
-  for (int i = 0; i < curPath.size()-1; i++){
+  for (int i = 1; i < curPath.size()-2; i++){
     int curNode = curPath.get(i);
     int nextNode = curPath.get(i+1);
     segmentLength = nodePos[curNode].distanceTo(nodePos[nextNode]);
@@ -68,7 +68,7 @@ void pathQuality(){
     if (hit.hit) numCollisions += 1;
   }
   
-  int lastNode = curPath.get(curPath.size()-1);
+  int lastNode = curPath.get(curPath.size()-2);
   segmentLength = nodePos[lastNode].distanceTo(goalPos);
   pathLength += segmentLength;
   dir = goalPos.minus(nodePos[lastNode]).normalized();
@@ -88,6 +88,7 @@ Vec2 sampleFreePos(){
 
 void testPRM(){
     long startTime, endTime;
+    curPath.clear();
 
     generateRandomNodes(numNodes, circlePosArr, circleRadArr);
     connectNeighbors(circlePosArr, circleRadArr, numObstacles, nodePos, numNodes);
@@ -102,7 +103,7 @@ void testPRM(){
 //           " Path Len:", pathLength, " Path Segment:", curPath.size()+1,  " Num Collisions:", numCollisions, '\n');
 
     startTime = System.nanoTime();
-    curPath = planPath(startPos, goalPos, circlePosArr, circleRadArr, numObstacles, nodePos, numNodes, 2);
+    curPath = planPath(startPos, goalPos, circlePosArr, circleRadArr, numObstacles, nodePos, numNodes);
     endTime = System.nanoTime();
     pathQuality();
 

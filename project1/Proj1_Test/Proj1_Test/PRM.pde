@@ -42,151 +42,185 @@ import java.util.PriorityQueue;
 
 //Here, we represent our graph structure as a neighbor list
 //You can use any graph representation you like
-ArrayList<Integer>[] neighbors = new ArrayList[maxNumNodes];  //A list of neighbors can can be reached from a given node
+ArrayList<Integer>[] neighbors = new ArrayList[maxNumNodes+2];  //A list of neighbors can can be reached from a given node
 //We also want some help arrays to keep track of some information about nodes we've visited
-Boolean[] visited = new Boolean[maxNumNodes]; //A list which store if a given node has been visited
-int[] parent = new int[maxNumNodes]; //A list which stores the best previous node on the optimal path to reach this node
+Boolean[] visited = new Boolean[maxNumNodes+2]; //A list which store if a given node has been visited
+int[] parent = new int[maxNumNodes+2]; //A list which stores the best previous node on the optimal path to reach this node
 Vec2[] obstCenters;
 float[] obstRadii;
 int numObst;
-PriorityQueue<Float>[] closed = new PriorityQueue[numNodes];
-PriorityQueue<Node>[] open = new PriorityQueue[numNodes];
+Vec2[] newNodePos = new Vec2[numNodes+2];
+PriorityQueue<Float>[] closedd = new PriorityQueue[numNodes+2];
+PriorityQueue<Node>[] open = new PriorityQueue[numNodes+2];
+
+PriorityQueue<Node> closed = new PriorityQueue<Node>(numNodes);
+PriorityQueue<Node> fringe = new PriorityQueue<Node>(numNodes);
+
+ArrayList<Integer> path = new ArrayList();
 
 //Set which nodes are connected to which neighbors (graph edges) based on PRM rules
 void connectNeighbors(Vec2[] centers, float[] radii, int numObstacles, Vec2[] nodePos, int numNodes){
   obstCenters = centers;
   obstRadii = radii;
   numObst = numObstacles;
-  for (int i = 0; i < numNodes; i++){
+
+  for (int i = 0; i < numNodes; i++) {
+    newNodePos[i+1] = nodePos[i];
+  }
+
+  for (int i = 1; i < numNodes+1; i++){
     neighbors[i] = new ArrayList<Integer>();  //Clear neighbors list
-    for (int j = 0; j < numNodes; j++){
+    for (int j = 1; j < numNodes+1; j++){
       if (i == j) continue; //don't connect to myself 
-      Vec2 dir = nodePos[j].minus(nodePos[i]).normalized();
-      float distBetween = nodePos[i].distanceTo(nodePos[j]);
-      hitInfo circleListCheck = rayCircleListIntersect(centers, radii, numObstacles, nodePos[i], dir, distBetween);
+      Vec2 dir = newNodePos[j].minus(newNodePos[i]).normalized();
+      float distBetween = newNodePos[i].distanceTo(newNodePos[j]);
+      hitInfo circleListCheck = rayCircleListIntersect(centers, radii, numObstacles, newNodePos[i], dir, distBetween);
       if (!circleListCheck.hit){
         neighbors[i].add(j);
-      }
+      } 
     }
   }
 }
 
 //This is probably a bad idea and you shouldn't use it...
-int closestNode(Vec2 start, Vec2 goal, Vec2[] nodePos, int numNodes){
-  int closestID = -1;
-  float minDist = 999999;
-  for (int i = 0; i < numNodes; i++){
-    float distToGoal = nodePos[i].distanceTo(goal);
-    float dist = nodePos[i].distanceTo(start);
-    float totalDist = dist + distToGoal;
-    Vec2 dir = start.minus(nodePos[i]).normalized();
-    hitInfo hit = rayCircleListIntersect(obstCenters, obstRadii, numObst, nodePos[i], dir, dist);
-    if (totalDist < minDist && !hit.hit && neighbors[i].size() > 0){
-      closestID = i;
-      minDist = totalDist;
+void connectStartAndGoal(int numNodes, Vec2[] centers, float[] radii, int numObstacles) {
+  neighbors[0] = new ArrayList<Integer>();
+  neighbors[numNodes-1] = new ArrayList<Integer>();
+
+  for (int i = 0; i < numNodes; i++) {
+    if (i != 0) {
+      Vec2 dir = newNodePos[i].minus(newNodePos[0]).normalized();
+      float distBetween = newNodePos[0].distanceTo(newNodePos[i]);
+      hitInfo circleListCheck = rayCircleListIntersect(centers, radii, numObstacles, newNodePos[0], dir, distBetween);
+      if (!circleListCheck.hit){
+        neighbors[0].add(i);
+      }
+    }
+    if (i != numNodes-1) {
+      Vec2 dir = newNodePos[i].minus(newNodePos[numNodes-1]).normalized();
+      float distBetween = newNodePos[numNodes-1].distanceTo(newNodePos[i]);
+      hitInfo circleListCheck = rayCircleListIntersect(centers, radii, numObstacles, newNodePos[numNodes-1], dir, distBetween);
+      if (!circleListCheck.hit){
+        neighbors[i].add(numNodes-1);
+      }
     }
   }
-  return closestID;
 }
 
 ArrayList<Integer> planPath(Vec2 startPos, Vec2 goalPos, Vec2[] centers, float[] radii, int numObstacles, Vec2[] nodePos, int numNodes){
-  ArrayList<Integer> path = new ArrayList();
+  path.clear();
+
+  newNodePos[0] = startPos;
+  newNodePos[numNodes+1] = goalPos;
   
-  int startID = closestNode(startPos, goalPos, nodePos, numNodes);
-  int goalID = closestNode(goalPos, startID != -1 ? nodePos[startID] : goalPos, nodePos, numNodes);
+  connectStartAndGoal(numNodes+2, centers, radii, numObstacles);
   
-  path = runAStar(nodePos, numNodes, startID, goalID);
+  path = runAStar(newNodePos, numNodes+2, 0, numNodes+1);
   
+  if (path.size() > 1) {
+    path.remove(path.size()-1);
+    path.remove(0);
+  }
+
   return path;
 }
 
-ArrayList<Integer> planPath(Vec2 startPos, Vec2 goalPos, Vec2[] centers, float[] radii, int numObstacles, Vec2[] nodePos, int numNodes, int debug){
-  ArrayList<Integer> path = new ArrayList();
+// ArrayList<Integer> planPath(Vec2 startPos, Vec2 goalPos, Vec2[] centers, float[] radii, int numObstacles, Vec2[] nodePos, int numNodes, int debug){
+//   ArrayList<Integer> path = new ArrayList();
   
-  int startID = closestNode(startPos, goalPos, nodePos, numNodes);
-  int goalID = closestNode(goalPos, startID != -1 ? nodePos[startID] : goalPos, nodePos, numNodes);
+//   newNodePos[0] = startPos;
+//   newNodePos[numNodes+1] = goalPos;
   
-  if (debug == 2) {
-    // A*
-    path = runAStar(nodePos, numNodes, startID, goalID);
-  } else if (debug == 1) {
-    // BFS
-    path = runBFS(nodePos, numNodes, startID, goalID);
-  } else if (debug == 3) {
-    path = runAStarNew(nodePos, numNodes, startID, goalID);
-  } else {
-    println("Please input a valid algorithm number.");
-    path.add(0,-1);
-  }
   
-  return path;
-}
+  
+//   if (debug == 2) {
+//     // A*
+//     connectStartAndGoal(numNodes+2, centers, radii, numObstacles);
+//     path = runAStar(newNodePos, numNodes+2, 0, numNodes+1);
+//   } else if (debug == 1) {
+//     // BFS
+//     connectStartAndGoal(numNodes+2, centers, radii, numObstacles);
+//     path = runBFS(newNodePos, numNodes+2, 0, numNodes+1);
+//   // } else if (debug == 3) {
+//   //   path = runAStarNew(newNodePos, numNodes+2, 0, numNodes+1);
+//   } else {
+//     println("Please input a valid algorithm number.");
+//     path.add(0,-1);
+//   }
+  
+//   if (path.size() > 1) {
+//     path.remove(path.size()-1);
+//     path.remove(0);
+//   }
 
-//BFS (Breadth First Search)
-ArrayList<Integer> runBFS(Vec2[] nodePos, int numNodes, int startID, int goalID){
-  ArrayList<Integer> fringe = new ArrayList();  //New empty fringe
-  ArrayList<Integer> path = new ArrayList();
+//   return path;
+// }
 
-  if (startID == -1 || goalID == -1) {
-    path.add(0, -1);
-    return path;
-  }
+// //BFS (Breadth First Search)
+// ArrayList<Integer> runBFS(Vec2[] nodePos, int numNodes, int startID, int goalID){
+//   ArrayList<Integer> fringe = new ArrayList();  //New empty fringe
+//   ArrayList<Integer> path = new ArrayList();
 
-  if (startID == goalID) {
-    path.add(0, startID);
-    return path;
-  }
+//   // if (startID == -1 || goalID == -1) {
+//   //   path.add(0, -1);
+//   //   return path;
+//   // }
 
-  for (int i = 0; i < numNodes; i++) { //Clear visit tags and parent pointers
-    visited[i] = false;
-    parent[i] = -1; //No parent yet
-  }
+//   // if (startID == goalID) {
+//   //   path.add(0, startID);
+//   //   return path;
+//   // }
 
-  //println("\nBeginning Search");
+//   for (int i = 0; i < numNodes; i++) { //Clear visit tags and parent pointers
+//     visited[i] = false;
+//     parent[i] = -1; //No parent yet
+//   }
+
+//   //println("\nBeginning Search");
   
-  visited[startID] = true;
-  fringe.add(startID);
-  //println("Adding node", startID, "(start) to the fringe.");
-  //println(" Current Fringe: ", fringe);
+//   visited[startID] = true;
+//   fringe.add(startID);
+//   //println("Adding node", startID, "(start) to the fringe.");
+//   //println(" Current Fringe: ", fringe);
   
-  while (fringe.size() > 0){
-    int currentNode = fringe.get(0);
-    fringe.remove(0);
-    if (currentNode == goalID){
-      //println("Goal found!");
-      break;
-    }
-    for (int i = 0; i < neighbors[currentNode].size(); i++){
-      int neighborNode = neighbors[currentNode].get(i);
-      if (!visited[neighborNode]){
-        visited[neighborNode] = true;
-        parent[neighborNode] = currentNode;
-        fringe.add(neighborNode);
-        //println("Added node", neighborNode, "to the fringe.");
-        //println(" Current Fringe: ", fringe);
-      }
-    } 
-  }
+//   while (fringe.size() > 0){
+//     int currentNode = fringe.get(0);
+//     fringe.remove(0);
+//     if (currentNode == goalID){
+//       //println("Goal found!");
+//       break;
+//     }
+//     for (int i = 0; i < neighbors[currentNode].size(); i++){
+//       int neighborNode = neighbors[currentNode].get(i);
+//       if (!visited[neighborNode]){
+//         visited[neighborNode] = true;
+//         parent[neighborNode] = currentNode;
+//         fringe.add(neighborNode);
+//         //println("Added node", neighborNode, "to the fringe.");
+//         //println(" Current Fringe: ", fringe);
+//       }
+//     } 
+//   }
   
-  if (fringe.size() == 0){
-    //println("No Path");
-    path.add(0,-1);
-    return path;
-  }
+//   if (fringe.size() == 0){
+//     //println("No Path");
+//     path.add(0,-1);
+//     return path;
+//   }
     
-  //print("\nReverse path: ");
-  int prevNode = parent[goalID];
-  path.add(0,goalID);
-  //print(goalID, " ");
-  while (prevNode >= 0){
-    //print(prevNode," ");
-    path.add(0,prevNode);
-    prevNode = parent[prevNode];
-  }
-  //print("\n");
+//   //print("\nReverse path: ");
+//   int prevNode = parent[goalID];
+//   path.add(0,goalID);
+//   //print(goalID, " ");
+//   while (prevNode >= 0){
+//     //print(prevNode," ");
+//     path.add(0,prevNode-1);
+//     prevNode = parent[prevNode];
+//   }
+//   //print("\n");
   
-  return path;
-}
+//   return path;
+// }
 
 class Node implements Comparable<Node> {
   public Float g;
@@ -214,28 +248,22 @@ class Node implements Comparable<Node> {
   public int compareTo(Node n2) {
     return this.cost.compareTo(n2.cost);
   }
+
+  public String toString() {
+    return this.id + "";
+  }
 }
 
 float heuristic1(int currNode, int goalNode, Vec2[] nodePos) {
   return nodePos[currNode].distanceTo(nodePos[goalNode]);
 }
 
-ArrayList<Integer> runAStar(Vec2[] nodePos, int numNodes, int startID, int goalID) {
-  PriorityQueue<Node> closed = new PriorityQueue<Node>(numNodes);
-  PriorityQueue<Node> fringe = new PriorityQueue<Node>(numNodes);
+ArrayList<Integer> runAStar(Vec2[] nodePos, int nNodes, int startID, int goalID) {
+  closed.clear();
+  fringe.clear();
   ArrayList<Integer> path = new ArrayList();
 
-  if (startID == -1 || goalID == -1) {
-    path.add(0, -1);
-    return path;
-  }
-
-  if (startID == goalID) {
-    path.add(0, startID);
-    return path;
-  }
-
-  for (int i = 0; i < numNodes; i++) { //Clear visit tags and parent pointers
+  for (int i = 0; i < nNodes; i++) { //Clear visit tags and parent pointers
     parent[i] = -1; //No parent yet
   }
 
@@ -302,7 +330,7 @@ ArrayList<Integer> runAStar(Vec2[] nodePos, int numNodes, int startID, int goalI
   // print(goalID, " ");
   while (prevNode >= 0){
     //print(prevNode," ");
-    path.add(0,prevNode);
+    path.add(0,prevNode-1);
     prevNode = parent[prevNode];
   }
   //print("\n");
@@ -310,95 +338,95 @@ ArrayList<Integer> runAStar(Vec2[] nodePos, int numNodes, int startID, int goalI
   return path;
 }
 
-// temporary duplicate so as to not lose code
-ArrayList<Integer> runAStarNew(Vec2[] nodePos, int numNodes, int startID, int goalID) {
-  PriorityQueue<Node> fringe = new PriorityQueue<Node>();
-  ArrayList<Integer> path = new ArrayList();
+// // temporary duplicate so as to not lose code
+// ArrayList<Integer> runAStarNew(Vec2[] nodePos, int numNodes, int startID, int goalID) {
+//   PriorityQueue<Node> fringe = new PriorityQueue<Node>();
+//   ArrayList<Integer> path = new ArrayList();
 
-  if (startID == -1 || goalID == -1) {
-    path.add(0, -1);
-    return path;
-  }
+//   if (startID == -1 || goalID == -1) {
+//     path.add(0, -1);
+//     return path;
+//   }
 
-  if (startID == goalID) {
-    path.add(0, startID);
-    return path;
-  }
+//   if (startID == goalID) {
+//     path.add(0, startID);
+//     return path;
+//   }
 
-  for (int i = 0; i < numNodes; i++) { //Clear visit tags and parent pointers
-    parent[i] = -1; //No parent yet
-    closed[i] = new PriorityQueue<Float>();
-    open[i] = new PriorityQueue<Node>();
-  }
+//   for (int i = 0; i < numNodes; i++) { //Clear visit tags and parent pointers
+//     parent[i] = -1; //No parent yet
+//     closed[i].clear();
+//     open[i].clear();
+//   }
 
-  //println("\nBeginning Search");
+//   //println("\nBeginning Search");
   
-  fringe.offer(new Node(startID, 0, heuristic1(startID, goalID, nodePos)));
-  while (fringe.size() > 0){
-    Node currentNode = fringe.poll();
-    open[currentNode.id].poll();
-    if (currentNode.id == goalID){
-      break;
-    }
+//   fringe.offer(new Node(startID, 0, heuristic1(startID, goalID, nodePos)));
+//   while (fringe.size() > 0){
+//     Node currentNode = fringe.poll();
+//     open[currentNode.id].poll();
+//     if (currentNode.id == goalID){
+//       break;
+//     }
     
-    for (int i = 0; i < neighbors[currentNode.id].size(); i++){
-      int neighborNodeID = neighbors[currentNode.id].get(i);
-      Node neighbor = new Node(
-        neighborNodeID, 
-        currentNode.g + nodePos[currentNode.id].distanceTo(nodePos[neighborNodeID]),
-        heuristic1(neighborNodeID, goalID, nodePos)
-      );
+//     for (int i = 0; i < neighbors[currentNode.id].size(); i++){
+//       int neighborNodeID = neighbors[currentNode.id].get(i);
+//       Node neighbor = new Node(
+//         neighborNodeID, 
+//         currentNode.g + nodePos[currentNode.id].distanceTo(nodePos[neighborNodeID]),
+//         heuristic1(neighborNodeID, goalID, nodePos)
+//       );
 
-      if (open[neighbor.id].size() > 0) {
-        // if (open[neighbor.id].peek() <= neighbor.g) continue;
-        boolean cont = false;
-        for (Node n : fringe) {
-          if (n.g <= neighbor.g && n.equals(neighbor)) {
-            cont = true;
-            break;
-          }
-        }
-        if (cont) {
-          continue;
-        }
-      } else if (closed[neighbor.id].size() > 0) {
-        if (closed[neighbor.id].peek() <= neighbor.g) continue;
-        else {
-          Node n = new Node(
-            neighbor.id,
-            closed[neighbor.id].poll(),
-            heuristic1(neighbor.id, goalID, nodePos)
-          );
-          fringe.offer(n);
-          open[neighbor.id].offer(n);
-        }
-      } else {
-        fringe.offer(neighbor);
-      }
-      parent[neighbor.id] = currentNode.id;
-    } 
-    closed[currentNode.id].offer(currentNode.g);
-  }
+//       if (open[neighbor.id].size() > 0) {
+//         // if (open[neighbor.id].peek() <= neighbor.g) continue;
+//         boolean cont = false;
+//         for (Node n : fringe) {
+//           if (n.g <= neighbor.g && n.equals(neighbor)) {
+//             cont = true;
+//             break;
+//           }
+//         }
+//         if (cont) {
+//           continue;
+//         }
+//       } else if (closed[neighbor.id].size() > 0) {
+//         if (closed[neighbor.id].peek() <= neighbor.g) continue;
+//         else {
+//           Node n = new Node(
+//             neighbor.id,
+//             closed[neighbor.id].poll(),
+//             heuristic1(neighbor.id, goalID, nodePos)
+//           );
+//           fringe.offer(n);
+//           open[neighbor.id].offer(n);
+//         }
+//       } else {
+//         fringe.offer(neighbor);
+//       }
+//       parent[neighbor.id] = currentNode.id;
+//     } 
+//     closed[currentNode.id].offer(currentNode.g);
+//   }
 
-  if (fringe.size() == 0){
-    //println("No Path");
-    path.add(0,-1);
-    return path;
-  }
+//   if (fringe.size() == 0){
+//     //println("No Path");
+//     path.add(0,-1);
+//     return path;
+//   }
     
-  //print("\nReverse path: ");
-  int prevNode = parent[goalID];
-  path.add(0,goalID);
-  // print(goalID, " ");
-  while (prevNode >= 0){
-    //print(prevNode," ");
-    path.add(0,prevNode);
-    prevNode = parent[prevNode];
-  }
-  //print("\n");
+//   //print("\nReverse path: ");
+//   int prevNode = parent[goalID];
+//   path.add(0,goalID);
+//   // print(goalID, " ");
+//   while (prevNode >= 0){
+//     //print(prevNode," ");
+//     path.add(0,prevNode);
+//     prevNode = parent[prevNode];
+//   }
+//   //print("\n");
   
-  return path;
-}
+//   return path;
+// }
 
 // // iteratively deepens the dls
 // ArrayList<Integer> runIDDFS(ArrayList<Integer>[] graph, int start, int goal) {

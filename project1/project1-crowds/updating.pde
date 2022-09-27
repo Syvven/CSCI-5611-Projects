@@ -1,5 +1,4 @@
 void update(float dt) {
-    println(agentPos.distanceTo(nextPos));
     if (agentPos.distanceTo(nextPos) < goalSpeed*dt) {
         if (nextNode == goalNode) {
             agentPos = new Vec3(nextPos.x, agentPos.y, nextPos.y);
@@ -15,13 +14,12 @@ void update(float dt) {
             currNode = nextNode;
             currPos = nextPos;
             nextNode = curPath.get(indexCounter);
-            nextPos = nodePos[nextNode];
+            nextPos = newNodePos[nextNode];
             agentVel = nextPos.minus(currPos).normalized().times(goalSpeed);
         }
     } else {
         agentPos.add(agentVel.times(dt));
     }
-    
 }
 
 void updateKiwiFrame() {

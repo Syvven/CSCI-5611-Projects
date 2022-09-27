@@ -274,149 +274,81 @@ class Camera
 
 //Here, we represent our graph structure as a neighbor list
 //You can use any graph representation you like
-ArrayList<Integer>[] neighbors = new ArrayList[maxNumNodes];  //A list of neighbors can can be reached from a given node
+ArrayList<Integer>[] neighbors = new ArrayList[maxNumNodes+2];  //A list of neighbors can can be reached from a given node
 //We also want some help arrays to keep track of some information about nodes we've visited
-Boolean[] visited = new Boolean[maxNumNodes]; //A list which store if a given node has been visited
-int[] parent = new int[maxNumNodes]; //A list which stores the best previous node on the optimal path to reach this node
+Boolean[] visited = new Boolean[maxNumNodes+2]; //A list which store if a given node has been visited
+int[] parent = new int[maxNumNodes+2]; //A list which stores the best previous node on the optimal path to reach this node
 Vec2[] obstCenters;
 float[] obstRadii;
 int numObst;
-PriorityQueue<Float>[] closed = new PriorityQueue[numNodes];
-PriorityQueue<Node>[] open = new PriorityQueue[numNodes];
+Vec2[] newNodePos = new Vec2[numNodes+2];
+PriorityQueue<Float>[] closedd = new PriorityQueue[numNodes+2];
+PriorityQueue<Node>[] open = new PriorityQueue[numNodes+2];
+
+PriorityQueue<Node> closed = new PriorityQueue<Node>(numNodes);
+PriorityQueue<Node> fringe = new PriorityQueue<Node>(numNodes+2);
+
+ArrayList<Integer> path = new ArrayList();
 
 //Set which nodes are connected to which neighbors (graph edges) based on PRM rules
  public void connectNeighbors(Vec2[] centers, float[] radii, int numObstacles, Vec2[] nodePos, int numNodes){
   obstCenters = centers;
   obstRadii = radii;
   numObst = numObstacles;
-  for (int i = 0; i < numNodes; i++){
+
+  for (int i = 0; i < numNodes; i++) {
+    newNodePos[i+1] = nodePos[i];
+  }
+
+  for (int i = 1; i < numNodes+1; i++){
     neighbors[i] = new ArrayList<Integer>();  //Clear neighbors list
-    for (int j = 0; j < numNodes; j++){
+    for (int j = 1; j < numNodes+1; j++){
       if (i == j) continue; //don't connect to myself 
-      Vec2 dir = nodePos[j].minus(nodePos[i]).normalized();
-      float distBetween = nodePos[i].distanceTo(nodePos[j]);
-      hitInfo circleListCheck = rayCircleListIntersect(centers, radii, numObstacles, nodePos[i], dir, distBetween);
+      Vec2 dir = newNodePos[j].minus(newNodePos[i]).normalized();
+      float distBetween = newNodePos[i].distanceTo(newNodePos[j]);
+      hitInfo circleListCheck = rayCircleListIntersect(centers, radii, numObstacles, newNodePos[i], dir, distBetween);
       if (!circleListCheck.hit){
         neighbors[i].add(j);
-      }
+      } 
     }
   }
 }
 
 //This is probably a bad idea and you shouldn't use it...
- public int closestNode(Vec2 start, Vec2 goal, Vec2[] nodePos, int numNodes){
-  int closestID = -1;
-  float minDist = 999999;
-  for (int i = 0; i < numNodes; i++){
-    float distToGoal = nodePos[i].distanceTo(goal);
-    float dist = nodePos[i].distanceTo(start);
-    float totalDist = dist + distToGoal;
-    Vec2 dir = start.minus(nodePos[i]).normalized();
-    hitInfo hit = rayCircleListIntersect(obstCenters, obstRadii, numObst, nodePos[i], dir, dist);
-    if (totalDist < minDist && !hit.hit && neighbors[i].size() > 0){
-      closestID = i;
-      minDist = totalDist;
+ public void connectStartAndGoal(int numNodes, Vec2[] centers, float[] radii, int numObstacles) {
+  neighbors[0] = new ArrayList<Integer>();
+  neighbors[numNodes-1] = new ArrayList<Integer>();
+
+  for (int i = 0; i < numNodes; i++) {
+    if (i != 0) {
+      Vec2 dir = newNodePos[i].minus(newNodePos[0]).normalized();
+      float distBetween = newNodePos[0].distanceTo(newNodePos[i]);
+      hitInfo circleListCheck = rayCircleListIntersect(centers, radii, numObstacles, newNodePos[0], dir, distBetween);
+      if (!circleListCheck.hit){
+        neighbors[0].add(i);
+      }
+    }
+    if (i != numNodes-1) {
+      Vec2 dir = newNodePos[i].minus(newNodePos[numNodes-1]).normalized();
+      float distBetween = newNodePos[numNodes-1].distanceTo(newNodePos[i]);
+      hitInfo circleListCheck = rayCircleListIntersect(centers, radii, numObstacles, newNodePos[numNodes-1], dir, distBetween);
+      if (!circleListCheck.hit){
+        neighbors[i].add(numNodes-1);
+      }
     }
   }
-  return closestID;
 }
 
  public ArrayList<Integer> planPath(Vec2 startPos, Vec2 goalPos, Vec2[] centers, float[] radii, int numObstacles, Vec2[] nodePos, int numNodes){
-  ArrayList<Integer> path = new ArrayList();
-  
-  int startID = closestNode(startPos, goalPos, nodePos, numNodes);
-  int goalID = closestNode(goalPos, startID != -1 ? nodePos[startID] : goalPos, nodePos, numNodes);
-  
-  path = runAStar(nodePos, numNodes, startID, goalID);
-  
-  return path;
-}
+  path.clear();
 
- public ArrayList<Integer> planPath(Vec2 startPos, Vec2 goalPos, Vec2[] centers, float[] radii, int numObstacles, Vec2[] nodePos, int numNodes, int debug){
-  ArrayList<Integer> path = new ArrayList();
+  newNodePos[0] = startPos;
+  newNodePos[numNodes+1] = goalPos;
   
-  int startID = closestNode(startPos, goalPos, nodePos, numNodes);
-  int goalID = closestNode(goalPos, startID != -1 ? nodePos[startID] : goalPos, nodePos, numNodes);
+  connectStartAndGoal(numNodes+2, centers, radii, numObstacles);
   
-  if (debug == 2) {
-    // A*
-    path = runAStar(nodePos, numNodes, startID, goalID);
-  } else if (debug == 1) {
-    // BFS
-    path = runBFS(nodePos, numNodes, startID, goalID);
-  } else if (debug == 3) {
-    path = runAStarNew(nodePos, numNodes, startID, goalID);
-  } else {
-    println("Please input a valid algorithm number.");
-    path.add(0,-1);
-  }
-  
-  return path;
-}
+  path = runAStar(newNodePos, numNodes+2, 0, numNodes+1);
 
-//BFS (Breadth First Search)
- public ArrayList<Integer> runBFS(Vec2[] nodePos, int numNodes, int startID, int goalID){
-  ArrayList<Integer> fringe = new ArrayList();  //New empty fringe
-  ArrayList<Integer> path = new ArrayList();
-
-  if (startID == -1 || goalID == -1) {
-    path.add(0, -1);
-    return path;
-  }
-
-  if (startID == goalID) {
-    path.add(0, startID);
-    return path;
-  }
-
-  for (int i = 0; i < numNodes; i++) { //Clear visit tags and parent pointers
-    visited[i] = false;
-    parent[i] = -1; //No parent yet
-  }
-
-  //println("\nBeginning Search");
-  
-  visited[startID] = true;
-  fringe.add(startID);
-  //println("Adding node", startID, "(start) to the fringe.");
-  //println(" Current Fringe: ", fringe);
-  
-  while (fringe.size() > 0){
-    int currentNode = fringe.get(0);
-    fringe.remove(0);
-    if (currentNode == goalID){
-      //println("Goal found!");
-      break;
-    }
-    for (int i = 0; i < neighbors[currentNode].size(); i++){
-      int neighborNode = neighbors[currentNode].get(i);
-      if (!visited[neighborNode]){
-        visited[neighborNode] = true;
-        parent[neighborNode] = currentNode;
-        fringe.add(neighborNode);
-        //println("Added node", neighborNode, "to the fringe.");
-        //println(" Current Fringe: ", fringe);
-      }
-    } 
-  }
-  
-  if (fringe.size() == 0){
-    //println("No Path");
-    path.add(0,-1);
-    return path;
-  }
-    
-  //print("\nReverse path: ");
-  int prevNode = parent[goalID];
-  path.add(0,goalID);
-  //print(goalID, " ");
-  while (prevNode >= 0){
-    //print(prevNode," ");
-    path.add(0,prevNode);
-    prevNode = parent[prevNode];
-  }
-  //print("\n");
-  
   return path;
 }
 
@@ -453,19 +385,9 @@ class Node implements Comparable<Node> {
 }
 
  public ArrayList<Integer> runAStar(Vec2[] nodePos, int numNodes, int startID, int goalID) {
-  PriorityQueue<Node> closed = new PriorityQueue<Node>(numNodes);
-  PriorityQueue<Node> fringe = new PriorityQueue<Node>(numNodes);
+  closed.clear();
+  fringe.clear();
   ArrayList<Integer> path = new ArrayList();
-
-  if (startID == -1 || goalID == -1) {
-    path.add(0, -1);
-    return path;
-  }
-
-  if (startID == goalID) {
-    path.add(0, startID);
-    return path;
-  }
 
   for (int i = 0; i < numNodes; i++) { //Clear visit tags and parent pointers
     parent[i] = -1; //No parent yet
@@ -539,96 +461,8 @@ class Node implements Comparable<Node> {
   }
   //print("\n");
   
-  return path;
-}
+  println(path);
 
-// temporary duplicate so as to not lose code
- public ArrayList<Integer> runAStarNew(Vec2[] nodePos, int numNodes, int startID, int goalID) {
-  PriorityQueue<Node> fringe = new PriorityQueue<Node>();
-  ArrayList<Integer> path = new ArrayList();
-
-  if (startID == -1 || goalID == -1) {
-    path.add(0, -1);
-    return path;
-  }
-
-  if (startID == goalID) {
-    path.add(0, startID);
-    return path;
-  }
-
-  for (int i = 0; i < numNodes; i++) { //Clear visit tags and parent pointers
-    parent[i] = -1; //No parent yet
-    closed[i] = new PriorityQueue<Float>();
-    open[i] = new PriorityQueue<Node>();
-  }
-
-  //println("\nBeginning Search");
-  
-  fringe.offer(new Node(startID, 0, heuristic1(startID, goalID, nodePos)));
-  while (fringe.size() > 0){
-    Node currentNode = fringe.poll();
-    open[currentNode.id].poll();
-    if (currentNode.id == goalID){
-      break;
-    }
-    
-    for (int i = 0; i < neighbors[currentNode.id].size(); i++){
-      int neighborNodeID = neighbors[currentNode.id].get(i);
-      Node neighbor = new Node(
-        neighborNodeID, 
-        currentNode.g + nodePos[currentNode.id].distanceTo(nodePos[neighborNodeID]),
-        heuristic1(neighborNodeID, goalID, nodePos)
-      );
-
-      if (open[neighbor.id].size() > 0) {
-        // if (open[neighbor.id].peek() <= neighbor.g) continue;
-        boolean cont = false;
-        for (Node n : fringe) {
-          if (n.g <= neighbor.g && n.equals(neighbor)) {
-            cont = true;
-            break;
-          }
-        }
-        if (cont) {
-          continue;
-        }
-      } else if (closed[neighbor.id].size() > 0) {
-        if (closed[neighbor.id].peek() <= neighbor.g) continue;
-        else {
-          Node n = new Node(
-            neighbor.id,
-            closed[neighbor.id].poll(),
-            heuristic1(neighbor.id, goalID, nodePos)
-          );
-          fringe.offer(n);
-          open[neighbor.id].offer(n);
-        }
-      } else {
-        fringe.offer(neighbor);
-      }
-      parent[neighbor.id] = currentNode.id;
-    } 
-    closed[currentNode.id].offer(currentNode.g);
-  }
-
-  if (fringe.size() == 0){
-    //println("No Path");
-    path.add(0,-1);
-    return path;
-  }
-    
-  //print("\nReverse path: ");
-  int prevNode = parent[goalID];
-  path.add(0,goalID);
-  // print(goalID, " ");
-  while (prevNode >= 0){
-    //print(prevNode," ");
-    path.add(0,prevNode);
-    prevNode = parent[prevNode];
-  }
-  //print("\n");
-  
   return path;
 }
 
@@ -695,9 +529,11 @@ class hitInfo{
  public void draw() {
     // updates things
     camera.Update(1.0f/frameRate);
-    if (!paused) updateKiwiFrame();
     checkPressed();
-    if (!paused) update(1.0f/frameRate);
+    if (!paused) {
+        update(1.0f/frameRate);
+        updateKiwiFrame();
+    }
 
     background(0);
     lightFalloff(1, 0, 0);
@@ -718,7 +554,7 @@ class hitInfo{
     // );
 
     // used for understanding where the bounds of the scene are
-    drawBounds();
+    // drawBounds();
     drawObstacles();
     // if (mouseCast) {
     //   drawMouseRay();
@@ -739,124 +575,34 @@ class hitInfo{
     drawFloor();
 
     stroke(0,0,0);
-  fill(255,255,255);
+    fill(255,255,255);
   
   
-//   //Draw the circle obstacles
-//   for (int i = 0; i < numObstacles; i++){
-//     Vec2 c = circlePosArr[i];
-//     float r = circleRadArr[i];
-//     circle(c.x,c.y,r*2);
-//   }
-  //Draw the first circle a little special b/c the user controls it
-//   fill(240);
-//   strokeWeight(2);
-//   circle(circlePosArr[0].x,circlePosArr[0].y,circleRadArr[0]*2);
-//   strokeWeight(1);
-  
-  //Draw PRM Nodes
-//   fill(0);
-//   for (int i = 0; i < numNodes; i++){
-//     circle(nodePos[i].x,nodePos[i].y,5);
-//   }
-  
-  //Draw graph
-  stroke(100,100,100);
-  strokeWeight(1);
-  for (int i = 0; i < numNodes; i++){
-    for (int j : neighbors[i]){
-      line(nodePos[i].x, 0, nodePos[i].y,nodePos[j].x,0,nodePos[j].y);
+    //Draw graph
+    stroke(100,100,100);
+    strokeWeight(1);
+    for (int i = 0; i < numNodes+2; i++){
+        for (int j : neighbors[i]){
+        line(newNodePos[i].x, 0, newNodePos[i].y,newNodePos[j].x,0,newNodePos[j].y);
+        }
     }
-  }
-  
-//   //Draw Start and Goal
-//   fill(20,60,250);
-//   //circle(nodePos[startNode].x,nodePos[startNode].y,20);
-//   circle(startPos.x,startPos.y,20);
-//   fill(250,30,50);
-//   //circle(nodePos[goalNode].x,nodePos[goalNode].y,20);
-//   circle(goalPos.x,goalPos.y,20);
-  
-  if (curPath.size() >0 && curPath.get(0) == -1) return; //No path found
-  
-  //Draw Planned Path
-  stroke(20,255,40);
-  strokeWeight(5);
-  if (curPath.size() == 0){
-    line(startPos.x,0,startPos.y,goalPos.x,0,goalPos.y);
-    return;
-  }
-  line(startPos.x,0,startPos.y,nodePos[curPath.get(0)].x,0,nodePos[curPath.get(0)].y);
-  for (int i = 0; i < curPath.size()-1; i++){
-    int curNode = curPath.get(i);
-    int nextNode = curPath.get(i+1);
-    line(nodePos[curNode].x,0,nodePos[curNode].y,nodePos[nextNode].x,0,nodePos[nextNode].y);
-  }
-  line(goalPos.x,0,goalPos.y,nodePos[curPath.get(curPath.size()-1)].x,0,nodePos[curPath.get(curPath.size()-1)].y);
-  
-}
 
-// void draw(){
-//   //println("FrameRate:",frameRate);
-//   strokeWeight(1);
-//   background(200); //Grey background
-// //   stroke(0,0,0);
-//   fill(255,255,255);
-  
-  
-// //   //Draw the circle obstacles
-// //   for (int i = 0; i < numObstacles; i++){
-// //     Vec2 c = circlePosArr[i];
-// //     float r = circleRadArr[i];
-// //     circle(c.x,c.y,r*2);
-// //   }
-//   //Draw the first circle a little special b/c the user controls it
-// //   fill(240);
-// //   strokeWeight(2);
-// //   circle(circlePosArr[0].x,circlePosArr[0].y,circleRadArr[0]*2);
-// //   strokeWeight(1);
-  
-//   //Draw PRM Nodes
-// //   fill(0);
-// //   for (int i = 0; i < numNodes; i++){
-// //     circle(nodePos[i].x,nodePos[i].y,5);
-// //   }
-  
-//   //Draw graph
-//   stroke(100,100,100);
-//   strokeWeight(1);
-//   for (int i = 0; i < numNodes; i++){
-//     for (int j : neighbors[i]){
-//       line(nodePos[i].x, 0, nodePos[i].y,nodePos[j].x,0,nodePos[j].y);
-//     }
-//   }
-  
-// //   //Draw Start and Goal
-// //   fill(20,60,250);
-// //   //circle(nodePos[startNode].x,nodePos[startNode].y,20);
-// //   circle(startPos.x,startPos.y,20);
-// //   fill(250,30,50);
-// //   //circle(nodePos[goalNode].x,nodePos[goalNode].y,20);
-// //   circle(goalPos.x,goalPos.y,20);
-  
-//   if (curPath.size() >0 && curPath.get(0) == -1) return; //No path found
-  
-//   //Draw Planned Path
-//   stroke(20,255,40);
-//   strokeWeight(5);
-//   if (curPath.size() == 0){
-//     line(startPos.x,0,startPos.y,goalPos.x,0,goalPos.y);
-//     return;
-//   }
-//   line(startPos.x,0,startPos.y,nodePos[curPath.get(0)].x,0,nodePos[curPath.get(0)].y);
-//   for (int i = 0; i < curPath.size()-1; i++){
-//     int curNode = curPath.get(i);
-//     int nextNode = curPath.get(i+1);
-//     line(nodePos[curNode].x,0,nodePos[curNode].y,nodePos[nextNode].x,0,nodePos[nextNode].y);
-//   }
-//   line(goalPos.x,0,goalPos.y,nodePos[curPath.get(curPath.size()-1)].x,0,nodePos[curPath.get(curPath.size()-1)].y);
-  
-// }
+    
+    if (curPath.size() >0 && curPath.get(0) == -1) return; //No path found
+    
+    //Draw Planned Path
+    stroke(20,255,40);
+    strokeWeight(5);
+    if (curPath.size() == 0){
+        line(startPos.x,0,startPos.y,goalPos.x,0,goalPos.y);
+        return;
+    }
+    for (int i = 0; i < curPath.size()-1; i++){
+        int curNode = curPath.get(i);
+        int nextNode = curPath.get(i+1);
+        line(newNodePos[curNode].x,0,newNodePos[curNode].y,newNodePos[nextNode].x,0,newNodePos[nextNode].y);
+    }
+}
 
 // draws coordinate system of scene for debugging
  public void drawBounds() {
@@ -1016,7 +762,7 @@ boolean reachedGoal;
   
   pathLength = 0; numCollisions = 0;
   
-  if (curPath.size() == 0 ){ //Path found with no nodes (direct start-to-goal path)
+  if (curPath.size() == 2){ //Path found with no nodes (direct start-to-goal path)
     segmentLength = startPos.distanceTo(goalPos);
     pathLength += segmentLength;
     dir = goalPos.minus(startPos).normalized();
@@ -1025,14 +771,14 @@ boolean reachedGoal;
     return;
   }
   
-  segmentLength = startPos.distanceTo(nodePos[curPath.get(0)]);
+  segmentLength = startPos.distanceTo(nodePos[curPath.get(1)]);
   pathLength += segmentLength;
-  dir = nodePos[curPath.get(0)].minus(startPos).normalized();
+  dir = nodePos[curPath.get(1)].minus(startPos).normalized();
   hit = rayCircleListIntersect(circlePosArr, circleRadArr, numObstacles, startPos, dir, segmentLength);
   if (hit.hit) numCollisions += 1;
   
   
-  for (int i = 0; i < curPath.size()-1; i++){
+  for (int i = 1; i < curPath.size()-2; i++){
     int curNode = curPath.get(i);
     int nextNode = curPath.get(i+1);
     segmentLength = nodePos[curNode].distanceTo(nodePos[nextNode]);
@@ -1043,7 +789,7 @@ boolean reachedGoal;
     if (hit.hit) numCollisions += 1;
   }
   
-  int lastNode = curPath.get(curPath.size()-1);
+  int lastNode = curPath.get(curPath.size()-2);
   segmentLength = nodePos[lastNode].distanceTo(goalPos);
   pathLength += segmentLength;
   dir = goalPos.minus(nodePos[lastNode]).normalized();
@@ -1063,6 +809,7 @@ boolean reachedGoal;
 
  public void testPRM(){
     long startTime, endTime;
+    curPath.clear();
 
     generateRandomNodes(numNodes, circlePosArr, circleRadArr);
     connectNeighbors(circlePosArr, circleRadArr, numObstacles, nodePos, numNodes);
@@ -1077,7 +824,7 @@ boolean reachedGoal;
 //           " Path Len:", pathLength, " Path Segment:", curPath.size()+1,  " Num Collisions:", numCollisions, '\n');
 
     startTime = System.nanoTime();
-    curPath = planPath(startPos, goalPos, circlePosArr, circleRadArr, numObstacles, nodePos, numNodes, 2);
+    curPath = planPath(startPos, goalPos, circlePosArr, circleRadArr, numObstacles, nodePos, numNodes);
     endTime = System.nanoTime();
     pathQuality();
 
@@ -1208,7 +955,7 @@ int goalNode;
     times[0] = 5; times[2] = 5;
     times[1] = 2; times[3] = 2;
     
-    sphereDetail(10);
+    sphereDetail(15);
 
     t = tbase;
     for (int i = 0; i < maxNumObstacles; i++) {
@@ -1255,35 +1002,34 @@ int goalNode;
 
  public void reset() {
     placeRandomObstacles();
+    initiatePathfinding();
     kiwiTime = 0;
     kiwiSwitchFrame = 0;
     currFrame = 0;
-    initiatePathfinding();
+    agentPos = new Vec3(startPos.x, kiwiYOffset, startPos.y);
 }
 
  public void initiatePathfinding() {
     for (int i = 0; i < circlePos.size(); i++) {
         Vec3 pos = circlePos.get(i);
         float rad = circleColRad.get(i);
-        if (pos.y > -agentColRad*2-circleDrawRad.get(i)) {
+        if (pos.y+circleDrawRad.get(i) > -agentColRad*2) {
             validCircles[i] = true;
         } 
         circlePosArr[i] = new Vec2(pos.x, pos.z);
         circleRadArr[i] = rad;
     }
     testPRM();
-    println(curPath);
     indexCounter = 0;
     startNode = curPath.get(0);
     currNode = startNode; 
     nextNode = startNode;
     goalNode = curPath.get(curPath.size()-1);
     currPos = new Vec2(agentPos.x, agentPos.z);
-    nextPos = nodePos[nextNode];
+    nextPos = newNodePos[nextNode];
     agentVel = nextPos.minus(currPos).normalized().times(goalSpeed);
 }
  public void update(float dt) {
-    println(agentPos.distanceTo(nextPos));
     if (agentPos.distanceTo(nextPos) < goalSpeed*dt) {
         if (nextNode == goalNode) {
             agentPos = new Vec3(nextPos.x, agentPos.y, nextPos.y);
@@ -1299,7 +1045,7 @@ int goalNode;
             currNode = nextNode;
             currPos = nextPos;
             nextNode = curPath.get(indexCounter);
-            nextPos = nodePos[nextNode];
+            nextPos = newNodePos[nextNode];
             agentVel = nextPos.minus(currPos).normalized().times(goalSpeed);
         }
     } else {
