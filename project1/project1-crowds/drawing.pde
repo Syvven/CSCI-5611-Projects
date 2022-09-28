@@ -45,6 +45,7 @@ void draw() {
 
     // draws obstacles, agent and floor if you want
     drawObstacles();
+    drawPointLight();
     drawKiwi();
     // drawFloor();
   
@@ -125,6 +126,16 @@ void drawObstacles() {
     }   
 }
 
+void drawPointLight() {
+    colorMode(HSB, 360, 100, 100);
+    lightFalloff(0.1, 0, 0);
+    pointLight(
+        0,0,100,
+        agentPos.x, agentPos.y-50, agentPos.z
+    );
+    colorMode(RGB, 256, 256, 256);
+}
+
 // void drawMouseRay() {
 //   strokeWeight(3);
 //   stroke(0);
@@ -142,6 +153,7 @@ void drawObstacles() {
 void drawKiwi() {
     pushMatrix();  
         translate(agentPos.x, agentPos.y, agentPos.z);
+        rotateY(agentDir);
         scale(kiwiScale);
         shape(shapes[currFrame]);
     popMatrix();

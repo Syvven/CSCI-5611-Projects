@@ -30,6 +30,7 @@ Vec3 agentPos = new Vec3(-sceneX/2+25,kiwiYOffset,-sceneZ/2+25);
 Vec2 startPos = new Vec2(-sceneX/2+25,-sceneZ/2+25);
 Vec2 goalPos = new Vec2(sceneX/2-25, sceneZ/2-25);
 float agentColRad = 2.5*0.5*kiwiScale;
+float agentDir = 0;
 
 float kiwiDir = 0;
 float goalSpeed = 100;

@@ -17,6 +17,11 @@ void update(float dt) {
 }
 
 void updateKiwiFrame() {
+    t = tbase-agentVel.length()*0.00001;
+    if (t > 0.99) t = 0.99;
+    if (t < 0.91) t = 0.93;
+    agentDir = agentDir*t+(1-t)*atan2(agentVel.x, agentVel.y);
+
     kiwiTime += agentVel.length()*0.005;
     if (kiwiTime > 1/kiwi_framerate) {
         kiwiTime = 0;

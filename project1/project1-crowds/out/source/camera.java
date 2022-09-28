@@ -572,6 +572,7 @@ class hitInfo{
 
     // draws obstacles, agent and floor if you want
     drawObstacles();
+    drawPointLight();
     drawKiwi();
     // drawFloor();
   
@@ -652,6 +653,16 @@ class hitInfo{
     }   
 }
 
+ public void drawPointLight() {
+    colorMode(HSB, 360, 100, 100);
+    lightFalloff(0.1f, 0, 0);
+    pointLight(
+        0,0,100,
+        agentPos.x, agentPos.y-50, agentPos.z
+    );
+    colorMode(RGB, 256, 256, 256);
+}
+
 // void drawMouseRay() {
 //   strokeWeight(3);
 //   stroke(0);
@@ -669,6 +680,7 @@ class hitInfo{
  public void drawKiwi() {
     pushMatrix();  
         translate(agentPos.x, agentPos.y, agentPos.z);
+        rotateY(agentDir);
         scale(kiwiScale);
         shape(shapes[currFrame]);
     popMatrix();
@@ -887,6 +899,7 @@ Vec3 agentPos = new Vec3(-sceneX/2+25,kiwiYOffset,-sceneZ/2+25);
 Vec2 startPos = new Vec2(-sceneX/2+25,-sceneZ/2+25);
 Vec2 goalPos = new Vec2(sceneX/2-25, sceneZ/2-25);
 float agentColRad = 2.5f*0.5f*kiwiScale;
+float agentDir = 0;
 
 float kiwiDir = 0;
 float goalSpeed = 100;
@@ -1068,6 +1081,11 @@ int goalNode;
 }
 
  public void updateKiwiFrame() {
+    t = tbase-agentVel.length()*0.00001f;
+    if (t > 0.99f) t = 0.99f;
+    if (t < 0.91f) t = 0.93f;
+    agentDir = agentDir*t+(1-t)*atan2(agentVel.x, agentVel.y);
+
     kiwiTime += agentVel.length()*0.005f;
     if (kiwiTime > 1/kiwi_framerate) {
         kiwiTime = 0;
@@ -1113,7 +1131,6 @@ public class Vec2 {
   
   public Vec2 minus(Vec2 rhs){
     if (rhs == null) {
-      print("im null");
       return new Vec2(x, y);
     }
     return new Vec2(x-rhs.x, y-rhs.y);
