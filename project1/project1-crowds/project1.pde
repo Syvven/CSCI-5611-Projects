@@ -27,6 +27,7 @@ float kiwiYOffset = 0; // this one because no need for floor
 // agent info
 Vec2 agentVel = new Vec2(1,1);
 Vec3 agentPos = new Vec3(-sceneX/2+25,kiwiYOffset,-sceneZ/2+25);
+Vec2 agentPos2 = new Vec2(agentPos.x, agentPos.z);
 Vec2 startPos = new Vec2(-sceneX/2+25,-sceneZ/2+25);
 Vec2 goalPos = new Vec2(sceneX/2-25, sceneZ/2-25);
 float agentColRad = 2.5*0.5*kiwiScale;
@@ -62,6 +63,7 @@ PImage conkcrete;
 boolean moveObjects = false;
 boolean mouseCast = false;
 boolean paused = true;
+boolean is3d = false;
 Vec3 mouseRay, mouseOrig;
 
 // pathing
@@ -74,7 +76,7 @@ Vec2 nextPos;
 int goalNode;
 
 void setup() {
-    size(1200, 1200, P3D);
+    size(1500, 1500, P3D);
     surface.setTitle("CSCI 5611 Project 1 Part 2");
     surface.setResizable(true);
     surface.setLocation(500,500);
@@ -117,9 +119,6 @@ void setup() {
     sphereDetail(15);
 
     t = tbase;
-    for (int i = 0; i < maxNumObstacles; i++) {
-        validCircles[i] = false;
-    } 
 
     initiatePathfinding();
 }
@@ -145,6 +144,7 @@ void placeRandomObstacles(){
     PShape globe = createShape(SPHERE, 30);
     globe.setTexture(textures[int(random(10))]);
     circleShape.add(globe);
+    validCircles[0] = false;
 
     for (int i = 1; i < numObstacles; i++){
         float rad = (10+40*pow(random(1),3));
@@ -163,6 +163,7 @@ void placeRandomObstacles(){
         globe = createShape(SPHERE, rad);
         globe.setTexture(textures[int(random(10))]);
         circleShape.add(globe);
+        validCircles[i] = false;
     }
     strokeWeight(strokeWidth);
 }
@@ -180,12 +181,13 @@ void initiatePathfinding() {
     for (int i = 0; i < circlePos.size(); i++) {
         Vec3 pos = circlePos.get(i);
         float rad = circleColRad.get(i);
-        if (abs(pos.y)-circleDrawRad.get(i) < agentColRad) {
+        if ((abs(pos.y)-circleColRad.get(i)) < agentColRad) {
             validCircles[i] = true;
         } 
         circlePosArr[i] = new Vec2(pos.x, pos.z);
         circleRadArr[i] = rad;
     }
+    println(validCircles);
     testPRM();
     indexCounter = 1;
     nextNode = curPath.get(1);

@@ -37,6 +37,10 @@ public class Vec2 {
     }
     return new Vec2(x-rhs.x, y-rhs.y);
   }
+
+  public Vec2 minus(Vec3 rhs) {
+    return new Vec2(x-rhs.x, y-rhs.z);
+  }
   
   public void subtract(Vec2 rhs){
     x -= rhs.x;

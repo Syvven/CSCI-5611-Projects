@@ -22,6 +22,7 @@ void keyReleased()
   camera.HandleKeyReleased();
   if (key == 'r') reset();
   if (key == 'p') paused = !paused;
+  if (key == 'c') is3d = !is3d;
 }
 
 // Vec3 cameraRay(float x, float y) {

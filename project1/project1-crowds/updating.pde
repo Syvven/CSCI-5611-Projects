@@ -1,8 +1,11 @@
 void update(float dt) {
-    if (agentPos.distanceTo(nextPos) < goalSpeed*dt) {
+    float dist = agentPos.distanceTo(nextPos);
+    if (dist < goalSpeed*dt) {
         if (nextNode == goalNode) {
-            agentPos = new Vec3(goalPos.x, kiwiYOffset, goalPos.y);
-            agentVel = new Vec2(0,0);
+            agentPos.x = goalPos.x;
+            agentPos.y = kiwiYOffset;
+            agentPos.z = goalPos.y;
+            agentVel.x = 0; agentVel.y = 0;
         } else {
             agentPos = new Vec3(nextPos.x, agentPos.y, nextPos.y);
             indexCounter++;
@@ -11,9 +14,21 @@ void update(float dt) {
             agentVel = nextPos.minus(new Vec2(agentPos.x, agentPos.z)).normalized().times(goalSpeed);
         }
     } else {
-        agentPos.add(agentVel.times(dt));
-
+        Vec2 dir = nextPos.minus(new Vec2(agentPos.x, agentPos.z)).normalized();
+        println("line");
+        stroke(255,0,0);
+        strokeWeight(2);
+        line(agentPos.x, agentPos.z, agentPos.x+dir.x*100, agentPos.z+dir.y*100);
+        hitInfo hit = rayCircleListIntersect(circlePosArr, circleRadArr, numObstacles, new Vec2(agentPos.x, agentPos.z), dir, dist);
+        
+        if (hit.hit && (indexCounter < curPath.size()-1)) {
+            indexCounter++;
+            nextNode = curPath.get(indexCounter);
+            nextPos = newNodePos[nextNode];
+            agentVel = nextPos.minus(new Vec2(agentPos.x, agentPos.z)).normalized().times(goalSpeed);
+        }
     }
+    agentPos.add(agentVel.times(dt));
 }
 
 void updateKiwiFrame() {

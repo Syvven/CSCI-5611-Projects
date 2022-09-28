@@ -277,17 +277,19 @@ hitInfo rayCircleListIntersect(Vec2[] centers, float[] radii,  int numObstacles,
   hitInfo hit = new hitInfo();
   hit.t = max_t;
   for (int i = 0; i < numObstacles; i++){
-    Vec2 center = centers[i];
-    float r = radii[i];
-    
-    hitInfo circleHit = rayCircleIntersect(center, r, l_start, l_dir, hit.t);
-    if (circleHit.t > 0 && circleHit.t < hit.t){
-      hit.hit = true;
-      hit.t = circleHit.t;
-    }
-    else if (circleHit.hit && circleHit.t < 0){
-      hit.hit = true;
-      hit.t = -1;
+    if (validCircles[i]) {
+      Vec2 center = centers[i];
+      float r = radii[i];
+      
+      hitInfo circleHit = rayCircleIntersect(center, r, l_start, l_dir, hit.t);
+      if (circleHit.t > 0 && circleHit.t < hit.t){
+        hit.hit = true;
+        hit.t = circleHit.t;
+      }
+      else if (circleHit.hit && circleHit.t < 0){
+        hit.hit = true;
+        hit.t = -1;
+      }
     }
   }
   return hit;
