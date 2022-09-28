@@ -13,15 +13,12 @@ void update(float dt) {
             nextPos = newNodePos[nextNode];
             agentVel = nextPos.minus(new Vec2(agentPos.x, agentPos.z)).normalized().times(goalSpeed);
         }
-    } else {
-        Vec2 dir = nextPos.minus(new Vec2(agentPos.x, agentPos.z)).normalized();
-        println("line");
-        stroke(255,0,0);
-        strokeWeight(2);
-        line(agentPos.x, agentPos.z, agentPos.x+dir.x*100, agentPos.z+dir.y*100);
+    } else if (nextNode != goalNode) {
+        Vec2 nextNextPos = newNodePos[curPath.get(indexCounter+1)];
+        dist = agentPos.distanceTo(nextNextPos);
+        Vec2 dir = nextNextPos.minus(new Vec2(agentPos.x, agentPos.z)).normalized();
         hitInfo hit = rayCircleListIntersect(circlePosArr, circleRadArr, numObstacles, new Vec2(agentPos.x, agentPos.z), dir, dist);
-        
-        if (hit.hit && (indexCounter < curPath.size()-1)) {
+        if (!hit.hit) {
             indexCounter++;
             nextNode = curPath.get(indexCounter);
             nextPos = newNodePos[nextNode];
@@ -32,9 +29,6 @@ void update(float dt) {
 }
 
 void updateKiwiFrame() {
-    t = tbase-agentVel.length()*0.00001;
-    if (t > 0.99) t = 0.99;
-    if (t < 0.91) t = 0.93;
     agentDir = agentDir*t+(1-t)*atan2(agentVel.x, agentVel.y);
 
     kiwiTime += agentVel.length()*0.005;

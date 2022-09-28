@@ -25,6 +25,8 @@ float kiwi_framerate = 24;
 float kiwiYOffset = 0; // this one because no need for floor
 
 // agent info
+Vec2 lastVel = new Vec2(0,0);
+Vec3 lastPos = new Vec3(0,0,0);
 Vec2 agentVel = new Vec2(1,1);
 Vec3 agentPos = new Vec3(-sceneX/2+25,kiwiYOffset,-sceneZ/2+25);
 Vec2 agentPos2 = new Vec2(agentPos.x, agentPos.z);
@@ -32,6 +34,9 @@ Vec2 startPos = new Vec2(-sceneX/2+25,-sceneZ/2+25);
 Vec2 goalPos = new Vec2(sceneX/2-25, sceneZ/2-25);
 float agentColRad = 2.5*0.5*kiwiScale;
 float agentDir = 0;
+
+Vec2 backDir = new Vec2(0,0);
+Vec2 backVel = agentVel.times(-1);
 
 float kiwiDir = 0;
 float goalSpeed = 100;
@@ -52,8 +57,7 @@ Camera camera;
 // useful things
 float ninety, oneeighty, twoseventy, threesixty;
 float epsilon = 1e-6;
-float tbase = 0.90;
-float t;
+float t = 0.91;
 
 // drawing info
 int strokeWidth = 2;
@@ -63,7 +67,8 @@ PImage conkcrete;
 boolean moveObjects = false;
 boolean mouseCast = false;
 boolean paused = true;
-boolean is3d = false;
+boolean is3d = true;
+boolean cameraFollowAgent = false;
 Vec3 mouseRay, mouseOrig;
 
 // pathing
@@ -117,9 +122,6 @@ void setup() {
     times[1] = 2; times[3] = 2;
     
     sphereDetail(15);
-
-    t = tbase;
-
     initiatePathfinding();
 }
 
@@ -187,7 +189,6 @@ void initiatePathfinding() {
         circlePosArr[i] = new Vec2(pos.x, pos.z);
         circleRadArr[i] = rad;
     }
-    println(validCircles);
     testPRM();
     indexCounter = 1;
     nextNode = curPath.get(1);

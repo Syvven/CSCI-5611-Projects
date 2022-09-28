@@ -49,9 +49,17 @@ class Camera
     nearPlane        = 0.1f;
     farPlane         = 10000;
   }
-  
+
    public void Update(float dt)
   {
+    if (cameraFollowAgent) {
+      camera( 
+        agentPos.x-agentVel.x*2,-150, agentPos.z-agentVel.y*2,
+        agentPos.x,agentPos.y, agentPos.z,
+        0, 1, 0 
+      );
+      return;
+    }
     theta += turnSpeed * ( negativeTurn.x + positiveTurn.x)*dt;
     
     // cap the rotation about the X axis to be less than 90 degrees to avoid gimble lock
@@ -86,8 +94,8 @@ class Camera
     position.add( PVector.mult( rightDir,   moveSpeed * velocity.x * dt ) );
     
     aspectRatio = width / (float) height;
+    
     perspective( fovy, aspectRatio, nearPlane, farPlane );
-  
     camera( 
       position.x, position.y, position.z,
       position.x + forwardDir.x, position.y + forwardDir.y, position.z + forwardDir.z,
@@ -111,6 +119,7 @@ class Camera
       theta = defaults.theta;
       phi = defaults.phi;
     }
+    if ( key == 'v' ) cameraFollowAgent = true;
     
     if ( keyCode == LEFT )  negativeTurn.x = 1;
     if ( keyCode == RIGHT ) positiveTurn.x = -0.5f;
@@ -131,8 +140,7 @@ class Camera
     if ( key == 's' || key == 'S' ) negativeMovement.z = 0;
     if ( key == 'e' || key == 'E' ) negativeMovement.y = 0;
     if ( key == ' ' ) verticalMovement.y = 0;
-    if ( key == 'c' ) centerMode = true;
-    if ( key == 'C' ) centerMode = false;
+    if ( key == 'v' ) cameraFollowAgent = false;
     
     if ( keyCode == LEFT  ) negativeTurn.x = 0;
     if ( keyCode == RIGHT ) positiveTurn.x = 0;
@@ -961,6 +969,8 @@ float kiwi_framerate = 24;
 float kiwiYOffset = 0; // this one because no need for floor
 
 // agent info
+Vec2 lastVel = new Vec2(0,0);
+Vec3 lastPos = new Vec3(0,0,0);
 Vec2 agentVel = new Vec2(1,1);
 Vec3 agentPos = new Vec3(-sceneX/2+25,kiwiYOffset,-sceneZ/2+25);
 Vec2 agentPos2 = new Vec2(agentPos.x, agentPos.z);
@@ -968,6 +978,9 @@ Vec2 startPos = new Vec2(-sceneX/2+25,-sceneZ/2+25);
 Vec2 goalPos = new Vec2(sceneX/2-25, sceneZ/2-25);
 float agentColRad = 2.5f*0.5f*kiwiScale;
 float agentDir = 0;
+
+Vec2 backDir = new Vec2(0,0);
+Vec2 backVel = agentVel.times(-1);
 
 float kiwiDir = 0;
 float goalSpeed = 100;
@@ -988,8 +1001,7 @@ Camera camera;
 // useful things
 float ninety, oneeighty, twoseventy, threesixty;
 float epsilon = 1e-6f;
-float tbase = 0.90f;
-float t;
+float t = 0.91f;
 
 // drawing info
 int strokeWidth = 2;
@@ -999,7 +1011,8 @@ PImage conkcrete;
 boolean moveObjects = false;
 boolean mouseCast = false;
 boolean paused = true;
-boolean is3d = false;
+boolean is3d = true;
+boolean cameraFollowAgent = false;
 Vec3 mouseRay, mouseOrig;
 
 // pathing
@@ -1053,9 +1066,6 @@ int goalNode;
     times[1] = 2; times[3] = 2;
     
     sphereDetail(15);
-
-    t = tbase;
-
     initiatePathfinding();
 }
 
@@ -1123,7 +1133,6 @@ int goalNode;
         circlePosArr[i] = new Vec2(pos.x, pos.z);
         circleRadArr[i] = rad;
     }
-    println(validCircles);
     testPRM();
     indexCounter = 1;
     nextNode = curPath.get(1);
@@ -1146,15 +1155,12 @@ int goalNode;
             nextPos = newNodePos[nextNode];
             agentVel = nextPos.minus(new Vec2(agentPos.x, agentPos.z)).normalized().times(goalSpeed);
         }
-    } else {
-        Vec2 dir = nextPos.minus(new Vec2(agentPos.x, agentPos.z)).normalized();
-        println("line");
-        stroke(255,0,0);
-        strokeWeight(2);
-        line(agentPos.x, agentPos.z, agentPos.x+dir.x*100, agentPos.z+dir.y*100);
+    } else if (nextNode != goalNode) {
+        Vec2 nextNextPos = newNodePos[curPath.get(indexCounter+1)];
+        dist = agentPos.distanceTo(nextNextPos);
+        Vec2 dir = nextNextPos.minus(new Vec2(agentPos.x, agentPos.z)).normalized();
         hitInfo hit = rayCircleListIntersect(circlePosArr, circleRadArr, numObstacles, new Vec2(agentPos.x, agentPos.z), dir, dist);
-        
-        if (hit.hit && (indexCounter < curPath.size()-1)) {
+        if (!hit.hit) {
             indexCounter++;
             nextNode = curPath.get(indexCounter);
             nextPos = newNodePos[nextNode];
@@ -1165,9 +1171,6 @@ int goalNode;
 }
 
  public void updateKiwiFrame() {
-    t = tbase-agentVel.length()*0.00001f;
-    if (t > 0.99f) t = 0.99f;
-    if (t < 0.91f) t = 0.93f;
     agentDir = agentDir*t+(1-t)*atan2(agentVel.x, agentVel.y);
 
     kiwiTime += agentVel.length()*0.005f;

@@ -29,9 +29,17 @@ class Camera
     nearPlane        = 0.1;
     farPlane         = 10000;
   }
-  
+
   void Update(float dt)
   {
+    if (cameraFollowAgent) {
+      camera( 
+        agentPos.x-agentVel.x*2,-150, agentPos.z-agentVel.y*2,
+        agentPos.x,agentPos.y, agentPos.z,
+        0, 1, 0 
+      );
+      return;
+    }
     theta += turnSpeed * ( negativeTurn.x + positiveTurn.x)*dt;
     
     // cap the rotation about the X axis to be less than 90 degrees to avoid gimble lock
@@ -66,8 +74,8 @@ class Camera
     position.add( PVector.mult( rightDir,   moveSpeed * velocity.x * dt ) );
     
     aspectRatio = width / (float) height;
+    
     perspective( fovy, aspectRatio, nearPlane, farPlane );
-  
     camera( 
       position.x, position.y, position.z,
       position.x + forwardDir.x, position.y + forwardDir.y, position.z + forwardDir.z,
@@ -91,6 +99,7 @@ class Camera
       theta = defaults.theta;
       phi = defaults.phi;
     }
+    if ( key == 'v' ) cameraFollowAgent = true;
     
     if ( keyCode == LEFT )  negativeTurn.x = 1;
     if ( keyCode == RIGHT ) positiveTurn.x = -0.5;
@@ -111,8 +120,7 @@ class Camera
     if ( key == 's' || key == 'S' ) negativeMovement.z = 0;
     if ( key == 'e' || key == 'E' ) negativeMovement.y = 0;
     if ( key == ' ' ) verticalMovement.y = 0;
-    if ( key == 'c' ) centerMode = true;
-    if ( key == 'C' ) centerMode = false;
+    if ( key == 'v' ) cameraFollowAgent = false;
     
     if ( keyCode == LEFT  ) negativeTurn.x = 0;
     if ( keyCode == RIGHT ) positiveTurn.x = 0;
