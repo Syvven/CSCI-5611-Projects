@@ -23,11 +23,13 @@ int currFrame = 0;
 float kiwi_framerate = 24;
 // float kiwiYOffset = -0.71*kiwiScale; // model starts below floor, offset height a bit to have it normal
 float kiwiYOffset = 0; // this one because no need for floor
+PImage[] skybox = new PImage[6];
 
 // agent info
 Vec2 lastVel = new Vec2(0,0);
 Vec3 lastPos = new Vec3(0,0,0);
 Vec2 agentVel = new Vec2(1,1);
+Vec2 agentFinalVel = agentVel;
 Vec3 agentPos = new Vec3(-sceneX/2+25,kiwiYOffset,-sceneZ/2+25);
 Vec2 agentPos2 = new Vec2(agentPos.x, agentPos.z);
 Vec2 startPos = new Vec2(-sceneX/2+25,-sceneZ/2+25);
@@ -35,13 +37,11 @@ Vec2 goalPos = new Vec2(sceneX/2-25, sceneZ/2-25);
 float agentColRad = 2.5*0.5*kiwiScale;
 float agentDir = 0;
 
-Vec2 backDir = new Vec2(0,0);
+Vec2 backDir = agentVel.times(-1);
 Vec2 backVel = agentVel.times(-1);
 
 float kiwiDir = 0;
 float goalSpeed = 100;
-
-// node stuff
 
 // obstacles
 ArrayList<Vec3> circleVel = new ArrayList<Vec3>();
@@ -50,6 +50,9 @@ ArrayList<Float> circleDrawRad = new ArrayList<Float>();
 ArrayList<Float> circleColRad = new ArrayList<Float>();
 ArrayList<Vec3> circleColor = new ArrayList<Vec3>();
 ArrayList<PShape> circleShape = new ArrayList<PShape>();
+ArrayList<Float> circleRot = new ArrayList<Float>();
+ArrayList<Float> circleRotRate = new ArrayList<Float>();
+ArrayList<Float[]> circleTilt = new ArrayList<Float[]>();
 float obstacleWallPadding = 75;
 
 Camera camera;
@@ -62,6 +65,7 @@ float t = 0.91;
 // drawing info
 int strokeWidth = 2;
 PImage conkcrete;
+PShape back;
 
 // key state variables
 boolean moveObjects = false;
@@ -69,6 +73,7 @@ boolean mouseCast = false;
 boolean paused = true;
 boolean is3d = true;
 boolean cameraFollowAgent = false;
+boolean atGoal = false;
 Vec3 mouseRay, mouseOrig;
 
 // pathing
@@ -98,8 +103,6 @@ void setup() {
     // image/model loading
     conkcrete = loadImage("data/conkcrete.jpg");
 
-    
-
     textures[0] = loadImage("data/sun.jpg");
     textures[1] = loadImage("data/mercury.jpg");
     textures[2] = loadImage("data/venus.jpg");
@@ -110,6 +113,21 @@ void setup() {
     textures[7] = loadImage("data/jupiter.jpg");
     textures[8] = loadImage("data/pluto.jpg");
     textures[9] = loadImage("data/uranus.jpg");
+
+    skybox[0] = loadImage("data/spacebox1.jpg");
+    skybox[1] = loadImage("data/spacebox2.jpg");
+    skybox[2] = loadImage("data/spacebox3.jpg");
+    skybox[3] = loadImage("data/spacebox4.jpg");
+    skybox[4] = loadImage("data/spacebox5.jpg");
+    skybox[5] = loadImage("data/spacebox6.jpg");
+
+    // back = loadImage("data/back.jpg");
+    
+    noStroke();
+    sphereDetail(200);
+    back = createShape(SPHERE, 4000);
+    PImage text = loadImage("data/blackhole.jpg");
+    back.setTexture(text);
 
     placeRandomObstacles();
 
@@ -147,6 +165,9 @@ void placeRandomObstacles(){
     globe.setTexture(textures[int(random(10))]);
     circleShape.add(globe);
     validCircles[0] = false;
+    circleRot.add(random(0, radians(359)));
+    circleRotRate.add(random(0.001, 0.05));
+    circleTilt.add(new Float[]{random(-radians(45), radians(45)), random(-radians(45), radians(45))});
 
     for (int i = 1; i < numObstacles; i++){
         float rad = (10+40*pow(random(1),3));
@@ -166,6 +187,9 @@ void placeRandomObstacles(){
         globe.setTexture(textures[int(random(10))]);
         circleShape.add(globe);
         validCircles[i] = false;
+        circleRot.add(random(0, radians(359)));
+        circleRotRate.add(random(0.001, 0.05));
+        circleTilt.add(new Float[]{random(-radians(45), radians(45)), random(-radians(45), radians(45))});
     }
     strokeWeight(strokeWidth);
 }
@@ -177,6 +201,11 @@ void reset() {
     kiwiSwitchFrame = 0;
     currFrame = 0;
     agentPos = new Vec3(startPos.x, kiwiYOffset, startPos.y);
+    Vec2 agentVel = new Vec2(1,1);
+    Vec2 agentFinalVel = agentVel;
+    Vec2 backDir = agentVel.times(-1);
+    Vec2 backVel = agentVel.times(-1);
+    atGoal = false;
 }
 
 void initiatePathfinding() {
@@ -190,6 +219,9 @@ void initiatePathfinding() {
         circleRadArr[i] = rad;
     }
     testPRM();
+    while (curPath.size() == 1) {
+        testPRM();
+    }
     indexCounter = 1;
     nextNode = curPath.get(1);
     goalNode = curPath.get(curPath.size()-1);

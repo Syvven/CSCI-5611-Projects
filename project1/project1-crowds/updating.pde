@@ -6,12 +6,13 @@ void update(float dt) {
             agentPos.y = kiwiYOffset;
             agentPos.z = goalPos.y;
             agentVel.x = 0; agentVel.y = 0;
+            agentFinalVel.x = 0; agentFinalVel.y = 0;
+            atGoal = true;
         } else {
             agentPos = new Vec3(nextPos.x, agentPos.y, nextPos.y);
             indexCounter++;
             nextNode = curPath.get(indexCounter);
             nextPos = newNodePos[nextNode];
-            agentVel = nextPos.minus(new Vec2(agentPos.x, agentPos.z)).normalized().times(goalSpeed);
         }
     } else if (nextNode != goalNode) {
         Vec2 nextNextPos = newNodePos[curPath.get(indexCounter+1)];
@@ -22,10 +23,21 @@ void update(float dt) {
             indexCounter++;
             nextNode = curPath.get(indexCounter);
             nextPos = newNodePos[nextNode];
-            agentVel = nextPos.minus(new Vec2(agentPos.x, agentPos.z)).normalized().times(goalSpeed);
         }
+    }   
+    if (!atGoal) {
+        agentFinalVel = nextPos.minus(new Vec2(agentPos.x, agentPos.z)).normalized().times(goalSpeed);
+        agentVel = interpolate(agentVel, agentFinalVel, 0.05);
+        backVel = agentVel.times(-1);
+        backDir = interpolate(backDir, backVel, 0.01);
+
+        if (agentVel.length() != goalSpeed) {
+            agentVel = agentVel.normalized().times(goalSpeed);
+        }
+        agentPos.add(agentVel.times(dt));
     }
-    agentPos.add(agentVel.times(dt));
+
+    
 }
 
 void updateKiwiFrame() {

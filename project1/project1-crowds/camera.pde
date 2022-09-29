@@ -34,7 +34,7 @@ class Camera
   {
     if (cameraFollowAgent) {
       camera( 
-        agentPos.x-agentVel.x*2,-150, agentPos.z-agentVel.y*2,
+        agentPos.x+backDir.x*2,-150, agentPos.z+backDir.y*2,
         agentPos.x,agentPos.y, agentPos.z,
         0, 1, 0 
       );
@@ -106,7 +106,7 @@ class Camera
     if ( keyCode == UP )    positiveTurn.y = 0.5;
     if ( keyCode == DOWN )  negativeTurn.y = -1;
     if ( keyCode == CONTROL ) verticalMovement.y = 1;
-    
+    if ( keyCode == BACKSPACE ) goalSpeed = 200;
     if ( keyCode == SHIFT ) shiftPressed = true; 
   }
   
@@ -127,6 +127,7 @@ class Camera
     if ( keyCode == UP    ) positiveTurn.y = 0;
     if ( keyCode == DOWN  ) negativeTurn.y = 0;
     if ( keyCode == CONTROL ) verticalMovement.y = 0;
+    if ( keyCode == BACKSPACE ) goalSpeed = 100;
     
     if ( keyCode == SHIFT ){
       shiftPressed = false;

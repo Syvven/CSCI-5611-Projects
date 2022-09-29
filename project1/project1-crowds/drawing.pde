@@ -10,6 +10,7 @@ void draw() {
 
     if (is3d) {
         background(0);
+        drawSkyBox();
         lightFalloff(1, 0, 0);
         lightSpecular(0, 0, 0);
         ambientLight(75, 75, 75);
@@ -45,19 +46,19 @@ void draw() {
         // colorMode(RGB, 255, 255, 255);
 
         // draws obstacles, agent and floor if you want
-        drawObstacles();
+        drawObstacles(1/frameRate);
         drawPointLight();
         drawKiwi();
         // drawFloor();
     
-        //Draw graph
-        stroke(50,50,50);
-        strokeWeight(1);
-        for (int i = 0; i < numNodes+2; i++){
-            for (int j : neighbors[i]){
-            line(newNodePos[i].x, 0, newNodePos[i].y,newNodePos[j].x,0,newNodePos[j].y);
-            }
-        }
+        // //Draw graph
+        // stroke(50,50,50);
+        // strokeWeight(1);
+        // for (int i = 0; i < numNodes+2; i++){
+        //     for (int j : neighbors[i]){
+        //     line(newNodePos[i].x, 0, newNodePos[i].y,newNodePos[j].x,0,newNodePos[j].y);
+        //     }
+        // }
 
         
         // if (curPath.size() >0 && curPath.get(0) == -1) return; //No path found
@@ -176,18 +177,50 @@ void drawBounds() {
 // }
 
 // draw obstacles :)
-void drawObstacles() {
+void drawObstacles(float dt) {
     noFill();
     for (int i = 0; i < numObstacles; i++) {
+        float rot = circleRot.get(i);
+        float rotRate = circleRotRate.get(i);
+        rot += rotRate;
+        circleRot.set(i, rot);
+        Float[] tilt = circleTilt.get(i);
         Vec3 currPos = circlePos.get(i);
         Vec3 currCol = circleColor.get(i);
         float currRad = circleDrawRad.get(i);
         // fill(currCol.x, currCol.y, currCol.z);
         pushMatrix();
             translate(currPos.x, currPos.y, currPos.z);
+            rotateX(tilt[0]);
+            rotateZ(tilt[1]);
+            rotateY(rot);
             shape(circleShape.get(i));
         popMatrix();
     }   
+}
+
+void drawSkyBox() {
+    // pushMatrix();
+    // textureMode(NORMAL);
+    // float size = 5000;
+    // for(int i = 0; i < 6; i++)
+    // {
+    //   beginShape();
+    //   texture(skybox[i]);
+    //   vertex(size - (size * 2), size,              (size - 1) - ((size - 1) * 2), 0, 0);
+    //   vertex(size,              size,              (size - 1) - ((size - 1) * 2), 1, 0);
+    //   vertex(size,              size - (size * 2), (size - 1) - ((size - 1) * 2), 1, 1);
+    //   vertex(size - (size * 2), size - (size * 2), (size - 1) - ((size - 1) * 2), 0, 1);
+    //   endShape();
+    //   if(i < 4)  rotateY(HALF_PI);
+    //   if(i == 3) rotateX(HALF_PI);
+    //   if(i >= 4) rotateX(PI);
+    //   if(i == 5) rotateY(PI);
+    // }
+    // popMatrix();
+    pushMatrix();
+    shape(back);
+    popMatrix();
 }
 
 void drawPointLight() {
