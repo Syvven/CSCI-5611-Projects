@@ -23,6 +23,7 @@ void draw() {
         drawPointLight();
         drawKiwi();
         drawParticles();
+        drawStartAndGoal();
         // drawFloor();
     
         // //Draw graph
@@ -114,7 +115,78 @@ void draw() {
     
 }
 
+void drawStartAndGoal() {
+    // this code was gotten from how to draw a cylinder
+    // https://vormplus.be/full-articles/drawing-a-cylinder-with-processing 
+    float sides = 10;
+    float h = 400;
+    float r = 20;
+    float angle = 360 / sides;
+    float halfHeight = h / 2;
+    // draw top shape
+    pushMatrix();
+        translate(startPos.x, -100, startPos.y);
+        rotateX(radians(90));
+        fill(255,0,0, 50);
+        beginShape();
+            for (int i = 0; i < sides; i++) {
+                float x = cos( radians( i * angle ) ) * r;
+                float y = sin( radians( i * angle ) ) * r;
+                vertex( x, y, -halfHeight );    
+            }
+        endShape(CLOSE);
+        // draw bottom shape
+        beginShape();
+            for (int i = 0; i < sides; i++) {
+                float x = cos( radians( i * angle ) ) * r;
+                float y = sin( radians( i * angle ) ) * r;
+                vertex( x, y, halfHeight );    
+            }
+        endShape(CLOSE);
+        beginShape(TRIANGLE_STRIP);
+            for (int i = 0; i < sides + 1; i++) {
+                float x = cos( radians( i * angle ) ) * r;
+                float y = sin( radians( i * angle ) ) * r;
+                vertex( x, y, halfHeight);
+                vertex( x, y, -halfHeight);    
+            }
+        endShape(CLOSE);
+        noFill();
+    popMatrix();
+
+    fill(0,255,0, 50);
+    pushMatrix();
+        translate(goalPos.x, -100, goalPos.y);
+        rotateX(radians(90));
+        beginShape();
+        for (int i = 0; i < sides; i++) {
+            float x = cos( radians( i * angle ) ) * r;
+            float y = sin( radians( i * angle ) ) * r;
+            vertex( x, y, -halfHeight );    
+        }
+        endShape(CLOSE);
+        // draw bottom shape
+        beginShape();
+        for (int i = 0; i < sides; i++) {
+            float x = cos( radians( i * angle ) ) * r;
+            float y = sin( radians( i * angle ) ) * r;
+            vertex( x, y, halfHeight );    
+        }
+        endShape(CLOSE);
+        beginShape(TRIANGLE_STRIP);
+        for (int i = 0; i < sides + 1; i++) {
+            float x = cos( radians( i * angle ) ) * r;
+            float y = sin( radians( i * angle ) ) * r;
+            vertex( x, y, halfHeight);
+            vertex( x, y, -halfHeight);    
+        }
+        endShape(CLOSE);
+    popMatrix();
+    noFill();
+}
+
 void drawParticles() {
+    sphereDetail(2);
     for (int i = numParticles-1; i >= 0; i--) {
         Vec3 pos = particlePos.get(i);
         Vec3 col = particleCol.get(i);

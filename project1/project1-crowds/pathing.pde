@@ -3,7 +3,7 @@ static int numNodes  = 400;
   
 //A list of circle obstacles
 static int maxNumObstacles = 1000;
-static int initObstacles = 350;
+static int initObstacles = 600;
 int numObstacles = initObstacles;
 boolean[] validCircles = new boolean[maxNumObstacles];
 Vec2 circlePosArr[] = new Vec2[maxNumObstacles]; //Circle positions

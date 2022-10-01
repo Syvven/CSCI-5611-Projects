@@ -10,6 +10,7 @@ void update(float dt) {
             atGoal = true;
             cameraFollowAgent = false;
             firstPerson = false;
+            stopParticles = true;
         } else {
             agentPos = new Vec3(nextPos.x, agentPos.y, nextPos.y);
             indexCounter++;
@@ -58,25 +59,28 @@ void updateKiwiFrame() {
 }
 
 void updateKiwiParticles(float dt) {
-    float toGen_float = genRate*dt;
-    int toGen = int(toGen_float);
-    float fractPart = toGen_float-toGen;
-    if (random(1) < fractPart) toGen++;
-    if (numParticles < maxParticles) {
-        for (int p = 0; p < toGen; p++) {
-            particlePos.add(
-                agentPos.plus(backDir.normalized().times(agentColRad-0.5*kiwiScale))
-            );
-            particleVel.add(new Vec3(
-                backDir.x + random(-30, 30),
-                agentPos.y + random(-30, 30),
-                backDir.y + random(-30, 30)
-            ).normalized().times(goalSpeed));
-            particleCol.add(startColor);
-            particleLife.append(0.0);
-            numParticles++;
+    if (!stopParticles) {
+        float toGen_float = genRate*dt;
+        int toGen = int(toGen_float);
+        float fractPart = toGen_float-toGen;
+        if (random(1) < fractPart) toGen++;
+        if (numParticles < maxParticles) {
+            for (int p = 0; p < toGen; p++) {
+                particlePos.add(
+                    agentPos.plus(backDir.normalized().times(agentColRad-0.5*kiwiScale))
+                );
+                particleVel.add(new Vec3(
+                    backDir.x + random(-30, 30),
+                    agentPos.y + random(-30, 30),
+                    backDir.y + random(-30, 30)
+                ).normalized().times(goalSpeed));
+                particleCol.add(startColor);
+                particleLife.append(0.0);
+                numParticles++;
+            }
         }
     }
+    
 
     for (int i = 0; i < numParticles; i++) {
         float life = particleLife.get(i);

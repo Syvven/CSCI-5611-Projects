@@ -2,9 +2,9 @@
 /////////////////////////////
 
 // scene dimensions
-float sceneX = 2000;
-float sceneY = 2000;
-float sceneZ = 2000;
+float sceneX = 3000;
+float sceneY = 3000;
+float sceneZ = 3000;
 
 // model info
 int kiwiFrames = 4;
@@ -95,6 +95,7 @@ boolean firstPerson = false;
 float agentBackY = -150;
 boolean agentBackYUp, agentBackYDown;
 boolean atGoal = false;
+boolean stopParticles = false;
 Vec3 mouseRay, mouseOrig;
 
 // pathing
@@ -159,8 +160,6 @@ void setup() {
     }
     times[0] = 5; times[2] = 5;
     times[1] = 2; times[3] = 2;
-    
-    sphereDetail(2);
 
     initiatePathfinding();
 }
@@ -182,10 +181,20 @@ void randomizeGoal() {
 }
 
 void placeRandomObstacles(){
-    noStroke();
     //Initial obstacle position
+    sphereDetail(15);
+    fill(255);
+    noStroke();
+    // clear things in case of reset
     circleDrawRad.clear();
     circlePos.clear();
+    circleColor.clear();
+    circleRot.clear();
+    circleRotRate.clear();
+    circleColRad.clear();
+    circleShape.clear();
+    circleTilt.clear();
+
     circleDrawRad.add(30.0); //Make the first obstacle big
     circleColRad.add(30.0+agentColRad);
     circlePos.add(new Vec3(
@@ -256,10 +265,14 @@ void initiatePathfinding() {
     randomizeGoal();
 
     testPRM();
-    int saiters = 0;
-    while (curPath.size() == 1 || iters == 20) {
+    int iters = 0;
+    while (curPath.size() == 1 && iters != 3) {
         testPRM();
         iters++;
+    }
+    if (iters == 3) {
+        reset();
+        return;
     }
     indexCounter = 1;
     nextNode = curPath.get(1);

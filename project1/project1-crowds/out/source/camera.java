@@ -586,6 +586,7 @@ class hitInfo{
         drawPointLight();
         drawKiwi();
         drawParticles();
+        drawStartAndGoal();
         // drawFloor();
     
         // //Draw graph
@@ -677,7 +678,78 @@ class hitInfo{
     
 }
 
+ public void drawStartAndGoal() {
+    // this code was gotten from how to draw a cylinder
+    // https://vormplus.be/full-articles/drawing-a-cylinder-with-processing 
+    float sides = 10;
+    float h = 400;
+    float r = 20;
+    float angle = 360 / sides;
+    float halfHeight = h / 2;
+    // draw top shape
+    pushMatrix();
+        translate(startPos.x, -100, startPos.y);
+        rotateX(radians(90));
+        fill(255,0,0, 50);
+        beginShape();
+            for (int i = 0; i < sides; i++) {
+                float x = cos( radians( i * angle ) ) * r;
+                float y = sin( radians( i * angle ) ) * r;
+                vertex( x, y, -halfHeight );    
+            }
+        endShape(CLOSE);
+        // draw bottom shape
+        beginShape();
+            for (int i = 0; i < sides; i++) {
+                float x = cos( radians( i * angle ) ) * r;
+                float y = sin( radians( i * angle ) ) * r;
+                vertex( x, y, halfHeight );    
+            }
+        endShape(CLOSE);
+        beginShape(TRIANGLE_STRIP);
+            for (int i = 0; i < sides + 1; i++) {
+                float x = cos( radians( i * angle ) ) * r;
+                float y = sin( radians( i * angle ) ) * r;
+                vertex( x, y, halfHeight);
+                vertex( x, y, -halfHeight);    
+            }
+        endShape(CLOSE);
+        noFill();
+    popMatrix();
+
+    fill(0,255,0, 50);
+    pushMatrix();
+        translate(goalPos.x, -100, goalPos.y);
+        rotateX(radians(90));
+        beginShape();
+        for (int i = 0; i < sides; i++) {
+            float x = cos( radians( i * angle ) ) * r;
+            float y = sin( radians( i * angle ) ) * r;
+            vertex( x, y, -halfHeight );    
+        }
+        endShape(CLOSE);
+        // draw bottom shape
+        beginShape();
+        for (int i = 0; i < sides; i++) {
+            float x = cos( radians( i * angle ) ) * r;
+            float y = sin( radians( i * angle ) ) * r;
+            vertex( x, y, halfHeight );    
+        }
+        endShape(CLOSE);
+        beginShape(TRIANGLE_STRIP);
+        for (int i = 0; i < sides + 1; i++) {
+            float x = cos( radians( i * angle ) ) * r;
+            float y = sin( radians( i * angle ) ) * r;
+            vertex( x, y, halfHeight);
+            vertex( x, y, -halfHeight);    
+        }
+        endShape(CLOSE);
+    popMatrix();
+    noFill();
+}
+
  public void drawParticles() {
+    sphereDetail(2);
     for (int i = numParticles-1; i >= 0; i--) {
         Vec3 pos = particlePos.get(i);
         Vec3 col = particleCol.get(i);
@@ -858,7 +930,7 @@ static int numNodes  = 400;
   
 //A list of circle obstacles
 static int maxNumObstacles = 1000;
-static int initObstacles = 350;
+static int initObstacles = 600;
 int numObstacles = initObstacles;
 boolean[] validCircles = new boolean[maxNumObstacles];
 Vec2 circlePosArr[] = new Vec2[maxNumObstacles]; //Circle positions
@@ -995,9 +1067,9 @@ boolean reachedGoal;
 /////////////////////////////
 
 // scene dimensions
-float sceneX = 2000;
-float sceneY = 2000;
-float sceneZ = 2000;
+float sceneX = 3000;
+float sceneY = 3000;
+float sceneZ = 3000;
 
 // model info
 int kiwiFrames = 4;
@@ -1152,8 +1224,6 @@ int goalNode;
     }
     times[0] = 5; times[2] = 5;
     times[1] = 2; times[3] = 2;
-    
-    sphereDetail(2);
 
     initiatePathfinding();
 }
@@ -1175,10 +1245,20 @@ int goalNode;
 }
 
  public void placeRandomObstacles(){
-    noStroke();
     //Initial obstacle position
+    sphereDetail(15);
+    fill(255);
+    noStroke();
+    // clear things in case of reset
     circleDrawRad.clear();
     circlePos.clear();
+    circleColor.clear();
+    circleRot.clear();
+    circleRotRate.clear();
+    circleColRad.clear();
+    circleShape.clear();
+    circleTilt.clear();
+
     circleDrawRad.add(30.0f); //Make the first obstacle big
     circleColRad.add(30.0f+agentColRad);
     circlePos.add(new Vec3(
@@ -1250,9 +1330,13 @@ int goalNode;
 
     testPRM();
     int iters = 0;
-    while (curPath.size() == 1 || iters == 20) {
+    while (curPath.size() == 1 && iters != 3) {
         testPRM();
         iters++;
+    }
+    if (iters == 3) {
+        reset();
+        return;
     }
     indexCounter = 1;
     nextNode = curPath.get(1);
