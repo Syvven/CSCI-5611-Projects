@@ -26,6 +26,9 @@ Vec2 goalPos = new Vec2(500,200);
 static int maxNumNodes = 1000;
 Vec2[] nodePos = new Vec2[maxNumNodes];
 
+int count = -1;
+int totalTime = 0;
+
 //Generate non-colliding PRM nodes
 void generateRandomNodes(int numNodes, Vec2[] circleCenters, float[] circleRadii){
   for (int i = 0; i < numNodes; i++){
@@ -116,6 +119,8 @@ Vec2 sampleFreePos(){
 }
 
 long startTime, endTime;
+int totalTimeWith=0;
+int countWith = 0;
 void testPRM(){
   
   
@@ -127,11 +132,23 @@ void testPRM(){
   generateRandomNodes(numNodes, circlePos, circleRad);
   connectNeighbors(circlePos, circleRad, numObstacles, nodePos, numNodes);
   
+  
   startTime = System.nanoTime();
   curPath = planPath(startPos, goalPos, circlePos, circleRad, numObstacles, nodePos, numNodes);
   endTime = System.nanoTime();
+  if (count != -1) {
+    totalTime += int((endTime-startTime)/1000);
+  }
+  totalTimeWith += int((endTime-startTime)/1000);
+  count++;
+  countWith++;
   pathQuality();
   
+  println("Iteration", count);
+  if (countWith%100 == 0 && count != 0) {
+    println("Average Without Initial:", int(totalTime/count));
+    println("Average With Initial:", int(totalTimeWith/countWith));
+  }
   println("Nodes:", numNodes," Obstacles:", numObstacles," Time (us):", int((endTime-startTime)/1000),
           " Path Len:", pathLength, " Path Segment:", curPath.size()+1,  " Num Collisions:", numCollisions);
 }
@@ -248,7 +265,7 @@ void mousePressed(){
     goalPos = new Vec2(mouseX, mouseY);
     //println("New Goal is",goalPos.x, goalPos.y);
   }
-  connectNeighbors(circlePos, circleRad, numObstacles, nodePos, numNodes);
+  // connectNeighbors(circlePos, circleRad, numObstacles, nodePos, numNodes);
   startTime = System.nanoTime();
   curPath = planPath(startPos, goalPos, circlePos, circleRad, numObstacles, nodePos, numNodes);
   endTime = System.nanoTime();

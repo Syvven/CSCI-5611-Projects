@@ -28,6 +28,10 @@ public class Vec3 {
         return new Vec3(x+rhs.x, y+rhs.y, z+rhs.z);
     }
 
+    public Vec3 plus(Vec2 rhs) {
+        return new Vec3(x+rhs.x, y, z+rhs.y);
+    }
+
     public void add(Vec3 rhs){
         x += rhs.x;
         y += rhs.y;

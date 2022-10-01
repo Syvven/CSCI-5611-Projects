@@ -33,13 +33,25 @@ class Camera
   void Update(float dt)
   {
     if (cameraFollowAgent) {
+      if (agentBackYDown) agentBackY += 5;
+      if (agentBackYUp) agentBackY -= 5;
       camera( 
-        agentPos.x+backDir.x*2,-150, agentPos.z+backDir.y*2,
-        agentPos.x,agentPos.y, agentPos.z,
+        agentPos.x+backDir.x*2,agentBackY, agentPos.z+backDir.y*2,
+        agentPos.x, agentPos.y, agentPos.z,
         0, 1, 0 
       );
       return;
     }
+
+    if (firstPerson) {
+      camera(
+        agentPos.x + forwardDir.x*10, agentPos.y-agentColRad*0.85, agentPos.z + forwardDir.y*10,
+        agentPos.x + forwardDir.x*100, agentPos.y, agentPos.z + forwardDir.y*100,
+        0,1,0
+      );
+      return;
+    }
+
     theta += turnSpeed * ( negativeTurn.x + positiveTurn.x)*dt;
     
     // cap the rotation about the X axis to be less than 90 degrees to avoid gimble lock
@@ -86,8 +98,14 @@ class Camera
   // only need to change if you want difrent keys for the controls
   void HandleKeyPressed()
   {
-    if ( key == 'w' || key == 'W' ) positiveMovement.z = 1;
-    if ( key == 's' || key == 'S' ) negativeMovement.z = -1;
+    if ( key == 'w' || key == 'W' ) {
+      if (!cameraFollowAgent) positiveMovement.z = 1;
+      else agentBackYUp = true;
+    }
+    if ( key == 's' || key == 'S' ) {
+      if (!cameraFollowAgent) negativeMovement.z = -1;
+      else agentBackYDown = true;
+    }
     if ( key == 'a' || key == 'A' ) negativeMovement.x = -1;
     if ( key == 'd' || key == 'D' ) positiveMovement.x = 1;
     if ( key == 'q' || key == 'Q' ) positiveMovement.y = 1;
@@ -99,7 +117,7 @@ class Camera
       theta = defaults.theta;
       phi = defaults.phi;
     }
-    if ( key == 'v' ) cameraFollowAgent = true;
+    if ( key == 'v' && !firstPerson && !atGoal ) cameraFollowAgent = true;
     
     if ( keyCode == LEFT )  negativeTurn.x = 1;
     if ( keyCode == RIGHT ) positiveTurn.x = -0.5;
@@ -113,14 +131,21 @@ class Camera
   // only need to change if you want difrent keys for the controls
   void HandleKeyReleased()
   {
-    if ( key == 'w' || key == 'W' ) positiveMovement.z = 0;
+    if ( key == 'w' || key == 'W' ) {
+      if (!cameraFollowAgent) positiveMovement.z = 0;
+      else agentBackYUp = false;
+    }
     if ( key == 'q' || key == 'Q' ) positiveMovement.y = 0;
     if ( key == 'd' || key == 'D' ) positiveMovement.x = 0;
     if ( key == 'a' || key == 'A' ) negativeMovement.x = 0;
-    if ( key == 's' || key == 'S' ) negativeMovement.z = 0;
+    if ( key == 's' || key == 'S' ) {
+      if (!cameraFollowAgent) negativeMovement.z = 0;
+      else agentBackYDown = false;
+    }
     if ( key == 'e' || key == 'E' ) negativeMovement.y = 0;
     if ( key == ' ' ) verticalMovement.y = 0;
     if ( key == 'v' ) cameraFollowAgent = false;
+    if ( key == 'f' && !cameraFollowAgent && !atGoal) firstPerson = !firstPerson;
     
     if ( keyCode == LEFT  ) negativeTurn.x = 0;
     if ( keyCode == RIGHT ) positiveTurn.x = 0;

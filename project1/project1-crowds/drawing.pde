@@ -1,11 +1,13 @@
 // main draw loop
 void draw() {
     // updates things
-    camera.Update(1.0/frameRate);
+    float dt = 1.0/frameRate;
+    camera.Update(dt);
     checkPressed();
     if (!paused) {
-        update(1.0/frameRate);
+        update(dt);
         updateKiwiFrame();
+        updateKiwiParticles(dt);
     }
 
     if (is3d) {
@@ -16,39 +18,11 @@ void draw() {
         ambientLight(75, 75, 75);
         directionalLight(128, 128, 128, 0, 0, -1);
 
-        // concentration = map(cos(frameCount * .01), -1, 1, 12, 100);
-        // mouse.set(mouseX - half.x, mouseY - half.y, viewOff);
-        // mouse.normalize();
-
-        // // Flash light.
-        // spotLight(
-        //     191, 170, 133,
-        //     0, 0, viewOff,
-        //     mouse.x, mouse.y, -1,
-        //     angle, concentration
-        // );
-
-        // used for understanding where the bounds of the scene are
-        // drawBounds();
-        // if (mouseCast) {
-        //   drawMouseRay();
-        // }
-
-        // colorMode(HSB, 360, 100, 100);
-        // lightFalloff(0.1, 0, 0);
-        // spotLight(
-        //     360,100, 100,
-        //     agentPos.x, agentPos.y-80*kiwiScale, agentPos.z,
-        //     0,1,0,
-        //     ninety*0.25,
-        //     500
-        // );
-        // colorMode(RGB, 255, 255, 255);
-
         // draws obstacles, agent and floor if you want
-        drawObstacles(1/frameRate);
+        drawObstacles(dt);
         drawPointLight();
         drawKiwi();
+        drawParticles();
         // drawFloor();
     
         // //Draw graph
@@ -135,9 +109,26 @@ void draw() {
             line(newNodePos[curNode].x,newNodePos[curNode].y,newNodePos[nextNode].x,newNodePos[nextNode].y);
         }
         line(goalPos.x,goalPos.y,newNodePos[curPath.get(curPath.size()-1)].x,newNodePos[curPath.get(curPath.size()-1)].y);
-        
+        noStroke();
     }
     
+}
+
+void drawParticles() {
+    for (int i = numParticles-1; i >= 0; i--) {
+        Vec3 pos = particlePos.get(i);
+        Vec3 col = particleCol.get(i);
+        float life = particleLife.get(i);
+        float alpha = 255;
+        if (life > maxLife*0.3) {
+            alpha = 150-life*300;
+        }
+        fill(col.x, col.y, col.z, alpha);
+        pushMatrix();
+            translate(pos.x, pos.y, pos.z);
+            sphere(3);
+        popMatrix();
+    }
 }
 
 // draws coordinate system of scene for debugging
@@ -186,7 +177,6 @@ void drawObstacles(float dt) {
         circleRot.set(i, rot);
         Float[] tilt = circleTilt.get(i);
         Vec3 currPos = circlePos.get(i);
-        Vec3 currCol = circleColor.get(i);
         float currRad = circleDrawRad.get(i);
         // fill(currCol.x, currCol.y, currCol.z);
         pushMatrix();
@@ -219,7 +209,7 @@ void drawSkyBox() {
     // }
     // popMatrix();
     pushMatrix();
-    shape(back);
+        shape(back);
     popMatrix();
 }
 

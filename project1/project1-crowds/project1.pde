@@ -2,9 +2,9 @@
 /////////////////////////////
 
 // scene dimensions
-float sceneX = 1500;
-float sceneY = 1500;
-float sceneZ = 1500;
+float sceneX = 2000;
+float sceneY = 2000;
+float sceneZ = 2000;
 
 // model info
 int kiwiFrames = 4;
@@ -38,6 +38,7 @@ float agentColRad = 2.5*0.5*kiwiScale;
 float agentDir = 0;
 
 Vec2 backDir = agentVel.times(-1);
+Vec2 forwardDir = agentVel;
 Vec2 backVel = agentVel.times(-1);
 
 float kiwiDir = 0;
@@ -54,6 +55,23 @@ ArrayList<Float> circleRot = new ArrayList<Float>();
 ArrayList<Float> circleRotRate = new ArrayList<Float>();
 ArrayList<Float[]> circleTilt = new ArrayList<Float[]>();
 float obstacleWallPadding = 75;
+
+// kiwi particles
+ArrayList<Vec3> particlePos = new ArrayList<Vec3>();
+ArrayList<Vec3> particleVel = new ArrayList<Vec3>();
+ArrayList<Vec3> particleCol = new ArrayList<Vec3>();
+Vec3 startColor = new Vec3(254, 240, 1);
+Vec3 endColor = new Vec3(240, 5, 5);
+Vec3 smoke = new Vec3(50, 50, 50);
+FloatList particleLife = new FloatList();
+int maxParticles = 200;
+int numParticles = 0;
+float genRate = 200;
+float coneRad = radians(10);
+float maxLife = 0.5;
+
+// start and goal particles
+
 
 Camera camera;
 
@@ -73,6 +91,9 @@ boolean mouseCast = false;
 boolean paused = true;
 boolean is3d = true;
 boolean cameraFollowAgent = false;
+boolean firstPerson = false;
+float agentBackY = -150;
+boolean agentBackYUp, agentBackYDown;
 boolean atGoal = false;
 Vec3 mouseRay, mouseOrig;
 
@@ -86,7 +107,7 @@ Vec2 nextPos;
 int goalNode;
 
 void setup() {
-    size(1500, 1500, P3D);
+    size(1300, 1300, P3D);
     surface.setTitle("CSCI 5611 Project 1 Part 2");
     surface.setResizable(true);
     surface.setLocation(500,500);
@@ -139,8 +160,25 @@ void setup() {
     times[0] = 5; times[2] = 5;
     times[1] = 2; times[3] = 2;
     
-    sphereDetail(15);
+    sphereDetail(2);
+
     initiatePathfinding();
+}
+
+void randomizeStart() {
+    startPos = new Vec2(random(-sceneX*0.5, sceneX*0.5), random(-sceneZ*0.5, sceneZ*0.5));
+    while (pointInCircleList(circlePosArr, circleRadArr, numObstacles, startPos, epsilon)) {
+        startPos = new Vec2(random(-sceneX*0.5, sceneX*0.5), random(-sceneZ*0.5, sceneZ*0.5));
+    }
+    agentPos.x = startPos.x; agentPos.z = startPos.y;
+    agentPos2 = startPos;
+}
+
+void randomizeGoal() {
+    goalPos = new Vec2(random(-sceneX*0.5, sceneX*0.5), random(-sceneZ*0.5, sceneZ*0.5));
+    while (pointInCircleList(circlePosArr, circleRadArr, numObstacles, startPos, epsilon)) {
+        goalPos = new Vec2(random(-sceneX*0.5, sceneX*0.5), random(-sceneZ*0.5, sceneZ*0.5));
+    }
 }
 
 void placeRandomObstacles(){
@@ -148,18 +186,12 @@ void placeRandomObstacles(){
     //Initial obstacle position
     circleDrawRad.clear();
     circlePos.clear();
-    circleColor.clear();
     circleDrawRad.add(30.0); //Make the first obstacle big
     circleColRad.add(30.0+agentColRad);
     circlePos.add(new Vec3(
         random(-sceneX*0.5+obstacleWallPadding,sceneX*0.5-obstacleWallPadding),
         random(-100,100),
         random(-sceneZ*0.5,sceneZ*0.5)
-    ));
-    circleColor.add(new Vec3(
-        random(255),
-        random(255),
-        random(255)
     ));
     PShape globe = createShape(SPHERE, 30);
     globe.setTexture(textures[int(random(10))]);
@@ -177,11 +209,6 @@ void placeRandomObstacles(){
             random(-sceneX*0.5+obstacleWallPadding,sceneX*0.5-obstacleWallPadding),
             random(-100, 100),
             random(-sceneZ*0.5+obstacleWallPadding,sceneZ*0.5-obstacleWallPadding)
-        ));
-        circleColor.add(new Vec3(
-            random(255),
-            random(255),
-            random(255)
         ));
         globe = createShape(SPHERE, rad);
         globe.setTexture(textures[int(random(10))]);
@@ -206,6 +233,11 @@ void reset() {
     Vec2 backDir = agentVel.times(-1);
     Vec2 backVel = agentVel.times(-1);
     atGoal = false;
+    particlePos = new ArrayList<Vec3>();
+    particleVel = new ArrayList<Vec3>();
+    particleCol = new ArrayList<Vec3>();
+    particleLife = new FloatList();
+    numParticles = 0;
 }
 
 void initiatePathfinding() {
@@ -218,9 +250,16 @@ void initiatePathfinding() {
         circlePosArr[i] = new Vec2(pos.x, pos.z);
         circleRadArr[i] = rad;
     }
+
+    // if random start and goal, uncomment this
+    randomizeStart();
+    randomizeGoal();
+
     testPRM();
-    while (curPath.size() == 1) {
+    int saiters = 0;
+    while (curPath.size() == 1 || iters == 20) {
         testPRM();
+        iters++;
     }
     indexCounter = 1;
     nextNode = curPath.get(1);
