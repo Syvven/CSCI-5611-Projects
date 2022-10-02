@@ -1,65 +1,108 @@
 void update(float dt) {
-    float dist = agentPos.distanceTo(nextPos);
-    if (dist < goalSpeed*dt) {
-        if (nextNode == goalNode) {
-            agentPos.x = goalPos.x;
+    if (is3d) {
+        if (!atGoal) {
+            if (abs(agentPos.y-kiwiYOffset) > 1 && !kiwiOnGround) {
+                agentPos.y = agentPos.y*0.99 + kiwiYOffset*(1-0.99);
+            } else {
+                kiwiOnGround = true;
+                agentPos.y = kiwiYOffset;
+            }  
+        }
+
+        if (atGoal && !kiwiOnGround) {
+            if (abs(agentPos.y-kiwiInShipHeight) > 1) {
+                agentPos.y = agentPos.y*0.99 + kiwiInShipHeight*(1-0.99);
+            }
+        } else if (atGoal && kiwiOnGround) {
+            kiwiOnGround = false;
+        }
+
+        for (int i = 0; i < numObstacles; i++) {
+            float rot = circleRot.get(i);
+            float rotRate = circleRotRate.get(i);
+            rot += rotRate;
+            circleRot.set(i, rot);
+        }
+    } else {
+        if (!atGoal) {
+            kiwiOnGround = true;
             agentPos.y = kiwiYOffset;
-            agentPos.z = goalPos.y;
-            // agentVel.x = 0; agentVel.y = 0;
-            // agentFinalVel.x = 0; agentFinalVel.y = 0;
-            atGoal = true;
-            cameraFollowAgent = false;
-            firstPerson = false;
-            stopParticles = true;
         } else {
-            agentPos = new Vec3(nextPos.x, agentPos.y, nextPos.y);
-            indexCounter++;
-            nextNode = curPath.get(indexCounter);
-            nextPos = newNodePos[nextNode];
+            kiwiOnGround = false;
+            agentPos.y = kiwiInShipHeight;
         }
-    } else if (nextNode != goalNode) {
-        Vec2 nextNextPos = newNodePos[curPath.get(indexCounter+1)];
-        dist = agentPos.distanceTo(nextNextPos);
-        Vec2 dir = nextNextPos.minus(new Vec2(agentPos.x, agentPos.z)).normalized();
-        hitInfo hit = rayCircleListIntersect(circlePosArr, circleRadArr, numObstacles, new Vec2(agentPos.x, agentPos.z), dir, dist);
-        if (!hit.hit) {
-            indexCounter++;
-            nextNode = curPath.get(indexCounter);
-            nextPos = newNodePos[nextNode];
-        }
-    }   
-    if (!atGoal) {
-        agentFinalVel = nextPos.minus(new Vec2(agentPos.x, agentPos.z)).normalized().times(goalSpeed);
-        agentVel = interpolate(agentVel, agentFinalVel, 0.05*goalSpeed/100);
-        backVel = agentVel.times(-1);
-        backDir = interpolate(backDir, backVel, 0.01*goalSpeed/100);
-        forwardDir = interpolate(forwardDir, agentVel.normalized(), 0.13);
-
-        if (agentVel.length() != goalSpeed) {
-            agentVel = agentVel.normalized().times(goalSpeed);
-        }
-        agentPos.add(agentVel.times(dt));
+        
     }
-
     
+    
+
+    if (((is3d && kiwiOnGround) || !is3d) && !noGoal) {
+        float dist = agentPos.distanceTo(nextPos);
+        if (dist < goalSpeed*dt) {
+            if (nextNode == goalNode) {
+                agentPos.x = goalPos.x;
+                agentPos.y = kiwiYOffset;
+                agentPos.z = goalPos.y;
+                // agentVel.x = 0; agentVel.y = 0;
+                // agentFinalVel.x = 0; agentFinalVel.y = 0;
+                atGoal = true;
+                // cameraFollowAgent = false;
+                // firstPerson = false;
+                stopParticles = true;
+            } else {
+                agentPos = new Vec3(nextPos.x, agentPos.y, nextPos.y);
+                indexCounter++;
+                nextNode = curPath.get(indexCounter);
+                nextPos = newNodePos[nextNode];
+            }
+        } else if (nextNode != goalNode) {
+            Vec2 nextNextPos = newNodePos[curPath.get(indexCounter+1)];
+            dist = agentPos.distanceTo(nextNextPos);
+            Vec2 dir = nextNextPos.minus(new Vec2(agentPos.x, agentPos.z)).normalized();
+            hitInfo hit = rayCircleListIntersect(circlePosArr, circleRadArr, numObstacles, new Vec2(agentPos.x, agentPos.z), dir, dist);
+            if (!hit.hit) {
+                indexCounter++;
+                nextNode = curPath.get(indexCounter);
+                nextPos = newNodePos[nextNode];
+            }
+        }   
+        if (!atGoal) {
+            agentFinalVel = nextPos.minus(new Vec2(agentPos.x, agentPos.z)).normalized().times(goalSpeed);
+            agentVel = interpolate(agentVel, agentFinalVel, 0.05*goalSpeed/100);
+            backVel = agentVel.times(-1);
+            backDir = interpolate(backDir, backVel, 0.01*goalSpeed/100);
+            forwardDir2 = interpolate(forwardDir2, agentVel.normalized(), 0.13);
+
+            if (agentVel.length() != goalSpeed) {
+                agentVel = agentVel.normalized().times(goalSpeed);
+            }
+            agentPos.add(agentVel.times(dt));
+        }
+    }
 }
 
 void updateKiwiFrame() {
-    agentDir = agentDir*t+(1-t)*atan2(agentVel.x, agentVel.y);
-
-    kiwiTime += agentVel.length()*0.005;
-    if (kiwiTime > 1/kiwi_framerate) {
-        kiwiTime = 0;
-        kiwiSwitchFrame++;
-        if (kiwiSwitchFrame == times[currFrame]) {
-            kiwiSwitchFrame = 0;
-            currFrame = (currFrame+1)%kiwiFrames;
+    if (noGoal) {
+        agentDir += 0.05;
+    } else {
+        agentDir = agentDir*t+(1-t)*atan2(agentVel.x, agentVel.y);
+    }
+    
+    if (kiwiOnGround) {
+        kiwiTime += agentVel.length()*0.005;
+        if (kiwiTime > 1/kiwi_framerate) {
+            kiwiTime = 0;
+            kiwiSwitchFrame++;
+            if (kiwiSwitchFrame == times[currFrame]) {
+                kiwiSwitchFrame = 0;
+                currFrame = (currFrame+1)%kiwiFrames;
+            }
         }
     }
 }
 
 void updateKiwiParticles(float dt) {
-    if (!stopParticles) {
+    if (!stopParticles && kiwiOnGround && !noGoal) {
         float toGen_float = genRate*dt;
         int toGen = int(toGen_float);
         float fractPart = toGen_float-toGen;

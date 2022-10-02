@@ -5,6 +5,9 @@
 // Holding shift boosts the move speed
 
 boolean centerMode = false;
+PVector forwardDir; 
+PVector upDir;
+PVector rightDir;   
 
 class Camera
 {
@@ -36,7 +39,7 @@ class Camera
       if (agentBackYDown) agentBackY += 5;
       if (agentBackYUp) agentBackY -= 5;
       camera( 
-        agentPos.x+backDir.x*2,agentBackY, agentPos.z+backDir.y*2,
+        agentPos.x+backDir.x*2,agentPos.y+agentBackY, agentPos.z+backDir.y*2,
         agentPos.x, agentPos.y, agentPos.z,
         0, 1, 0 
       );
@@ -62,9 +65,9 @@ class Camera
     // except that their theta and phi are named opposite
     float t = theta + PI / 2;
     float p = phi + PI / 2;
-    PVector forwardDir = new PVector( sin( p ) * cos( t ),   cos( p ),   -sin( p ) * sin ( t ) );
-    PVector upDir      = new PVector( sin( phi ) * cos( t ), cos( phi ), -sin( t ) * sin( phi ) );
-    PVector rightDir   = new PVector( cos( theta ), 0, -sin( theta ) );
+    forwardDir = new PVector( sin( p ) * cos( t ),   cos( p ),   -sin( p ) * sin ( t ) );
+    upDir      = new PVector( sin( phi ) * cos( t ), cos( phi ), -sin( t ) * sin( phi ) );
+    rightDir   = new PVector( cos( theta ), 0, -sin( theta ) );
     if (negativeMovement.mag() > 0) negativeMovement.normalize();
     if (positiveMovement.mag() > 0) positiveMovement.normalize();
     if (verticalMovement.mag() > 0) verticalMovement.normalize();
@@ -117,7 +120,7 @@ class Camera
       theta = defaults.theta;
       phi = defaults.phi;
     }
-    if ( key == 'v' && !firstPerson && !atGoal ) cameraFollowAgent = true;
+    if ( key == 'v' && !firstPerson) cameraFollowAgent = true;
     
     if ( keyCode == LEFT )  negativeTurn.x = 1;
     if ( keyCode == RIGHT ) positiveTurn.x = -0.5;
@@ -145,7 +148,7 @@ class Camera
     if ( key == 'e' || key == 'E' ) negativeMovement.y = 0;
     if ( key == ' ' ) verticalMovement.y = 0;
     if ( key == 'v' ) cameraFollowAgent = false;
-    if ( key == 'f' && !cameraFollowAgent && !atGoal) firstPerson = !firstPerson;
+    if ( key == 'f' && !cameraFollowAgent) firstPerson = !firstPerson;
     
     if ( keyCode == LEFT  ) negativeTurn.x = 0;
     if ( keyCode == RIGHT ) positiveTurn.x = 0;

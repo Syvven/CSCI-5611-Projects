@@ -13,19 +13,24 @@ void draw() {
     if (is3d) {
         background(0);
         drawSkyBox();
+        colorMode(HSB, 360, 100, 100);
         lightFalloff(1, 0, 0);
         lightSpecular(0, 0, 0);
-        ambientLight(75, 75, 75);
-        directionalLight(128, 128, 128, 0, 0, -1);
+        ambientLight(35,35,35);
+        directionalLight(0,0,100, 1, 0, 0);
+        colorMode(RGB, 256, 256, 256);
 
         // draws obstacles, agent and floor if you want
         drawObstacles(dt);
         drawPointLight();
         drawKiwi();
+        drawShips();
         drawParticles();
         drawStartAndGoal();
+        // drawing the boundaries of axes for debugging
+        // drawBounds();
+
         // drawFloor();
-    
         // //Draw graph
         // stroke(50,50,50);
         // strokeWeight(1);
@@ -103,7 +108,7 @@ void draw() {
             line(startPos.x,startPos.y,goalPos.x,goalPos.y);
             return;
         }
-        line(startPos.x,startPos.y,nodePos[curPath.get(0)].x,nodePos[curPath.get(0)].y);
+        line(startPos.x,startPos.y,newNodePos[curPath.get(0)].x,newNodePos[curPath.get(0)].y);
         for (int i = 0; i < curPath.size()-1; i++){
             int curNode = curPath.get(i);
             int nextNode = curPath.get(i+1);
@@ -113,6 +118,21 @@ void draw() {
         noStroke();
     }
     
+}
+
+void drawShips() {
+    pushMatrix();
+        translate(goalPos.x, -250, goalPos.y);
+        rotateZ(oneeighty);
+        scale(2);
+        shape(ship);
+    popMatrix();
+    pushMatrix();
+        translate(absStartPos.x, -250, absStartPos.y);
+        rotateZ(oneeighty);
+        scale(2);
+        shape(ship);
+    popMatrix();
 }
 
 void drawStartAndGoal() {
@@ -125,7 +145,7 @@ void drawStartAndGoal() {
     float halfHeight = h / 2;
     // draw top shape
     pushMatrix();
-        translate(startPos.x, -100, startPos.y);
+        translate(absStartPos.x, -100, absStartPos.y);
         rotateX(radians(90));
         fill(255,0,0, 50);
         beginShape();
@@ -220,6 +240,7 @@ void drawBounds() {
     stroke(0,0,255);
     line(0,0,0,0,0,3000);
     line(0,0,0,0,0,-3000);
+    noStroke();
 }
 
 // // drawing borders of the scene
@@ -244,9 +265,6 @@ void drawObstacles(float dt) {
     noFill();
     for (int i = 0; i < numObstacles; i++) {
         float rot = circleRot.get(i);
-        float rotRate = circleRotRate.get(i);
-        rot += rotRate;
-        circleRot.set(i, rot);
         Float[] tilt = circleTilt.get(i);
         Vec3 currPos = circlePos.get(i);
         float currRad = circleDrawRad.get(i);
@@ -287,9 +305,9 @@ void drawSkyBox() {
 
 void drawPointLight() {
     colorMode(HSB, 360, 100, 100);
-    lightFalloff(0.1, 0, 0);
+    lightFalloff(0.5, 0, 0);
     pointLight(
-        0,0,100,
+        0,0,75,
         agentPos.x, agentPos.y-50, agentPos.z
     );
     colorMode(RGB, 256, 256, 256);

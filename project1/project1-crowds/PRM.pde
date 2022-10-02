@@ -100,6 +100,7 @@ void connectStartAndGoal(int numNodes, Vec2[] centers, float[] radii, int numObs
       Vec2 dir = newNodePos[i].minus(newNodePos[numNodes-1]).normalized();
       float distBetween = newNodePos[numNodes-1].distanceTo(newNodePos[i]);
       hitInfo circleListCheck = rayCircleListIntersect(centers, radii, numObstacles, newNodePos[numNodes-1], dir, distBetween);
+      neighbors[i].remove(Integer.valueOf(numNodes-1));
       if (!circleListCheck.hit){
         neighbors[i].add(numNodes-1);
       }
@@ -228,8 +229,6 @@ ArrayList<Integer> runAStar(Vec2[] nodePos, int numNodes, int startID, int goalI
     prevNode = parent[prevNode];
   }
   //print("\n");
-  
-  println(path);
 
   return path;
 }

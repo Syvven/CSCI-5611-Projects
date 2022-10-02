@@ -25,6 +25,9 @@ public class camera extends PApplet {
 // Holding shift boosts the move speed
 
 boolean centerMode = false;
+PVector forwardDir; 
+PVector upDir;
+PVector rightDir;   
 
 class Camera
 {
@@ -56,7 +59,7 @@ class Camera
       if (agentBackYDown) agentBackY += 5;
       if (agentBackYUp) agentBackY -= 5;
       camera( 
-        agentPos.x+backDir.x*2,agentBackY, agentPos.z+backDir.y*2,
+        agentPos.x+backDir.x*2,agentPos.y+agentBackY, agentPos.z+backDir.y*2,
         agentPos.x, agentPos.y, agentPos.z,
         0, 1, 0 
       );
@@ -82,9 +85,9 @@ class Camera
     // except that their theta and phi are named opposite
     float t = theta + PI / 2;
     float p = phi + PI / 2;
-    PVector forwardDir = new PVector( sin( p ) * cos( t ),   cos( p ),   -sin( p ) * sin ( t ) );
-    PVector upDir      = new PVector( sin( phi ) * cos( t ), cos( phi ), -sin( t ) * sin( phi ) );
-    PVector rightDir   = new PVector( cos( theta ), 0, -sin( theta ) );
+    forwardDir = new PVector( sin( p ) * cos( t ),   cos( p ),   -sin( p ) * sin ( t ) );
+    upDir      = new PVector( sin( phi ) * cos( t ), cos( phi ), -sin( t ) * sin( phi ) );
+    rightDir   = new PVector( cos( theta ), 0, -sin( theta ) );
     if (negativeMovement.mag() > 0) negativeMovement.normalize();
     if (positiveMovement.mag() > 0) positiveMovement.normalize();
     if (verticalMovement.mag() > 0) verticalMovement.normalize();
@@ -137,7 +140,7 @@ class Camera
       theta = defaults.theta;
       phi = defaults.phi;
     }
-    if ( key == 'v' && !firstPerson && !atGoal ) cameraFollowAgent = true;
+    if ( key == 'v' && !firstPerson) cameraFollowAgent = true;
     
     if ( keyCode == LEFT )  negativeTurn.x = 1;
     if ( keyCode == RIGHT ) positiveTurn.x = -0.5f;
@@ -165,7 +168,7 @@ class Camera
     if ( key == 'e' || key == 'E' ) negativeMovement.y = 0;
     if ( key == ' ' ) verticalMovement.y = 0;
     if ( key == 'v' ) cameraFollowAgent = false;
-    if ( key == 'f' && !cameraFollowAgent && !atGoal) firstPerson = !firstPerson;
+    if ( key == 'f' && !cameraFollowAgent) firstPerson = !firstPerson;
     
     if ( keyCode == LEFT  ) negativeTurn.x = 0;
     if ( keyCode == RIGHT ) positiveTurn.x = 0;
@@ -366,6 +369,7 @@ ArrayList<Integer> path = new ArrayList();
       Vec2 dir = newNodePos[i].minus(newNodePos[numNodes-1]).normalized();
       float distBetween = newNodePos[numNodes-1].distanceTo(newNodePos[i]);
       hitInfo circleListCheck = rayCircleListIntersect(centers, radii, numObstacles, newNodePos[numNodes-1], dir, distBetween);
+      neighbors[i].remove(Integer.valueOf(numNodes-1));
       if (!circleListCheck.hit){
         neighbors[i].add(numNodes-1);
       }
@@ -576,19 +580,24 @@ class hitInfo{
     if (is3d) {
         background(0);
         drawSkyBox();
+        colorMode(HSB, 360, 100, 100);
         lightFalloff(1, 0, 0);
         lightSpecular(0, 0, 0);
-        ambientLight(75, 75, 75);
-        directionalLight(128, 128, 128, 0, 0, -1);
+        ambientLight(35,35,35);
+        directionalLight(0,0,100, 1, 0, 0);
+        colorMode(RGB, 256, 256, 256);
 
         // draws obstacles, agent and floor if you want
         drawObstacles(dt);
         drawPointLight();
         drawKiwi();
+        drawShips();
         drawParticles();
         drawStartAndGoal();
+        // drawing the boundaries of axes for debugging
+        // drawBounds();
+
         // drawFloor();
-    
         // //Draw graph
         // stroke(50,50,50);
         // strokeWeight(1);
@@ -666,7 +675,7 @@ class hitInfo{
             line(startPos.x,startPos.y,goalPos.x,goalPos.y);
             return;
         }
-        line(startPos.x,startPos.y,nodePos[curPath.get(0)].x,nodePos[curPath.get(0)].y);
+        line(startPos.x,startPos.y,newNodePos[curPath.get(0)].x,newNodePos[curPath.get(0)].y);
         for (int i = 0; i < curPath.size()-1; i++){
             int curNode = curPath.get(i);
             int nextNode = curPath.get(i+1);
@@ -676,6 +685,21 @@ class hitInfo{
         noStroke();
     }
     
+}
+
+ public void drawShips() {
+    pushMatrix();
+        translate(goalPos.x, -250, goalPos.y);
+        rotateZ(oneeighty);
+        scale(2);
+        shape(ship);
+    popMatrix();
+    pushMatrix();
+        translate(absStartPos.x, -250, absStartPos.y);
+        rotateZ(oneeighty);
+        scale(2);
+        shape(ship);
+    popMatrix();
 }
 
  public void drawStartAndGoal() {
@@ -688,7 +712,7 @@ class hitInfo{
     float halfHeight = h / 2;
     // draw top shape
     pushMatrix();
-        translate(startPos.x, -100, startPos.y);
+        translate(absStartPos.x, -100, absStartPos.y);
         rotateX(radians(90));
         fill(255,0,0, 50);
         beginShape();
@@ -783,6 +807,7 @@ class hitInfo{
     stroke(0,0,255);
     line(0,0,0,0,0,3000);
     line(0,0,0,0,0,-3000);
+    noStroke();
 }
 
 // // drawing borders of the scene
@@ -807,9 +832,6 @@ class hitInfo{
     noFill();
     for (int i = 0; i < numObstacles; i++) {
         float rot = circleRot.get(i);
-        float rotRate = circleRotRate.get(i);
-        rot += rotRate;
-        circleRot.set(i, rot);
         Float[] tilt = circleTilt.get(i);
         Vec3 currPos = circlePos.get(i);
         float currRad = circleDrawRad.get(i);
@@ -850,9 +872,9 @@ class hitInfo{
 
  public void drawPointLight() {
     colorMode(HSB, 360, 100, 100);
-    lightFalloff(0.1f, 0, 0);
+    lightFalloff(0.5f, 0, 0);
     pointLight(
-        0,0,100,
+        0,0,75,
         agentPos.x, agentPos.y-50, agentPos.z
     );
     colorMode(RGB, 256, 256, 256);
@@ -890,7 +912,55 @@ class hitInfo{
     // popMatrix();
 }
  public void checkPressed() {
+    if (shipMoveNeg.length() > 0) shipMoveNeg.normalize();
+    if (shipMovePos.length() > 0) shipMovePos.normalize();
+    shipMove.x = shipMoveNeg.x + shipMovePos.x;
+    shipMove.y = shipMoveNeg.y + shipMovePos.y;
+    // goalPos.x += shipMove.x*5;
+    // goalPos.y += shipMove.y*5;
 
+    cameraForward.x = forwardDir.x; cameraForward.y = forwardDir.z;
+    cameraForward.normalize();
+
+    cameraBackward.x = cameraForward.x*-1;
+    cameraBackward.y = cameraForward.y*-1;
+
+    cameraRight.x = rightDir.x; cameraRight.y = rightDir.z;
+    cameraRight.normalize();
+
+    cameraLeft.x = cameraRight.x*-1;
+    cameraLeft.y = cameraRight.y*-1;
+
+    cameraLeft.mul(shipMoveNeg.y);
+    cameraRight.mul(shipMovePos.y);
+    cameraForward.mul(shipMovePos.x);
+    cameraBackward.mul(shipMoveNeg.x);
+
+    Vec2 direction = cameraForward.plus(cameraBackward.plus(cameraRight.plus(cameraLeft)));
+
+    direction.mul(5);
+    goalPos.add(direction);
+
+    if (direction.x != 0 || direction.y != 0) {
+        if (!atGoal) {
+            startPos.x = agentPos.x; startPos.y = agentPos.z;
+
+            if (!startOrGoalInCircleList(circlePosArr, circleRadArr, numObstacles, goalPos, epsilon)) {
+                curPath = planPath(startPos, goalPos, circlePosArr, circleRadArr, numObstacles, nodePos, numNodes);
+                noGoal = false;
+                indexCounter = 1;
+                nextNode = curPath.get(1);
+                goalNode = curPath.get(curPath.size()-1);
+                nextPos = newNodePos[nextNode];
+                agentVel = nextPos.minus(startPos).normalized().times(goalSpeed);
+                return;
+            }
+            noGoal = true;
+            return;
+        }
+        agentPos.x = goalPos.x;
+        agentPos.z = goalPos.y;
+    }
 }
 
  public void mouseWheel(MouseEvent event) {
@@ -905,15 +975,39 @@ class hitInfo{
 
  public void keyPressed()
 {
-  camera.HandleKeyPressed();
+    if ( key == 'i' || key == 'I' ) {
+        shipMovePos.x = 1;
+    }
+    if ( key == 'j' || key == 'J' ) {
+        shipMoveNeg.y = 1;
+    }
+    if ( key == 'l' || key == 'L' ) {
+        shipMovePos.y = 1;
+    }
+    if ( key == 'k' || key == 'K' ) {
+        shipMoveNeg.x = 1;
+    }
+    camera.HandleKeyPressed();
 }
 
  public void keyReleased()
 {
-  camera.HandleKeyReleased();
-  if (key == 'r') reset();
-  if (key == 'p') paused = !paused;
-  if (key == 'c') is3d = !is3d;
+    camera.HandleKeyReleased();
+    if (key == 'r') reset();
+    if (key == 'p') paused = !paused;
+    if (key == 'c') is3d = !is3d;
+    if ( key == 'i' || key == 'I' ) {
+        shipMovePos.x = 0;
+    }
+    if ( key == 'j' || key == 'J' ) {
+        shipMoveNeg.y = 0;
+    }
+    if ( key == 'l' || key == 'L' ) {
+        shipMovePos.y = 0;
+    }
+    if ( key == 'k' || key == 'K' ) {
+        shipMoveNeg.x = 0;
+    }
 }
 
 // Vec3 cameraRay(float x, float y) {
@@ -1063,8 +1157,40 @@ boolean reachedGoal;
     }
     return false;
 }
-// Project 1 Part 2
+
+//Returns true if the point is inside a list of circle
+//You must consider a point as colliding if it's distance is <= eps
+ public boolean startOrGoalInCircleList(Vec2[] centers, float[] radii, int numObstacles, Vec2 pointPos, float eps){
+    for (int i = 0; i < numObstacles; i++){
+        Vec2 center =  centers[i];
+        float r = radii[i];
+        if (pointInCircle(center,r,pointPos, eps)){
+            return true;
+        }
+    }
+    return false;
+}
+
+//Returns true if the point is inside a list of circle
+//You must consider a point as colliding if it's distance is <= eps
+ public int getIndexPointInCircleList(Vec2[] centers, float[] radii, int numObstacles, Vec2 pointPos, float eps){
+    for (int i = 0; i < numObstacles; i++){
+        Vec2 center =  centers[i];
+        float r = radii[i];
+        if (pointInCircle(center,r,pointPos, eps)){
+            return i;
+        }
+    }
+    return -1;
+}
+// Project 1 Part 2 -- hend0800, cheon051
 /////////////////////////////
+// SOURCES
+// Camera Code: Professor Guy -- Modified by hend0800
+// Cylinder: https://vormplus.be/full-articles/drawing-a-cylinder-with-processing 
+// Kiwi: Lauren Oliver
+// Planet Textures: http://planetpixelemporium.com/planets.html
+// Spaceship: https://www.cgtrader.com/free-3d-models/space/spaceship/free-flying-saucer
 
 // scene dimensions
 float sceneX = 3000;
@@ -1089,21 +1215,23 @@ float kiwi_framerate = 24;
 // float kiwiYOffset = -0.71*kiwiScale; // model starts below floor, offset height a bit to have it normal
 float kiwiYOffset = 0; // this one because no need for floor
 PImage[] skybox = new PImage[6];
+float kiwiInShipHeight = -305;
 
 // agent info
 Vec2 lastVel = new Vec2(0,0);
 Vec3 lastPos = new Vec3(0,0,0);
 Vec2 agentVel = new Vec2(1,1);
 Vec2 agentFinalVel = agentVel;
-Vec3 agentPos = new Vec3(-sceneX/2+25,kiwiYOffset,-sceneZ/2+25);
+Vec3 agentPos = new Vec3(-sceneX/2+25,kiwiInShipHeight,-sceneZ/2+25);
 Vec2 agentPos2 = new Vec2(agentPos.x, agentPos.z);
 Vec2 startPos = new Vec2(-sceneX/2+25,-sceneZ/2+25);
+Vec2 absStartPos = startPos;
 Vec2 goalPos = new Vec2(sceneX/2-25, sceneZ/2-25);
 float agentColRad = 2.5f*0.5f*kiwiScale;
 float agentDir = 0;
 
 Vec2 backDir = agentVel.times(-1);
-Vec2 forwardDir = agentVel;
+Vec2 forwardDir2 = agentVel;
 Vec2 backVel = agentVel.times(-1);
 
 float kiwiDir = 0;
@@ -1135,20 +1263,18 @@ float genRate = 200;
 float coneRad = radians(10);
 float maxLife = 0.5f;
 
-// start and goal particles
-
-
 Camera camera;
 
 // useful things
 float ninety, oneeighty, twoseventy, threesixty;
-float epsilon = 1e-6f;
+float epsilon = 2;
 float t = 0.91f;
 
 // drawing info
 int strokeWidth = 2;
 PImage conkcrete;
 PShape back;
+PShape ship;
 
 // key state variables
 boolean moveObjects = false;
@@ -1157,10 +1283,21 @@ boolean paused = true;
 boolean is3d = true;
 boolean cameraFollowAgent = false;
 boolean firstPerson = false;
-float agentBackY = -150;
+float agentBackY = -75;
 boolean agentBackYUp, agentBackYDown;
 boolean atGoal = false;
+boolean stopParticles = false;
+boolean kiwiOnGround = false;
+boolean noGoal = false;
 Vec3 mouseRay, mouseOrig;
+Vec2 shipMove = new Vec2(0,0);
+Vec2 shipMoveNeg = new Vec2(0,0);
+Vec2 shipMovePos = new Vec2(0,0);
+
+Vec2 cameraForward = new Vec2(0,0);
+Vec2 cameraBackward = new Vec2(0,0);
+Vec2 cameraLeft = new Vec2(0,0);
+Vec2 cameraRight = new Vec2(0,0);
 
 // pathing
 int indexCounter;
@@ -1189,6 +1326,8 @@ int goalNode;
     // image/model loading
     conkcrete = loadImage("data/conkcrete.jpg");
 
+    ship = loadShape("data/Low_poly_UFO.obj");
+
     textures[0] = loadImage("data/sun.jpg");
     textures[1] = loadImage("data/mercury.jpg");
     textures[2] = loadImage("data/venus.jpg");
@@ -1200,12 +1339,12 @@ int goalNode;
     textures[8] = loadImage("data/pluto.jpg");
     textures[9] = loadImage("data/uranus.jpg");
 
-    skybox[0] = loadImage("data/spacebox1.jpg");
-    skybox[1] = loadImage("data/spacebox2.jpg");
-    skybox[2] = loadImage("data/spacebox3.jpg");
-    skybox[3] = loadImage("data/spacebox4.jpg");
-    skybox[4] = loadImage("data/spacebox5.jpg");
-    skybox[5] = loadImage("data/spacebox6.jpg");
+    // skybox[0] = loadImage("data/spacebox1.jpg");
+    // skybox[1] = loadImage("data/spacebox2.jpg");
+    // skybox[2] = loadImage("data/spacebox3.jpg");
+    // skybox[3] = loadImage("data/spacebox4.jpg");
+    // skybox[4] = loadImage("data/spacebox5.jpg");
+    // skybox[5] = loadImage("data/spacebox6.jpg");
 
     // back = loadImage("data/back.jpg");
     
@@ -1230,7 +1369,7 @@ int goalNode;
 
  public void randomizeStart() {
     startPos = new Vec2(random(-sceneX*0.5f, sceneX*0.5f), random(-sceneZ*0.5f, sceneZ*0.5f));
-    while (pointInCircleList(circlePosArr, circleRadArr, numObstacles, startPos, epsilon)) {
+    while (startOrGoalInCircleList(circlePosArr, circleRadArr, numObstacles, startPos, epsilon)) {
         startPos = new Vec2(random(-sceneX*0.5f, sceneX*0.5f), random(-sceneZ*0.5f, sceneZ*0.5f));
     }
     agentPos.x = startPos.x; agentPos.z = startPos.y;
@@ -1239,7 +1378,7 @@ int goalNode;
 
  public void randomizeGoal() {
     goalPos = new Vec2(random(-sceneX*0.5f, sceneX*0.5f), random(-sceneZ*0.5f, sceneZ*0.5f));
-    while (pointInCircleList(circlePosArr, circleRadArr, numObstacles, startPos, epsilon)) {
+    while (startOrGoalInCircleList(circlePosArr, circleRadArr, numObstacles, startPos, epsilon)) {
         goalPos = new Vec2(random(-sceneX*0.5f, sceneX*0.5f), random(-sceneZ*0.5f, sceneZ*0.5f));
     }
 }
@@ -1300,12 +1439,13 @@ int goalNode;
     kiwiTime = 0;
     kiwiSwitchFrame = 0;
     currFrame = 0;
-    agentPos = new Vec3(startPos.x, kiwiYOffset, startPos.y);
-    Vec2 agentVel = new Vec2(1,1);
+    agentPos = new Vec3(startPos.x, kiwiInShipHeight, startPos.y);
     Vec2 agentFinalVel = agentVel;
     Vec2 backDir = agentVel.times(-1);
     Vec2 backVel = agentVel.times(-1);
     atGoal = false;
+    stopParticles = false;
+    kiwiOnGround = false;
     particlePos = new ArrayList<Vec3>();
     particleVel = new ArrayList<Vec3>();
     particleCol = new ArrayList<Vec3>();
@@ -1328,6 +1468,8 @@ int goalNode;
     randomizeStart();
     randomizeGoal();
 
+    absStartPos.x = startPos.x; absStartPos.y = startPos.y;
+
     testPRM();
     int iters = 0;
     while (curPath.size() == 1 && iters != 3) {
@@ -1338,6 +1480,7 @@ int goalNode;
         reset();
         return;
     }
+    noGoal = false;
     indexCounter = 1;
     nextNode = curPath.get(1);
     goalNode = curPath.get(curPath.size()-1);
@@ -1345,84 +1488,131 @@ int goalNode;
     agentVel = nextPos.minus(startPos).normalized().times(goalSpeed);
 }
  public void update(float dt) {
-    float dist = agentPos.distanceTo(nextPos);
-    if (dist < goalSpeed*dt) {
-        if (nextNode == goalNode) {
-            agentPos.x = goalPos.x;
+    if (is3d) {
+        if (!atGoal) {
+            if (abs(agentPos.y-kiwiYOffset) > 1 && !kiwiOnGround) {
+                agentPos.y = agentPos.y*0.99f + kiwiYOffset*(1-0.99f);
+            } else {
+                kiwiOnGround = true;
+                agentPos.y = kiwiYOffset;
+            }  
+        }
+
+        if (atGoal && !kiwiOnGround) {
+            if (abs(agentPos.y-kiwiInShipHeight) > 1) {
+                agentPos.y = agentPos.y*0.99f + kiwiInShipHeight*(1-0.99f);
+            }
+        } else if (atGoal && kiwiOnGround) {
+            kiwiOnGround = false;
+        }
+
+        for (int i = 0; i < numObstacles; i++) {
+            float rot = circleRot.get(i);
+            float rotRate = circleRotRate.get(i);
+            rot += rotRate;
+            circleRot.set(i, rot);
+        }
+    } else {
+        if (!atGoal) {
+            kiwiOnGround = true;
             agentPos.y = kiwiYOffset;
-            agentPos.z = goalPos.y;
-            // agentVel.x = 0; agentVel.y = 0;
-            // agentFinalVel.x = 0; agentFinalVel.y = 0;
-            atGoal = true;
-            cameraFollowAgent = false;
-            firstPerson = false;
         } else {
-            agentPos = new Vec3(nextPos.x, agentPos.y, nextPos.y);
-            indexCounter++;
-            nextNode = curPath.get(indexCounter);
-            nextPos = newNodePos[nextNode];
+            kiwiOnGround = false;
+            agentPos.y = kiwiInShipHeight;
         }
-    } else if (nextNode != goalNode) {
-        Vec2 nextNextPos = newNodePos[curPath.get(indexCounter+1)];
-        dist = agentPos.distanceTo(nextNextPos);
-        Vec2 dir = nextNextPos.minus(new Vec2(agentPos.x, agentPos.z)).normalized();
-        hitInfo hit = rayCircleListIntersect(circlePosArr, circleRadArr, numObstacles, new Vec2(agentPos.x, agentPos.z), dir, dist);
-        if (!hit.hit) {
-            indexCounter++;
-            nextNode = curPath.get(indexCounter);
-            nextPos = newNodePos[nextNode];
-        }
-    }   
-    if (!atGoal) {
-        agentFinalVel = nextPos.minus(new Vec2(agentPos.x, agentPos.z)).normalized().times(goalSpeed);
-        agentVel = interpolate(agentVel, agentFinalVel, 0.05f*goalSpeed/100);
-        backVel = agentVel.times(-1);
-        backDir = interpolate(backDir, backVel, 0.01f*goalSpeed/100);
-        forwardDir = interpolate(forwardDir, agentVel.normalized(), 0.13f);
-
-        if (agentVel.length() != goalSpeed) {
-            agentVel = agentVel.normalized().times(goalSpeed);
-        }
-        agentPos.add(agentVel.times(dt));
+        
     }
-
     
+    
+
+    if (((is3d && kiwiOnGround) || !is3d) && !noGoal) {
+        float dist = agentPos.distanceTo(nextPos);
+        if (dist < goalSpeed*dt) {
+            if (nextNode == goalNode) {
+                agentPos.x = goalPos.x;
+                agentPos.y = kiwiYOffset;
+                agentPos.z = goalPos.y;
+                // agentVel.x = 0; agentVel.y = 0;
+                // agentFinalVel.x = 0; agentFinalVel.y = 0;
+                atGoal = true;
+                // cameraFollowAgent = false;
+                // firstPerson = false;
+                stopParticles = true;
+            } else {
+                agentPos = new Vec3(nextPos.x, agentPos.y, nextPos.y);
+                indexCounter++;
+                nextNode = curPath.get(indexCounter);
+                nextPos = newNodePos[nextNode];
+            }
+        } else if (nextNode != goalNode) {
+            Vec2 nextNextPos = newNodePos[curPath.get(indexCounter+1)];
+            dist = agentPos.distanceTo(nextNextPos);
+            Vec2 dir = nextNextPos.minus(new Vec2(agentPos.x, agentPos.z)).normalized();
+            hitInfo hit = rayCircleListIntersect(circlePosArr, circleRadArr, numObstacles, new Vec2(agentPos.x, agentPos.z), dir, dist);
+            if (!hit.hit) {
+                indexCounter++;
+                nextNode = curPath.get(indexCounter);
+                nextPos = newNodePos[nextNode];
+            }
+        }   
+        if (!atGoal) {
+            agentFinalVel = nextPos.minus(new Vec2(agentPos.x, agentPos.z)).normalized().times(goalSpeed);
+            agentVel = interpolate(agentVel, agentFinalVel, 0.05f*goalSpeed/100);
+            backVel = agentVel.times(-1);
+            backDir = interpolate(backDir, backVel, 0.01f*goalSpeed/100);
+            forwardDir2 = interpolate(forwardDir2, agentVel.normalized(), 0.13f);
+
+            if (agentVel.length() != goalSpeed) {
+                agentVel = agentVel.normalized().times(goalSpeed);
+            }
+            agentPos.add(agentVel.times(dt));
+        }
+    }
 }
 
  public void updateKiwiFrame() {
-    agentDir = agentDir*t+(1-t)*atan2(agentVel.x, agentVel.y);
-
-    kiwiTime += agentVel.length()*0.005f;
-    if (kiwiTime > 1/kiwi_framerate) {
-        kiwiTime = 0;
-        kiwiSwitchFrame++;
-        if (kiwiSwitchFrame == times[currFrame]) {
-            kiwiSwitchFrame = 0;
-            currFrame = (currFrame+1)%kiwiFrames;
+    if (noGoal) {
+        agentDir += 0.05f;
+    } else {
+        agentDir = agentDir*t+(1-t)*atan2(agentVel.x, agentVel.y);
+    }
+    
+    if (kiwiOnGround) {
+        kiwiTime += agentVel.length()*0.005f;
+        if (kiwiTime > 1/kiwi_framerate) {
+            kiwiTime = 0;
+            kiwiSwitchFrame++;
+            if (kiwiSwitchFrame == times[currFrame]) {
+                kiwiSwitchFrame = 0;
+                currFrame = (currFrame+1)%kiwiFrames;
+            }
         }
     }
 }
 
  public void updateKiwiParticles(float dt) {
-    float toGen_float = genRate*dt;
-    int toGen = PApplet.parseInt(toGen_float);
-    float fractPart = toGen_float-toGen;
-    if (random(1) < fractPart) toGen++;
-    if (numParticles < maxParticles) {
-        for (int p = 0; p < toGen; p++) {
-            particlePos.add(
-                agentPos.plus(backDir.normalized().times(agentColRad-0.5f*kiwiScale))
-            );
-            particleVel.add(new Vec3(
-                backDir.x + random(-30, 30),
-                agentPos.y + random(-30, 30),
-                backDir.y + random(-30, 30)
-            ).normalized().times(goalSpeed));
-            particleCol.add(startColor);
-            particleLife.append(0.0f);
-            numParticles++;
+    if (!stopParticles && kiwiOnGround && !noGoal) {
+        float toGen_float = genRate*dt;
+        int toGen = PApplet.parseInt(toGen_float);
+        float fractPart = toGen_float-toGen;
+        if (random(1) < fractPart) toGen++;
+        if (numParticles < maxParticles) {
+            for (int p = 0; p < toGen; p++) {
+                particlePos.add(
+                    agentPos.plus(backDir.normalized().times(agentColRad-0.5f*kiwiScale))
+                );
+                particleVel.add(new Vec3(
+                    backDir.x + random(-30, 30),
+                    agentPos.y + random(-30, 30),
+                    backDir.y + random(-30, 30)
+                ).normalized().times(goalSpeed));
+                particleCol.add(startColor);
+                particleLife.append(0.0f);
+                numParticles++;
+            }
         }
     }
+    
 
     for (int i = 0; i < numParticles; i++) {
         float life = particleLife.get(i);
