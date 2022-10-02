@@ -114,6 +114,11 @@ Vec2 cameraBackward = new Vec2(0,0);
 Vec2 cameraLeft = new Vec2(0,0);
 Vec2 cameraRight = new Vec2(0,0);
 
+float ship1Rot = 0;
+float ship1RotRate = random(0.01,0.1);
+float ship2Rot = 0;
+float ship2RotRate = random(0.01,0.1);
+
 // pathing
 int indexCounter;
 int startNode;
@@ -255,6 +260,7 @@ void reset() {
     kiwiSwitchFrame = 0;
     currFrame = 0;
     agentPos = new Vec3(startPos.x, kiwiInShipHeight, startPos.y);
+    absStartPos.x = startPos.x; absStartPos.y = startPos.y;
     Vec2 agentFinalVel = agentVel;
     Vec2 backDir = agentVel.times(-1);
     Vec2 backVel = agentVel.times(-1);

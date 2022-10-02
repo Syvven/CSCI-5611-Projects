@@ -45,15 +45,16 @@ CHALLENGE:
   3. Add a static obstacle for the agent to avoid (hint: treat it as an agent with 0 velocity).
 */
 
-static int maxNumAgents = 5;
-int numAgents = 5;
+static int maxNumAgents = 100;
+int numAgents = 30;
 
-static int maxParticles = 100;
+static int maxParticles = 20;
 
-float k_goal = 1;  //TODO: Tune this parameter to agent stop naturally on their goals
-float k_avoid = 60;
+float k_goal = 5;  //TODO: Tune this parameter to agent stop naturally on their goals
+float k_avoid = 400;
 float agentRad = 20;
 float goalSpeed = 100;
+float separationScale = 400;
 
 //The agent states
 Vec2[] agentPos = new Vec2[maxNumAgents];
@@ -67,7 +68,9 @@ float COR = 0.7;
 Vec2 gravity = new Vec2(0,200);
 
 Vec2 pos[] = new Vec2[maxParticles];
+
 Vec2 vel[] = new Vec2[maxParticles];
+
 
 int numParticles = 0;
 
@@ -75,76 +78,89 @@ int numParticles = 0;
 Vec2[] goalPos = new Vec2[maxNumAgents];
 
 //A list of circle obstacles
-static int numObstacles = 8;
+static int numObstacles = 15;
 Vec2 circlePos[] = new Vec2[numObstacles]; //Circle positions
 Vec2 circleVel[] = new Vec2[numObstacles];
 float circleRad[] = new float[numObstacles];  //Circle radii
 
 
-void placeRandomObstacles(Vec2[] agent, Vec2[] goal){
+void placeRandomObstacles(){
   //Initial obstacle position
   for (int i = 0; i < numObstacles; i++){
-    circlePos[i] = new Vec2(random(50,950),random(50,700));
-    //for (int j = 0; j< numAgents; j++){
-    float dis1 = circlePos[i].distanceTo(agent[0]);
-    float dis2 = circlePos[i].distanceTo(agent[1]);
-    float dis3 = circlePos[i].distanceTo(agent[2]);
-    float dis4 = circlePos[i].distanceTo(agent[3]);
-    float dis5 = circlePos[i].distanceTo(agent[4]);
-    
-    float dist1 = circlePos[i].distanceTo(goal[0]);
-    float dist2 = circlePos[i].distanceTo(goal[1]);
-    float dist3 = circlePos[i].distanceTo(goal[2]);
-    float dist4 = circlePos[i].distanceTo(goal[3]);
-    float dist5 = circlePos[i].distanceTo(goal[4]);
-    
-    while(dis1<45 || dis2<45 || dis3<45 || dis4<45 || dis5<45 || dist1<45 || dist2<45 || dist3<45 || dist4<45 || dist5<45 ){
-      circlePos[i] = new Vec2(random(50,950),random(50,700));
-      dis1 = circlePos[i].distanceTo(agent[0]);
-      dis2 = circlePos[i].distanceTo(agent[1]);
-      dis3 = circlePos[i].distanceTo(agent[2]);
-      dis4 = circlePos[i].distanceTo(agent[3]);
-      dis5 = circlePos[i].distanceTo(agent[4]);
-      dist1 = circlePos[i].distanceTo(goal[0]);
-      dist2 = circlePos[i].distanceTo(goal[1]);
-      dist3 = circlePos[i].distanceTo(goal[2]);
-      dist4 = circlePos[i].distanceTo(goal[3]);
-      dist5 = circlePos[i].distanceTo(goal[4]);
+    circlePos[i] = new Vec2(random(100,width-100),random(100,height-100));
+    for (int m =0; m< i; m++){
+      while(circlePos[i].distanceTo(circlePos[m]) <150){
+        circlePos[i] = new Vec2(random(100,width-100),random(100,height-100));
+      }
     }
-    
     circleVel[i] = new Vec2(0,0);
     circleRad[i] = 25;
-    }
     
-  }
-
-
-
-
+    // if the distance is less than 100, then regenerate
+    for (int j = 0; j<i; j++){
+      while(circlePos[j].distanceTo(circlePos[i]) < 150){
+        circlePos[i] = new Vec2(random(100,width-100),random(100,height-100));
+      }     
+    } 
+   }
+}
+ 
 void setup(){
-  size(850,650);
+  size(850,850);
   //size(850,650,P3D); //Smoother
   
   //Set initial agent positions and goals
-  agentPos[0] = new Vec2(220,610);
-  agentPos[1] = new Vec2(320,650);
-  agentPos[2] = new Vec2(320,420);
-  agentPos[3] = new Vec2(480,400);
-  agentPos[4] = new Vec2(520,420);
-  goalPos[0] = new Vec2(200,420);
-  goalPos[1] = new Vec2(120,120);
-  goalPos[2] = new Vec2(220,220);
-  goalPos[3] = new Vec2(400,480);
-  goalPos[4] = new Vec2(420,200);
-  
-  
-  placeRandomObstacles(agentPos, goalPos);
-  //Set initial velocities to cary agents towards their goals
-  for (int i = 0; i < numAgents; i++){
-    agentVel[i] = goalPos[i].minus(agentPos[i]);
-    if (agentVel[i].length() > 0)
-      agentVel[i].setToLength(goalSpeed);
+  int i;
+  float numh = height/((numAgents+10)/2);
+  float numw = width/((numAgents+10)/2);
+  for (i = 0; i < numAgents/2; i+=2) {
+    agentPos[i] = new Vec2((i+3.5)*numw,20);
+    goalPos[i] = new Vec2((i+3.5)*numw,height-70);
+
+    agentPos[i+1] = new Vec2((i+3.5)*numw,height-20);
+    goalPos[i+1] = new Vec2((i+3.5)*numw,70);
   }
+
+  for (i = 0; i < numAgents/2; i+=2) {
+    agentPos[i+(numAgents/2)] = new Vec2(20,(i+3.5)*numh);
+    goalPos[i+(numAgents/2)] = new Vec2(width-70,(i+3.5)*numh);
+
+    agentPos[i+(numAgents/2)+1] = new Vec2(width-20,(i+3.5)*numh);
+    goalPos[i+(numAgents/2)+1] = new Vec2(70,(i+3.5)*numh);
+  }
+
+  // agentPos[0] = new Vec2(40,40);
+  // agentPos[1] = new Vec2(810,40);
+  // agentPos[2] = new Vec2(810,215);                  
+  // agentPos[3] = new Vec2(810,425);                                          
+  // agentPos[4] = new Vec2(810,610);
+  // agentPos[5] = new Vec2(425,610);
+  // agentPos[6] = new Vec2(40,610);
+  // agentPos[7] = new Vec2(40,450);
+  // agentPos[8] = new Vec2(40,215);
+  // agentPos[9] = new Vec2(425,40);
+  
+ 
+  
+  // goalPos[0] = new Vec2(750,550);
+  // goalPos[1] = new Vec2(425,550);
+  // goalPos[2] = new Vec2(100,550);
+  // goalPos[3] = new Vec2(110,425);
+  // goalPos[4] = new Vec2(110,240);
+  // goalPos[5] = new Vec2(110,110);
+  // goalPos[6] = new Vec2(425,120);
+  // goalPos[7] = new Vec2(750,120);
+  // goalPos[8] = new Vec2(750,400);
+  
+  // //goalPos[9] = new Vec2(625,550);
+  // goalPos[9] = new Vec2(750,225);
+ 
+  placeRandomObstacles();
+  //Set initial velocities to cary agents towards their goals
+  for (i = 0; i < numAgents; i++){
+    agentVel[i] = goalPos[i].minus(agentPos[i]);
+    if (agentVel[i].length() > 0) agentVel[i].setToLength(goalSpeed);
+  } 
 }
 
 //Return at what time agents 1 and 2 collide if they keep their current velocities
@@ -188,37 +204,53 @@ Vec2 computeAgentForces(int id){
       Vec2 futurePos1 = agentPos[id].plus(agentVel[id].times(ttc));
       Vec2 futurePos2 = circlePos[j];
       Vec2 dir = futurePos1.minus(futurePos2).normalized();
-      acc.add(dir.times(k_avoid*(1/ttc)));
+      acc.add(dir.times(700*(1/ttc)));
     } 
   }
+
+  for (int j = 0; j < numAgents; j++) {
+    if (id != j) {
+      if (agentPos[id].distanceTo(agentPos[j]) < agentRad*2+30) {
+        Vec2 sepforce = agentPos[id].minus(agentPos[j]);
+        sepforce.mul(separationScale/(agentPos[id].distanceTo(agentPos[j])));
+        acc.add(sepforce);
+      } 
+    }
+  }
+
+  for (int j = 0; j < numObstacles; j++) {
+      if (agentPos[id].distanceTo(circlePos[j]) < agentRad*2+30) {
+        Vec2 sepforce = agentPos[id].minus(circlePos[j]);
+        sepforce.mul(separationScale/(agentPos[id].distanceTo(circlePos[j])));
+        acc.add(sepforce);
+      } 
+  }
+
   return acc;
 }
 
 
 //Update agent positions & velocities based acceleration
 void moveAgent(float dt){
-
   //Compute accelerations for every agents
-  
-  for (int i = 0; i < numAgents; i++){
-    
+  for (int i = 0; i < numAgents; i++) {
     agentAcc[i] = computeAgentForces(i);
-    
-
+    if (agentAcc[i].length() > 1000) {
+      agentAcc[i].normalize();
+      agentAcc[i].mul(1000);
+    }
   }
+
   //Update position and velocity using (Eulerian) numerical integration
   for (int i = 0; i < numAgents; i++){
-   
-    
-    if (agentPos[i].distanceTo(goalPos[i])< 0.4){
+    if (agentPos[i].distanceTo(goalPos[i])< 0.4) {
       agentPos[i] = goalPos[i];
-      agentVel[i] = new Vec2 (0,0);}
-      
-    else{ agentVel[i].add(agentAcc[i].times(dt));
-    agentPos[i].add(agentVel[i].times(dt)); }
-  
+      agentVel[i] = new Vec2 (0,0);
+    } else { 
+      agentVel[i].add(agentAcc[i].times(dt));
+      agentPos[i].add(agentVel[i].times(dt)); 
+    }
   }  
-
 }
 
 
@@ -229,38 +261,13 @@ void update(float dt){
   if (random(1) < fractPart) toGen += 1;
   for (int i = 0; i < toGen; i++){
     if (numParticles >= maxParticles) break;
-    pos[numParticles] = new Vec2(200,420);
-    vel[numParticles] = new Vec2(60+random(30),-200+random(10)); 
+    pos[numParticles] = new Vec2(110,110);
+    vel[numParticles] = new Vec2(60+random(30),-200+random(10));
+
     numParticles += 1;
   }
-  for (int i = 0; i < toGen; i++){
-    if (numParticles >= maxParticles) break;
-    pos[numParticles] = new Vec2(120,120);
-    vel[numParticles] = new Vec2(60+random(30),-200+random(10)); 
-    numParticles += 1;
-  }
-  for (int i = 0; i < toGen; i++){
-    if (numParticles >= maxParticles) break;
-    pos[numParticles] = new Vec2(220,220);
-    vel[numParticles] = new Vec2(60+random(30),-200+random(10)); 
-    numParticles += 1;
-  }
-  
-  for (int i = 0; i < toGen; i++){
-    if (numParticles >= maxParticles) break;
-    pos[numParticles] = new Vec2(400,480);
-    vel[numParticles] = new Vec2(60+random(30),-200+random(10)); 
-    numParticles += 1;
-  }
-  
-  for (int i = 0; i < toGen; i++){
-    if (numParticles >= maxParticles) break;
-    pos[numParticles] = new Vec2(420,200);
-    vel[numParticles] = new Vec2(60+random(30),-200+random(10)); 
-    numParticles += 1;
-  }
-  
-  for (int i = 0; i <  numParticles; i++){
+ 
+  for (int i = 0; i <  numParticles; i++) {
     
     Vec2 acc = gravity; //Gravity
     vel[i].add(acc.times(dt)); 
@@ -284,8 +291,8 @@ void update(float dt){
     }
   }
 }
-boolean paused = true;
 
+boolean paused = true;
 void draw(){
   background(255,255,255); //White background
  
@@ -293,7 +300,7 @@ void draw(){
   if (!paused){
     moveAgent(1.0/frameRate);
   }
-  
+  // if some agents reach to their goal, then the particles come out of the first destination position
   if ( agentPos[0] == goalPos[0] && agentPos[1] == goalPos[1] && agentPos[2] == goalPos[2] && agentPos[3] == goalPos[3] && agentPos[4] == goalPos[4]){
     update(1.0/frameRate);
   }
@@ -334,6 +341,7 @@ void draw(){
 //Pause/unpause the simulation
 void keyPressed(){
   if (key == ' ') paused = !paused;
+  if (key == 'r') setup();
 }
 
 

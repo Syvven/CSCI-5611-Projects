@@ -48,8 +48,8 @@ class Camera
 
     if (firstPerson) {
       camera(
-        agentPos.x + forwardDir.x*10, agentPos.y-agentColRad*0.85, agentPos.z + forwardDir.y*10,
-        agentPos.x + forwardDir.x*100, agentPos.y, agentPos.z + forwardDir.y*100,
+        agentPos.x + forwardDir2.x*10, agentPos.y-agentColRad*0.85, agentPos.z + forwardDir2.y*10,
+        agentPos.x + forwardDir2.x*100, agentPos.y, agentPos.z + forwardDir2.y*100,
         0,1,0
       );
       return;
@@ -111,9 +111,8 @@ class Camera
     }
     if ( key == 'a' || key == 'A' ) negativeMovement.x = -1;
     if ( key == 'd' || key == 'D' ) positiveMovement.x = 1;
-    if ( key == 'q' || key == 'Q' ) positiveMovement.y = 1;
-    if ( key == 'e' || key == 'E' ) negativeMovement.y = -1;
-    if ( key == ' ' ) verticalMovement.y = -1;
+    if ( key == ' ' ) negativeMovement.y = -1;
+    if ( keyCode == CONTROL ) positiveMovement.y = 1;
     if ( key == 'R' ){
       Camera defaults = new Camera();
       position = defaults.position;
@@ -126,7 +125,6 @@ class Camera
     if ( keyCode == RIGHT ) positiveTurn.x = -0.5;
     if ( keyCode == UP )    positiveTurn.y = 0.5;
     if ( keyCode == DOWN )  negativeTurn.y = -1;
-    if ( keyCode == CONTROL ) verticalMovement.y = 1;
     if ( keyCode == BACKSPACE ) goalSpeed = 200;
     if ( keyCode == SHIFT ) shiftPressed = true; 
   }
@@ -138,15 +136,14 @@ class Camera
       if (!cameraFollowAgent) positiveMovement.z = 0;
       else agentBackYUp = false;
     }
-    if ( key == 'q' || key == 'Q' ) positiveMovement.y = 0;
+    if ( key == ' ' ) negativeMovement.y = 0;
     if ( key == 'd' || key == 'D' ) positiveMovement.x = 0;
     if ( key == 'a' || key == 'A' ) negativeMovement.x = 0;
     if ( key == 's' || key == 'S' ) {
       if (!cameraFollowAgent) negativeMovement.z = 0;
       else agentBackYDown = false;
     }
-    if ( key == 'e' || key == 'E' ) negativeMovement.y = 0;
-    if ( key == ' ' ) verticalMovement.y = 0;
+    if ( keyCode == CONTROL ) positiveMovement.y = 0;
     if ( key == 'v' ) cameraFollowAgent = false;
     if ( key == 'f' && !cameraFollowAgent) firstPerson = !firstPerson;
     
@@ -154,7 +151,6 @@ class Camera
     if ( keyCode == RIGHT ) positiveTurn.x = 0;
     if ( keyCode == UP    ) positiveTurn.y = 0;
     if ( keyCode == DOWN  ) negativeTurn.y = 0;
-    if ( keyCode == CONTROL ) verticalMovement.y = 0;
     if ( keyCode == BACKSPACE ) goalSpeed = 100;
     
     if ( keyCode == SHIFT ){

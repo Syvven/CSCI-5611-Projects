@@ -121,15 +121,22 @@ void draw() {
 }
 
 void drawShips() {
+    if (!paused) {
+        ship1Rot += ship1RotRate;
+        ship2Rot += ship2RotRate;
+    }
+    
     pushMatrix();
         translate(goalPos.x, -250, goalPos.y);
         rotateZ(oneeighty);
+        rotateY(ship1Rot);
         scale(2);
         shape(ship);
     popMatrix();
     pushMatrix();
         translate(absStartPos.x, -250, absStartPos.y);
         rotateZ(oneeighty);
+        rotateY(ship2Rot);
         scale(2);
         shape(ship);
     popMatrix();
@@ -307,7 +314,7 @@ void drawPointLight() {
     colorMode(HSB, 360, 100, 100);
     lightFalloff(0.5, 0, 0);
     pointLight(
-        0,0,75,
+        0,0,100,
         agentPos.x, agentPos.y-50, agentPos.z
     );
     colorMode(RGB, 256, 256, 256);
