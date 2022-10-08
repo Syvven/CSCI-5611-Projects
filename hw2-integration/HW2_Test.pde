@@ -9,7 +9,7 @@ void RunComparisons() {
   float t_start = 0;
   float x_start = actual_x_of_t(t_start);
   float dt = 1;
-  int n_steps = 10;
+  int n_steps = 20;
   float t_end = t_start + n_steps * dt;
   
   float x_end;
@@ -36,7 +36,7 @@ void RunComparisons() {
   
   println("Printing Each Step--");
   x_all = midpointList(t_start,x_start,n_steps,dt);
-  println("Aprox:",x_all);
+  println("Approx:",x_all);
   println("Actual:",x_actual);
   
   
@@ -55,6 +55,11 @@ void RunComparisons() {
   println("\nHeun: ");
   x_end= heun(t_start,x_start,n_steps,dt);
   println("f(t) for t =",t_end,"is",x_end," Ground truth:", actual_end," Error is", actual_end-x_end);
+
+  println("Printing Each Step--");
+  x_all = heunList(t_start,x_start,n_steps,dt);
+  println("Approx:",x_all);
+  println("Actual:",x_actual);
 }
 
 

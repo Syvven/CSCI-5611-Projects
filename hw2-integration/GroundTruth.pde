@@ -10,7 +10,7 @@
 //        dx/dt = x
 //        dx/dt = sin(t) + t*cos(t)
 float dxdt(float t, float x){ //The function actual_x_of_t() should be an antiderivative of this function
-  return cos(t);
+  return sin(t) + t*cos(t);
 }
 
 //In practice the derivative will typically be complex enough that we don't know the actual answer
@@ -18,7 +18,7 @@ float dxdt(float t, float x){ //The function actual_x_of_t() should be an antide
 //   We use this known antiderivative to compute the error of the numerical approximations.
 //Note: There is a family of antiderivative functions up-to a shift (the test-harness code auto-detects the shift)
 float actual_x_of_t(float t){
-  return sin(t) + 2.718; //The derivative of this function should be placed in dxdt!
+  return t*sin(t); //The derivative of this function should be placed in dxdt!
 }
 
 //Returns a list of the actual values from t_start to t_end (also ignores shifts as the "actual" function)

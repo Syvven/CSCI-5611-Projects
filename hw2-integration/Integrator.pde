@@ -28,8 +28,16 @@ float eulerian(float t_start, float x_start, int n_steps, float dt){
 //Compute the derivative of the simulation 1/2 of a timestep ahead
 //Use the derivative from a 1/2 timestep ahead back at the original state
 float midpoint(float t_start, float x_start, int n_steps, float dt){
-  //TODO: Compute the value of x at time t_end using midpoint integration
-  return 0;
+  // Compute the value of x at time t_end using midpoint integration
+  float x = x_start;
+  float t = t_start;
+  for (int i = 0; i < n_steps; i++) {
+    float m1 = dxdt(t, x);
+    float m2 = dxdt(t + dt/2, x + dt*m1/2);
+    x += m2*0.5;
+    t += dt;
+  }
+  return x;
 }
 
 //RK4 - or "The Runge–Kutta method"
@@ -67,17 +75,50 @@ float heun(float t_start, float x_start, int n_steps, float dt){ //Heun's method
   return x;
 }
 
+ArrayList<Float> heunList(float t_start, float x_start, int n_steps, float dt){ //Heun's method
+  ArrayList<Float> xVals = new ArrayList<Float>();
+  float x = x_start;
+  float t = t_start;
+  xVals.add(x);
+  for (int i = 0; i < n_steps; i++){
+    float curSlope = dxdt(t,x);
+    float x_next = x + curSlope*dt; //Take a normal Euler step, but then...
+    float nextSlope = dxdt(t+dt,x_next); //Look at the slope at where we land.
+    x += dt*(curSlope+nextSlope)/2; //Average the current slope and the expected next slope
+    t += dt;
+    xVals.add(x);
+  }
+  return xVals;
+}
+
 //Returns a list of the computed values from t_start to t_end using Eulerian integration
 ArrayList<Float> eulerianList(float t_start, float x_start, int n_steps, float dt){
   ArrayList<Float> xVals = new ArrayList<Float>();
-  //TODO: Place each step of Eulerian integration in a list
+  // Place each step of Eulerian integration in a list
+  float x = x_start;
+  float t = t_start;
+  xVals.add(x);
+  for (int i = 0; i < n_steps; i++){
+    x += dxdt(t,x)*dt;
+    t += dt;
+    xVals.add(x);
+  }
   return xVals;
 }
 
 //Returns a list of the computed values from t_start to t_end using Midpoint integration
 ArrayList<Float> midpointList(float t_start, float x_start, int n_steps, float dt){
   ArrayList<Float> xVals = new ArrayList<Float>();
-  //TODO: Place each step of midpoint integration in a list
+  float x = x_start;
+  float t = t_start;
+  xVals.add(x);
+  for (int i = 0; i < n_steps; i++) {
+    float m1 = dxdt(t, x);
+    float m2 = dxdt(t + dt*0.5, x + (dt*m1*0.5));
+    x += m2*0.5;
+    t += dt;
+    xVals.add(x);
+  }
   return xVals;
 }
 
