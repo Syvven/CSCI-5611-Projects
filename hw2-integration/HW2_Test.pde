@@ -8,8 +8,8 @@ void RunComparisons() {
   //Integrate from t_start to t_end
   float t_start = 0;
   float x_start = actual_x_of_t(t_start);
-  float dt = 1;
-  int n_steps = 20;
+  float dt = 0.1;
+  int n_steps = 10;
   float t_end = t_start + n_steps * dt;
   
   float x_end;

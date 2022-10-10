@@ -33,8 +33,8 @@ float midpoint(float t_start, float x_start, int n_steps, float dt){
   float t = t_start;
   for (int i = 0; i < n_steps; i++) {
     float m1 = dxdt(t, x);
-    float m2 = dxdt(t + dt/2, x + dt*m1/2);
-    x += m2*0.5;
+    float m2 = dxdt(t + dt/2, x + dt*m1*0.5);
+    x += m2*dt;
     t += dt;
   }
   return x;
@@ -115,7 +115,7 @@ ArrayList<Float> midpointList(float t_start, float x_start, int n_steps, float d
   for (int i = 0; i < n_steps; i++) {
     float m1 = dxdt(t, x);
     float m2 = dxdt(t + dt*0.5, x + (dt*m1*0.5));
-    x += m2*0.5;
+    x += m2*dt;
     t += dt;
     xVals.add(x);
   }

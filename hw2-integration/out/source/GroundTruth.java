@@ -27,7 +27,7 @@ public class GroundTruth extends PApplet {
 //        dx/dt = x
 //        dx/dt = sin(t) + t*cos(t)
  public float dxdt(float t, float x){ //The function actual_x_of_t() should be an antiderivative of this function
-  return sin(t) + t*cos(t);
+  return x;
 }
 
 //In practice the derivative will typically be complex enough that we don't know the actual answer
@@ -35,7 +35,7 @@ public class GroundTruth extends PApplet {
 //   We use this known antiderivative to compute the error of the numerical approximations.
 //Note: There is a family of antiderivative functions up-to a shift (the test-harness code auto-detects the shift)
  public float actual_x_of_t(float t){
-  return t*sin(t); //The derivative of this function should be placed in dxdt!
+  return exp(t); //The derivative of this function should be placed in dxdt!
 }
 
 //Returns a list of the actual values from t_start to t_end (also ignores shifts as the "actual" function)
@@ -59,8 +59,8 @@ public class GroundTruth extends PApplet {
   //Integrate from t_start to t_end
   float t_start = 0;
   float x_start = actual_x_of_t(t_start);
-  float dt = 1;
-  int n_steps = 20;
+  float dt = 0.1f;
+  int n_steps = 10;
   float t_end = t_start + n_steps * dt;
   
   float x_end;
@@ -155,8 +155,8 @@ public class GroundTruth extends PApplet {
   float t = t_start;
   for (int i = 0; i < n_steps; i++) {
     float m1 = dxdt(t, x);
-    float m2 = dxdt(t + dt/2, x + dt*m1/2);
-    x += m2*0.5f;
+    float m2 = dxdt(t + dt/2, x + dt*m1*0.5f);
+    x += m2*dt;
     t += dt;
   }
   return x;
@@ -237,7 +237,7 @@ public class GroundTruth extends PApplet {
   for (int i = 0; i < n_steps; i++) {
     float m1 = dxdt(t, x);
     float m2 = dxdt(t + dt*0.5f, x + (dt*m1*0.5f));
-    x += m2*0.5f;
+    x += m2*dt;
     t += dt;
     xVals.add(x);
   }
