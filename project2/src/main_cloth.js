@@ -93,16 +93,16 @@ function setup() {
     //////////////////////// ROPE INFO ///////////////////////////////////////
 
     floorY = 0.0; radius = 5.0;
-    mass = 10000; k = 1000; kv = 200; kfric = 2;
-    vertNodes = 3; maxNodes = 101; horizNodes = 2;
-    gravity = new THREE.Vector3(0.0, -400, 0.0);
+    mass = 10; k = 1000; kv = 200; kfric = 2;
+    vertNodes = 5; horizNodes = 5;
+    gravity = new THREE.Vector3(0.0, -4000, 0.0);
     stringTop = new THREE.Vector3(0.0, 100.0, 0.0);
-    restLen = 10;
+    restLen = 5;
     objArr = [];
 
     nodePos = Array(vertNodes).fill(null).map(() => Array(horizNodes));
     nodeVel = Array(vertNodes).fill(null).map(() => Array(horizNodes));
-    // nodeAcc = Array(vertNodes).fill(null).map(() => Array(horizNodes));
+    nodeAcc = Array(vertNodes).fill(null).map(() => Array(horizNodes));
     objArr = Array(vertNodes-1).fill(null).map(() => Array(horizNodes-1));
 
     // build the verts of the cloth
@@ -112,10 +112,10 @@ function setup() {
             nodePos[i][j] = new THREE.Vector3(
                 5*j,
                 stringTop.y-5*i,
-                5*j
+                -2*i
             );
             nodeVel[i][j] = new THREE.Vector3(0.0,0.0,0.0);
-            // nodeAcc[i][j] = new THREE.Vector3(0.0,0.0,0.0);
+            nodeAcc[i][j] = new THREE.Vector3(0.0,0.0,0.0);
         }
     }
 
@@ -166,17 +166,12 @@ function setup() {
 }
 
 function update(dt) {
-    // other code goes here
-    // for (let i = 0; i < vertNodes; i++) {
-    //     for (let j = 0; j < horizNodes; j++) {
-    //         nodeAcc[i][j].x = 0; nodeAcc[i].y = 0; nodeAcc[i].z = 0;
-    //         nodeAcc[i][j].add(gravity);
-    //     }
-    // }
-    var newVel = Array(vertNodes).fill(null).map(() => Array(horizNodes));
+    // var newVel = Array(vertNodes).fill(null).map(() => Array(horizNodes));
     for (let i = 0; i < vertNodes; i++) {
         for (let j = 0; j < horizNodes; j++) {
-            newVel[i][j] = nodeVel[i][j].clone();
+            nodeAcc[i][j].x = 0; nodeAcc[i].y = 0; nodeAcc[i].z = 0;
+            nodeAcc[i][j].add(gravity);
+            // newVel[i][j] = nodeVel[i][j].clone();
         }
     }
 
@@ -184,7 +179,7 @@ function update(dt) {
         for (let j = 0; j < horizNodes; j++) {
             var diff = nodePos[i+1][j].clone();
             diff.sub(nodePos[i][j])
-            var stringF = -k*(diff.length()-restLen);
+            var stringF = -k*(restLen-diff.length());
             
             diff.normalize();
             var projVbot = diff.dot(nodeVel[i][j]);
@@ -196,12 +191,12 @@ function update(dt) {
             // dampFricU.y = 0;
             // dampFricU.z = -kfric*(nodeVel[i][j].z-(i==0?0:nodeVel[i-1][j].z));
 
-            diff.multiplyScalar((stringF+dampF)*(1/mass)*dt);
+            diff.multiplyScalar((stringF+dampF)*(1/mass));
             // dampFricU.multiplyScalar(dt);
 
-            newVel[i][j].add(diff);
+            nodeAcc[i][j].add(diff);
             // newVel[i][j].add(dampFricU);
-            newVel[i+1][j].sub(diff);
+            nodeAcc[i+1][j].sub(diff);
         }
     }  
 
@@ -209,7 +204,7 @@ function update(dt) {
         for (let j = 0; j < horizNodes-1; j++) {
             var diff = nodePos[i][j+1].clone();
             diff.sub(nodePos[i][j])
-            var stringF = -k*(diff.length()-restLen);
+            var stringF = -k*(restLen-diff.length());
             
             diff.normalize();
             var projVbot = diff.dot(nodeVel[i][j]);
@@ -221,35 +216,58 @@ function update(dt) {
             // dampFricU.y = 0;
             // dampFricU.z = -kfric*(nodeVel[i][j].z-(j==0?0:nodeVel[i][j-1].z));
 
-            diff.multiplyScalar((stringF+dampF)*(1/mass)*dt);
+            diff.multiplyScalar((stringF+dampF)*(1/mass));
             // dampFricU.multiplyScalar(dt);
 
-            newVel[i][j].add(diff);
+            nodeAcc[i][j].add(diff);
             // newVel[i][j].add(dampFricU);
-            newVel[i][j+1].sub(diff);
+            nodeAcc[i][j+1].sub(diff);
         }
     }
 
-    var gravitydt = gravity.clone();
-    gravitydt.multiplyScalar(dt);
-    for (let i = 0; i < vertNodes; i++) {
-        for (let j = 0; j < horizNodes; j++) {
-            if (i == 0) {
-                newVel[i][j].x = 0; newVel[i][j].y = 0; newVel[i][j].z = 0;
-                nodeVel[i][j] = newVel[i][j].clone();
-                continue;
-            }
-            newVel[i][j].add(gravitydt);
-            nodeVel[i][j] = newVel[i][j].clone();
-        }
-    } 
+    // for (let i = 0; i < vertNodes; i++) {
+    //     for (let j = 0; j < horizNodes; j++) {
+    //         if (i == 0) {
+    //             newVel[i][j].x = 0; newVel[i][j].y = 0; newVel[i][j].z = 0;
+    //             nodeVel[i][j] = newVel[i][j].clone();
+    //             continue;
+    //         }
+    //         newVel[i][j].add(gravitydt);
+    //         nodeVel[i][j] = newVel[i][j].clone();
+    //     }
+    // } 
 
     var temp;
     for (let i = 0; i < vertNodes; i++) {
         for (let j = 0; j < horizNodes; j++) {
-            temp = nodeVel[i][j].clone();
-            temp.multiplyScalar(dt);
-            nodePos[i][j].add(temp);
+            if (i != 0) {
+                // part 1 of runge kutta
+                var v1 = nodeVel[i][j].clone();
+                v1.multiplyScalar(dt);
+
+                var v2 = nodeVel[i][j].clone();
+                var atemp = nodeAcc[i][j].clone();
+                atemp.multiplyScalar(0.5*dt)
+                v2.add(atemp);
+                v2.multiplyScalar(dt);
+
+                var v3 = nodeVel[i][j].clone();
+                v3.add(atemp);
+                v3.multiplyScalar(dt);
+
+                var v4 = nodeVel[i][j].clone();
+                atemp = nodeAcc[i][j].clone().multiplyScalar(dt);
+                v2.add(atemp);
+                v2.multiplyScalar(dt);
+                
+                v2.multiplyScalar(2);
+                v3.multiplyScalar(2);
+
+                v1.add(v2); v1.add(v3); v1.add(v4);
+                v1.multiplyScalar(dt/6);
+
+                nodePos[i][j].add(v1);
+            }
         }
     }
 
@@ -289,8 +307,8 @@ function animate() {
     prevTime = now;
     
     if (!paused) {
-        for (let i = 0; i < 4000; i++) {
-            update(dt/4000);
+        for (let i = 0; i < 3000; i++) {
+            update(dt/3000);
         }
         
     }
