@@ -107,7 +107,7 @@ function setup() {
     positions.needsUpdate = true;
 
     for (let i = 0, index = 0, l = numNodes; i < l; i++, index += 3) {
-        nodePos[i] = new THREE.Vector3(stringTop.x-1.0*i,stringTop.y-1.0*i,0);
+        nodePos[i] = new THREE.Vector3(stringTop.x-1.0*i,stringTop.y-1.0*i,stringTop.z-1.0*i);
         nodeVel[i] = new THREE.Vector3(0.0,0.0,0.0);
         nodeAcc[i] = new THREE.Vector3(0.0,0.0,0.0);
 
@@ -155,7 +155,8 @@ function update(dt) {
         var dampF = -kv*(projVtop - projVbot);
 
         dampFricU.x = -kfric*(nodeVel[i].x-(i==0?0:nodeVel[i-1].x));
-        dampFricU.y = -kfric*(nodeVel[i].y-(i==0?0:nodeVel[i-1].y));
+        // dampFricU.y = -kfric*(nodeVel[i].y-(i==0?0:nodeVel[i-1].y));
+        dampFricU.y = 0;
         dampFricU.z = -kfric*(nodeVel[i].z-(i==0?0:nodeVel[i-1].z));
 
         forceU.x = diff.x * (stringF+dampF);
