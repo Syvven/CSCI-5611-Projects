@@ -91,6 +91,10 @@ function setup() {
     hemiLight.position.set( 0, 300, 0 );
     scene.add( hemiLight );
 
+    // const light = new THREE.PointLight(0xffffff);
+    // light.position.set(0, 50, 50);
+    // scene.add(light);
+
     // date for dt purposes
     prevTime = new Date();
 
@@ -98,7 +102,7 @@ function setup() {
 
     floorY = 0.0; radius = 5.0;
     mass = 0.1; k = 10000; kv = 1000; kfric = 4000;
-    vertNodes = 15; horizNodes = 15;
+    vertNodes = 20; horizNodes = 20;
     gravity = new THREE.Vector3(0.0, -10, 0.0);
     stringTop = new THREE.Vector3(0.0, 50.0, 0.0);
     restLen = 2;
@@ -128,35 +132,67 @@ function setup() {
             var geo = new THREE.BufferGeometry();
 
             var positions = new Float32Array(18);
+            var colors = new Float32Array(18);
             // tleft vert
             positions[0] = nodePos[i][j].x;
             positions[1] = nodePos[i][j].y;
             positions[2] = nodePos[i][j].z;
+            colors[0] = Math.random();
+            colors[1] = Math.random();
+            colors[2] = Math.random();
+
             // tRight vert
             positions[3] = nodePos[i][j+1].x;
             positions[4] = nodePos[i][j+1].y;
             positions[5] = nodePos[i][j+1].z;
+            colors[3] = Math.random();
+            colors[4] = Math.random();
+            colors[5] = Math.random();
 
             positions[6] = nodePos[i+1][j+1].x;
             positions[7] = nodePos[i+1][j+1].y;
             positions[8] = nodePos[i+1][j+1].z;
+            colors[6] = Math.random();
+            colors[7] = Math.random();
+            colors[8] = Math.random();
+
             // bLeft vert
             positions[9] = nodePos[i+1][j+1].x;
             positions[10] = nodePos[i+1][j+1].y;
             positions[11] = nodePos[i+1][j+1].z;
-
+            colors[9] = Math.random();
+            colors[10] = Math.random();
+            colors[11] = Math.random();
+            
             positions[12] = nodePos[i+1][j].x;
             positions[13] = nodePos[i+1][j].y;
             positions[14] = nodePos[i+1][j].z;
+            colors[12] = Math.random();
+            colors[13] = Math.random();
+            colors[14] = Math.random();
+
             // bRight vert
             positions[15] = nodePos[i][j].x;
             positions[16] = nodePos[i][j].y;
             positions[17] = nodePos[i][j].z;
+            colors[15] = Math.random();
+            colors[16] = Math.random();
+            colors[17] = Math.random();
 
             geo.setAttribute('position', new THREE.BufferAttribute(positions, 3));
+            geo.setAttribute('color', new THREE.BufferAttribute(colors, 3));
             geo.setDrawRange(0,6);
-            var material = new THREE.MeshBasicMaterial({color:(Math.random() * 0xfffff * 1000000)});
+
+            geo.computeBoundingBox();
+
+            var material = new THREE.MeshPhongMaterial({
+                vertexColors: true,
+                flatShading: true
+            });
+
             material.side = THREE.DoubleSide;
+
+
             objArr[i][j] = new THREE.Mesh(geo, material);
             objArr[i][j].material.transparent = false;
             scene.add(objArr[i][j]);
@@ -268,33 +304,57 @@ function update(dt) {
             }
         }
     }
+}
 
+function updatePosAndColor() {
     for (let i = 0; i < vertNodes-1; i++) {
         for (let j = 0; j < horizNodes-1; j++) {
             var pos = objArr[i][j].geometry.attributes.position.array;
+            var colors = objArr[i][j].geometry.attributes.color.array;
             pos[0] = nodePos[i][j].x;
             pos[1] = nodePos[i][j].y;
             pos[2] = nodePos[i][j].z;
-            //  vert
+            colors[0] = Math.random();
+            colors[1] = Math.random();
+            colors[2] = Math.random();
+
+            // tRight vert
             pos[3] = nodePos[i][j+1].x;
             pos[4] = nodePos[i][j+1].y;
             pos[5] = nodePos[i][j+1].z;
+            colors[3] = Math.random();
+            colors[4] = Math.random();
+            colors[5] = Math.random();
 
             pos[6] = nodePos[i+1][j+1].x;
             pos[7] = nodePos[i+1][j+1].y;
             pos[8] = nodePos[i+1][j+1].z;
-            // vert
+            colors[6] = Math.random();
+            colors[7] = Math.random();
+            colors[8] = Math.random();
+
+            // bLeft vert
             pos[9] = nodePos[i+1][j+1].x;
             pos[10] = nodePos[i+1][j+1].y;
             pos[11] = nodePos[i+1][j+1].z;
-
+            colors[9] = Math.random();
+            colors[10] = Math.random();
+            colors[11] = Math.random();
+            
             pos[12] = nodePos[i+1][j].x;
             pos[13] = nodePos[i+1][j].y;
             pos[14] = nodePos[i+1][j].z;
-            //  vert
+            colors[12] = Math.random();
+            colors[13] = Math.random();
+            colors[14] = Math.random();
+
+            // bRight vert
             pos[15] = nodePos[i][j].x;
             pos[16] = nodePos[i][j].y;
             pos[17] = nodePos[i][j].z;
+            colors[15] = Math.random();
+            colors[16] = Math.random();
+            colors[17] = Math.random();
         }
     }
 }
@@ -312,13 +372,14 @@ function animate() {
             totalDT += 1;
             update(1/100);
         }
-        
+        updatePosAndColor();
     }
     orbitControls.update(1*dt);
 
     for (let i = 0; i < vertNodes-1; i++) {
         for (let j = 0; j < horizNodes-1; j++) {
             objArr[i][j].geometry.attributes.position.needsUpdate = true;
+            objArr[i][j].geometry.attributes.color.needsUpdate = true;
             objArr[i][j].geometry.computeBoundingBox();
             objArr[i][j].geometry.computeBoundingSphere();
         }
@@ -339,13 +400,27 @@ function onWindowResize(){
     renderer.setSize( window.innerWidth, window.innerHeight );
 }
 
+function reset() {
+    for (let i = 0; i < vertNodes; i++) {
+        for (let j = 0; j < horizNodes; j++) {
+            nodePos[i][j] = new THREE.Vector3(
+                j*restLen,
+                stringTop.y,
+                restLen*i
+            );
+            nodeVel[i][j] = new THREE.Vector3(0.0,0.0,0.0);
+            nodeAcc[i][j] = new THREE.Vector3(0.0,0.0,0.0);
+        }
+    }
+}
+
 function onKeyUp(event) {
     if (event.code == 'Space') {
         paused = !paused;
     }
 
     if (event.code == 'KeyR') {
-        location.reload();
+        reset();
     }
 }
 
