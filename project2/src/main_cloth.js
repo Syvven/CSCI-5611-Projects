@@ -15,8 +15,8 @@ var prevTime;
 // rope globals
 var floorY, radius, stringTop, mass, k, kv, kfric;
 var restLen;
-var dampFricU, forceU, gravity;
-var nodePos, nodeVel, nodeAcc, maxNodes, vertNodes, horizNodes;
+var dampFricU, gravity;
+var nodePos, nodeVel, nodeAcc, vertNodes, horizNodes;
 var objArr;
 var totalDT;
 
@@ -102,10 +102,10 @@ function setup() {
 
     floorY = 0.0; radius = 5.0;
     mass = 0.1; k = 10000; kv = 1000; kfric = 4000;
-    vertNodes = 20; horizNodes = 20;
+    vertNodes = 15; horizNodes = 15;
     gravity = new THREE.Vector3(0.0, -10, 0.0);
     stringTop = new THREE.Vector3(0.0, 50.0, 0.0);
-    restLen = 2;
+    restLen = 3;
     objArr = [];
 
     nodePos = Array(vertNodes).fill(null).map(() => Array(horizNodes));
@@ -130,54 +130,58 @@ function setup() {
     for (let i = 0; i < vertNodes-1; i++) {
         for (let j = 0; j < horizNodes-1; j++) {
             var geo = new THREE.BufferGeometry();
-
             var positions = new Float32Array(18);
             var colors = new Float32Array(18);
+
+            var pos = nodePos[i][j];
             // tleft vert
-            positions[0] = nodePos[i][j].x;
-            positions[1] = nodePos[i][j].y;
-            positions[2] = nodePos[i][j].z;
-            colors[0] = Math.random();
-            colors[1] = Math.random();
-            colors[2] = Math.random();
+            positions[0] = pos.x;
+            positions[1] = pos.y;
+            positions[2] = pos.z;
+            colors[0] = ((pos.y*10)%256)/256;
+            colors[1] = ((pos.y*20)%256)/256;
+            colors[2] = ((pos.y*30)%256)/256;
 
+             // bRight vert
+            positions[15] = pos.x;
+            positions[16] = pos.y;
+            positions[17] = pos.z;
+            colors[15] = ((pos.y*10)%256)/256;
+            colors[16] = ((pos.y*20)%256)/256;
+            colors[17] = ((pos.y*30)%256)/256;
+
+            pos = nodePos[i][j+1];
             // tRight vert
-            positions[3] = nodePos[i][j+1].x;
-            positions[4] = nodePos[i][j+1].y;
-            positions[5] = nodePos[i][j+1].z;
-            colors[3] = Math.random();
-            colors[4] = Math.random();
-            colors[5] = Math.random();
+            positions[3] = pos.x;
+            positions[4] = pos.y;
+            positions[5] = pos.z;
+            colors[3] = ((pos.y*10)%256)/256;
+            colors[4] = ((pos.y*20)%256)/256;
+            colors[5] = ((pos.y*30)%256)/256;
 
-            positions[6] = nodePos[i+1][j+1].x;
-            positions[7] = nodePos[i+1][j+1].y;
-            positions[8] = nodePos[i+1][j+1].z;
-            colors[6] = Math.random();
-            colors[7] = Math.random();
-            colors[8] = Math.random();
+            pos = nodePos[i+1][j+1];
+            positions[6] = pos.x;
+            positions[7] = pos.y;
+            positions[8] = pos.z;
+            colors[6] = ((pos.y*10)%256)/256;
+            colors[7] = ((pos.y*20)%256)/256;
+            colors[8] = ((pos.y*30)%256)/256;
 
             // bLeft vert
-            positions[9] = nodePos[i+1][j+1].x;
-            positions[10] = nodePos[i+1][j+1].y;
-            positions[11] = nodePos[i+1][j+1].z;
-            colors[9] = Math.random();
-            colors[10] = Math.random();
-            colors[11] = Math.random();
+            positions[9] = pos.x;
+            positions[10] = pos.y;
+            positions[11] = pos.z;
+            colors[9] = ((pos.y*10)%256)/256;
+            colors[10] = ((pos.y*20)%256)/256;
+            colors[11] = ((pos.y*30)%256)/256;
             
-            positions[12] = nodePos[i+1][j].x;
-            positions[13] = nodePos[i+1][j].y;
-            positions[14] = nodePos[i+1][j].z;
-            colors[12] = Math.random();
-            colors[13] = Math.random();
-            colors[14] = Math.random();
-
-            // bRight vert
-            positions[15] = nodePos[i][j].x;
-            positions[16] = nodePos[i][j].y;
-            positions[17] = nodePos[i][j].z;
-            colors[15] = Math.random();
-            colors[16] = Math.random();
-            colors[17] = Math.random();
+            pos = nodePos[i+1][j];
+            positions[12] = pos.x;
+            positions[13] = pos.y;
+            positions[14] = pos.z;
+            colors[12] = ((pos.y*10)%256)/256;
+            colors[13] = ((pos.y*20)%256)/256;
+            colors[14] = ((pos.y*30)%256)/256;
 
             geo.setAttribute('position', new THREE.BufferAttribute(positions, 3));
             geo.setAttribute('color', new THREE.BufferAttribute(colors, 3));
@@ -200,7 +204,6 @@ function setup() {
     }
 
     dampFricU = new THREE.Vector3(0,0,0);
-    forceU = new THREE.Vector3(0,0,0);
 
     // after this point, animate() is run
     if ( WebGL.isWebGLAvailable() ) {
@@ -263,10 +266,12 @@ function update(dt) {
         }
     }
 
+    var halfv = vertNodes/2;
+    var halfh = horizNodes/2;
     for (let i = 0; i < vertNodes; i++) {
         for (let j = 0; j < horizNodes; j++) {
-            if (!(i == 0 && j == 0) && !(i == 0 && j == horizNodes-1) /*&&
-                !(i == vertNodes-1 && j == 0) && !(i == vertNodes-1 && j == horizNodes-1)*/) {
+            if (!(i == 0 && j == 0) && !(i == 0 && j == horizNodes-1) &&
+                !(i == vertNodes-1 && j == 0) && !(i == vertNodes-1 && j == horizNodes-1)) {
                 // RK4 (Runge-Kutta) Integration
                 var v1 = nodeVel[i][j].clone();
                 v1.multiplyScalar(dt);
@@ -309,52 +314,64 @@ function update(dt) {
 function updatePosAndColor() {
     for (let i = 0; i < vertNodes-1; i++) {
         for (let j = 0; j < horizNodes-1; j++) {
-            var pos = objArr[i][j].geometry.attributes.position.array;
+            var positions = objArr[i][j].geometry.attributes.position.array;
             var colors = objArr[i][j].geometry.attributes.color.array;
-            pos[0] = nodePos[i][j].x;
-            pos[1] = nodePos[i][j].y;
-            pos[2] = nodePos[i][j].z;
-            colors[0] = Math.random();
-            colors[1] = Math.random();
-            colors[2] = Math.random();
 
+            var pos = nodePos[i][j];
+            var a = ((pos.y*10)%256)/256;
+            var b = ((pos.y*20)%256)/256;
+            var c = ((pos.z*30)%256)/256;
+            // tleft vert
+            positions[0] = pos.x;
+            positions[1] = pos.y;
+            positions[2] = pos.z;
+            colors[0] = a;
+            colors[1] = b;
+            colors[2] = c;
+
+             // bRight vert
+            positions[15] = pos.x;
+            positions[16] = pos.y;
+            positions[17] = pos.z;
+            colors[15] = a;
+            colors[16] = b;
+            colors[17] = c;
+
+            pos = nodePos[i][j+1];
             // tRight vert
-            pos[3] = nodePos[i][j+1].x;
-            pos[4] = nodePos[i][j+1].y;
-            pos[5] = nodePos[i][j+1].z;
-            colors[3] = Math.random();
-            colors[4] = Math.random();
-            colors[5] = Math.random();
+            positions[3] = pos.x;
+            positions[4] = pos.y;
+            positions[5] = pos.z;
+            colors[3] = ((pos.y*10)%256)/256;
+            colors[4] = ((pos.y*20)%256)/256;
+            colors[5] = ((pos.z*30)%256)/256;
 
-            pos[6] = nodePos[i+1][j+1].x;
-            pos[7] = nodePos[i+1][j+1].y;
-            pos[8] = nodePos[i+1][j+1].z;
-            colors[6] = Math.random();
-            colors[7] = Math.random();
-            colors[8] = Math.random();
+            pos = nodePos[i+1][j+1];
+            a = ((pos.y*10)%256)/256;
+            b = ((pos.y*20)%256)/256;
+            c = ((pos.z*30)%256)/256;
+            positions[6] = pos.x;
+            positions[7] = pos.y;
+            positions[8] = pos.z;
+            colors[6] = a;
+            colors[7] = b;
+            colors[8] = c;
 
             // bLeft vert
-            pos[9] = nodePos[i+1][j+1].x;
-            pos[10] = nodePos[i+1][j+1].y;
-            pos[11] = nodePos[i+1][j+1].z;
-            colors[9] = Math.random();
-            colors[10] = Math.random();
-            colors[11] = Math.random();
+            positions[9] = pos.x;
+            positions[10] = pos.y;
+            positions[11] = pos.z;
+            colors[9] = a;
+            colors[10] = b;
+            colors[11] = c;
             
-            pos[12] = nodePos[i+1][j].x;
-            pos[13] = nodePos[i+1][j].y;
-            pos[14] = nodePos[i+1][j].z;
-            colors[12] = Math.random();
-            colors[13] = Math.random();
-            colors[14] = Math.random();
-
-            // bRight vert
-            pos[15] = nodePos[i][j].x;
-            pos[16] = nodePos[i][j].y;
-            pos[17] = nodePos[i][j].z;
-            colors[15] = Math.random();
-            colors[16] = Math.random();
-            colors[17] = Math.random();
+            pos = nodePos[i+1][j];
+            positions[12] = pos.x;
+            positions[13] = pos.y;
+            positions[14] = pos.z;
+            colors[12] = ((pos.y*10)%256)/256;
+            colors[13] = ((pos.y*20)%256)/256;
+            colors[14] = ((pos.z*30)%256)/256;
         }
     }
 }
