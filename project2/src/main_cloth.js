@@ -18,6 +18,7 @@ var restLen;
 var dampFricU, forceU, gravity;
 var nodePos, nodeVel, nodeAcc, maxNodes, vertNodes, horizNodes;
 var objArr;
+var totalDT;
 
 // key handler booleans
 var paused = true;
@@ -28,6 +29,8 @@ setup();
 
 function setup() {
     ///////////////////////// RENDERING INFO ////////////////////////////////////////////////////////
+    totalDT = 0;
+
     stats = new Stats();
     stats.showPanel(0);
     document.body.appendChild(stats.dom);
@@ -42,7 +45,7 @@ function setup() {
 
     // creates new camera / sets position / sets looking angle
     camera = new THREE.PerspectiveCamera( 45, window.innerWidth / window.innerHeight, 1, 5000 );
-    camera.position.set( 0, 0, 200 );
+    camera.position.set( 0, 50, 200 );
     camera.lookAt( 0, 0, 0 );
 
     // flyControls = new FlyControls(camera, renderer.domElement);
@@ -68,10 +71,11 @@ function setup() {
 
     // adds texture for the ground
     var groundTexture = new THREE.TextureLoader().load("../models/floor-min.png");
-    groundTexture.weapS = groundTexture.wrapT = THREE.RepeatWrapping;
+    groundTexture.wrapS = groundTexture.wrapT = THREE.RepeatWrapping;
+    groundTexture.repeat.set(10,10);
     groundTexture.encoding = THREE.sRGBEncoding;
-    var groundMaterial = new THREE.MeshStandardMaterial({map:groundTexture});
-    var mesh = new THREE.Mesh(new THREE.PlaneBufferGeometry(100,100),groundMaterial);
+    var groundMaterial = new THREE.MeshStandardMaterial({map:groundTexture, side: THREE.DoubleSide});
+    var mesh = new THREE.Mesh(new THREE.PlaneBufferGeometry(400,400, 10, 10),groundMaterial);
     mesh.position.y = 0.0;
     mesh.rotation.x = -Math.PI/2;
     scene.add(mesh);
@@ -93,11 +97,11 @@ function setup() {
     //////////////////////// ROPE INFO ///////////////////////////////////////
 
     floorY = 0.0; radius = 5.0;
-    mass = 10; k = 1000; kv = 200; kfric = 2;
-    vertNodes = 5; horizNodes = 5;
-    gravity = new THREE.Vector3(0.0, -4000, 0.0);
-    stringTop = new THREE.Vector3(0.0, 100.0, 0.0);
-    restLen = 5;
+    mass = 0.1; k = 10000; kv = 1000; kfric = 4000;
+    vertNodes = 15; horizNodes = 15;
+    gravity = new THREE.Vector3(0.0, -10, 0.0);
+    stringTop = new THREE.Vector3(0.0, 50.0, 0.0);
+    restLen = 2;
     objArr = [];
 
     nodePos = Array(vertNodes).fill(null).map(() => Array(horizNodes));
@@ -110,9 +114,9 @@ function setup() {
     for (let i = 0; i < vertNodes; i++) {
         for (let j = 0; j < horizNodes; j++) {
             nodePos[i][j] = new THREE.Vector3(
-                5*j,
-                stringTop.y-5*i,
-                -2*i
+                j*restLen,
+                stringTop.y,
+                restLen*i
             );
             nodeVel[i][j] = new THREE.Vector3(0.0,0.0,0.0);
             nodeAcc[i][j] = new THREE.Vector3(0.0,0.0,0.0);
@@ -122,7 +126,8 @@ function setup() {
     for (let i = 0; i < vertNodes-1; i++) {
         for (let j = 0; j < horizNodes-1; j++) {
             var geo = new THREE.BufferGeometry();
-            var positions = new Float32Array(15);
+
+            var positions = new Float32Array(18);
             // tleft vert
             positions[0] = nodePos[i][j].x;
             positions[1] = nodePos[i][j].y;
@@ -136,18 +141,23 @@ function setup() {
             positions[7] = nodePos[i+1][j+1].y;
             positions[8] = nodePos[i+1][j+1].z;
             // bLeft vert
-            positions[9] = nodePos[i+1][j].x;
-            positions[10] = nodePos[i+1][j].y;
-            positions[11] = nodePos[i+1][j].z;
+            positions[9] = nodePos[i+1][j+1].x;
+            positions[10] = nodePos[i+1][j+1].y;
+            positions[11] = nodePos[i+1][j+1].z;
+
+            positions[12] = nodePos[i+1][j].x;
+            positions[13] = nodePos[i+1][j].y;
+            positions[14] = nodePos[i+1][j].z;
             // bRight vert
-            positions[12] = nodePos[i][j].x;
-            positions[13] = nodePos[i][j].y;
-            positions[14] = nodePos[i][j].z;
+            positions[15] = nodePos[i][j].x;
+            positions[16] = nodePos[i][j].y;
+            positions[17] = nodePos[i][j].z;
 
             geo.setAttribute('position', new THREE.BufferAttribute(positions, 3));
-            geo.setDrawRange(0,5);
-            var material = new THREE.LineBasicMaterial({color:0xff0000});
-            objArr[i][j] = new THREE.Line(geo, material);
+            geo.setDrawRange(0,6);
+            var material = new THREE.MeshBasicMaterial({color:(Math.random() * 0xfffff * 1000000)});
+            material.side = THREE.DoubleSide;
+            objArr[i][j] = new THREE.Mesh(geo, material);
             scene.add(objArr[i][j]);
         }
     }
@@ -171,39 +181,37 @@ function update(dt) {
         for (let j = 0; j < horizNodes; j++) {
             nodeAcc[i][j].x = 0; nodeAcc[i].y = 0; nodeAcc[i].z = 0;
             nodeAcc[i][j].add(gravity);
-            // newVel[i][j] = nodeVel[i][j].clone();
         }
     }
 
     for (let i = 0; i < vertNodes-1; i++) {
         for (let j = 0; j < horizNodes; j++) {
-            var diff = nodePos[i+1][j].clone();
-            diff.sub(nodePos[i][j])
+            
+            var diff = nodePos[i][j].clone();
+            diff.sub(nodePos[i+1][j])
             var stringF = -k*(restLen-diff.length());
             
             diff.normalize();
             var projVbot = diff.dot(nodeVel[i][j]);
             var projVtop = diff.dot(nodeVel[i+1][j]);
             var dampF = -kv*(projVtop - projVbot);
-
-            // dampFricU.x = -kfric*(nodeVel[i][j].x-(i==0?0:nodeVel[i-1][j].x));
-            // // dampFricU.y = -kfric*(nodeVel[i].y-(i==0?0:nodeVel[i-1].y));
-            // dampFricU.y = 0;
-            // dampFricU.z = -kfric*(nodeVel[i][j].z-(i==0?0:nodeVel[i-1][j].z));
-
+            
+            dampFricU.x = -kfric*((i===0?0:nodeVel[i-1][j].x)-nodeVel[i][j].x);
+            dampFricU.y = 0;
+            dampFricU.z = -kfric*((i===0?0:nodeVel[i-1][j].z)-nodeVel[i][j].z);
+            
             diff.multiplyScalar((stringF+dampF)*(1/mass));
-            // dampFricU.multiplyScalar(dt);
 
-            nodeAcc[i][j].add(diff);
-            // newVel[i][j].add(dampFricU);
-            nodeAcc[i+1][j].sub(diff);
+            nodeAcc[i][j].sub(diff);
+            nodeAcc[i][j].sub(dampFricU);
+            nodeAcc[i+1][j].add(diff);
         }
     }  
 
     for (let i = 0; i < vertNodes; i++) {
         for (let j = 0; j < horizNodes-1; j++) {
-            var diff = nodePos[i][j+1].clone();
-            diff.sub(nodePos[i][j])
+            var diff = nodePos[i][j].clone();
+            diff.sub(nodePos[i][j+1])
             var stringF = -k*(restLen-diff.length());
             
             diff.normalize();
@@ -211,37 +219,18 @@ function update(dt) {
             var projVtop = diff.dot(nodeVel[i][j+1]);
             var dampF = -kv*(projVtop - projVbot);
 
-            // dampFricU.x = -kfric*(nodeVel[i][j].x-(j==0?0:nodeVel[i][j-1].x));
-            // // dampFricU.y = -kfric*(nodeVel[i].y-(i==0?0:nodeVel[i-1].y));
-            // dampFricU.y = 0;
-            // dampFricU.z = -kfric*(nodeVel[i][j].z-(j==0?0:nodeVel[i][j-1].z));
-
             diff.multiplyScalar((stringF+dampF)*(1/mass));
-            // dampFricU.multiplyScalar(dt);
 
-            nodeAcc[i][j].add(diff);
-            // newVel[i][j].add(dampFricU);
-            nodeAcc[i][j+1].sub(diff);
+            nodeAcc[i][j].sub(diff);
+            nodeAcc[i][j+1].add(diff);
         }
     }
 
-    // for (let i = 0; i < vertNodes; i++) {
-    //     for (let j = 0; j < horizNodes; j++) {
-    //         if (i == 0) {
-    //             newVel[i][j].x = 0; newVel[i][j].y = 0; newVel[i][j].z = 0;
-    //             nodeVel[i][j] = newVel[i][j].clone();
-    //             continue;
-    //         }
-    //         newVel[i][j].add(gravitydt);
-    //         nodeVel[i][j] = newVel[i][j].clone();
-    //     }
-    // } 
-
-    var temp;
     for (let i = 0; i < vertNodes; i++) {
         for (let j = 0; j < horizNodes; j++) {
-            if (i != 0) {
-                // part 1 of runge kutta
+            if (!(i == 0 && j == 0) && !(i == 0 && j == horizNodes-1) /*&&
+                !(i == vertNodes-1 && j == 0) && !(i == vertNodes-1 && j == horizNodes-1)*/) {
+                // RK4 (Runge-Kutta) Integration
                 var v1 = nodeVel[i][j].clone();
                 v1.multiplyScalar(dt);
 
@@ -265,8 +254,16 @@ function update(dt) {
 
                 v1.add(v2); v1.add(v3); v1.add(v4);
                 v1.multiplyScalar(dt/6);
+                
+                nodeVel[i][j] = v1.clone();
+                nodePos[i][j].add(nodeVel[i][j]);
 
-                nodePos[i][j].add(v1);
+                // // eulerian integration
+                // nodeAcc[i][j].multiplyScalar(dt)
+                // nodeVel[i][j].add(nodeAcc[i][j]);
+                // var temp = nodeVel[i][j].clone();
+                // temp.multiplyScalar(dt)
+                // nodePos[i][j].add(temp);
             }
         }
     }
@@ -281,19 +278,22 @@ function update(dt) {
             pos[3] = nodePos[i][j+1].x;
             pos[4] = nodePos[i][j+1].y;
             pos[5] = nodePos[i][j+1].z;
-            // vert
 
             pos[6] = nodePos[i+1][j+1].x;
             pos[7] = nodePos[i+1][j+1].y;
             pos[8] = nodePos[i+1][j+1].z;
+            // vert
+            pos[9] = nodePos[i+1][j+1].x;
+            pos[10] = nodePos[i+1][j+1].y;
+            pos[11] = nodePos[i+1][j+1].z;
 
-            pos[9] = nodePos[i+1][j].x;
-            pos[10] = nodePos[i+1][j].y;
-            pos[11] = nodePos[i+1][j].z;
+            pos[12] = nodePos[i+1][j].x;
+            pos[13] = nodePos[i+1][j].y;
+            pos[14] = nodePos[i+1][j].z;
             //  vert
-            pos[12] = nodePos[i][j].x;
-            pos[13] = nodePos[i][j].y;
-            pos[14] = nodePos[i][j].z;
+            pos[15] = nodePos[i][j].x;
+            pos[16] = nodePos[i][j].y;
+            pos[17] = nodePos[i][j].z;
         }
     }
 }
@@ -307,8 +307,9 @@ function animate() {
     prevTime = now;
     
     if (!paused) {
-        for (let i = 0; i < 3000; i++) {
-            update(dt/3000);
+        for (let i = 0; i < 100; i++) {
+            totalDT += 1;
+            update(1/100);
         }
         
     }
