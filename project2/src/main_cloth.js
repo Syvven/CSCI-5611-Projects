@@ -44,7 +44,7 @@ function setup() {
     document.body.appendChild( renderer.domElement );
 
     // creates new camera / sets position / sets looking angle
-    camera = new THREE.PerspectiveCamera( 45, window.innerWidth / window.innerHeight, 1, 5000 );
+    camera = new THREE.PerspectiveCamera( 60, window.innerWidth / window.innerHeight, 0.1, 5000 );
     camera.position.set( 0, 50, 200 );
     camera.lookAt( 0, 0, 0 );
 
@@ -158,6 +158,7 @@ function setup() {
             var material = new THREE.MeshBasicMaterial({color:(Math.random() * 0xfffff * 1000000)});
             material.side = THREE.DoubleSide;
             objArr[i][j] = new THREE.Mesh(geo, material);
+            objArr[i][j].material.transparent = false;
             scene.add(objArr[i][j]);
         }
     }
@@ -318,6 +319,8 @@ function animate() {
     for (let i = 0; i < vertNodes-1; i++) {
         for (let j = 0; j < horizNodes-1; j++) {
             objArr[i][j].geometry.attributes.position.needsUpdate = true;
+            objArr[i][j].geometry.computeBoundingBox();
+            objArr[i][j].geometry.computeBoundingSphere();
         }
     }
 
