@@ -3,6 +3,7 @@ import Stats from '../node_modules/stats.js/src/Stats.js';
 import {GLTFLoader} from './GLTFLoader.js';
 import {FlyControls} from './FlyControls.js';
 import {OrbitControls} from './OrbitControls.js';
+import {DragControls} from './DragControls.js';
 import WebGL from './webGLCheck.js';
 
 // scene globals
@@ -19,9 +20,6 @@ var dampFricU, gravity;
 var nodePos, nodeVel, nodeAcc, vertNodes, horizNodes;
 var objArr;
 var totalDT;
-
-// key handler booleans
-var paused = true;
 
 var stats;
 
@@ -126,6 +124,7 @@ function setup() {
             nodeAcc[i][j] = new THREE.Vector3(0.0,0.0,0.0);
         }
     }
+    const controlArr = Array(horizNodes*vertNodes);
 
     for (let i = 0; i < vertNodes-1; i++) {
         for (let j = 0; j < horizNodes-1; j++) {
@@ -376,6 +375,14 @@ function updatePosAndColor() {
     }
 }
 
+function checkKeyPressed() {
+    if (mouseDown && mouseMove) {
+
+    } else if (!mouseDown && mouseMove) {
+        mouseMove = false;
+    }
+}
+
 function animate() {
     stats.begin()
     requestAnimationFrame( animate );
@@ -383,6 +390,8 @@ function animate() {
     var now = new Date();
     var dt = (now - prevTime) / 1000;
     prevTime = now;
+
+    checkKeyPressed();
     
     if (!paused) {
         for (let i = 0; i < 100; i++) {
@@ -407,8 +416,21 @@ function animate() {
     stats.end()
 }
 
+// key handler booleans
+var paused = true;
+var mouseDown = false;
+var mouseMove = false;
 window.addEventListener( 'resize', onWindowResize, false );
 window.addEventListener('keyup', onKeyUp, false);
+window.addEventListener('mousedown', (e) => {
+    mouseDown = true;
+});
+window.addEventListener('mousemove', (e) =>{
+    mouseMove = true;
+});
+window.addEventListener('mousesup', (e) => {
+    mouseDown = true;
+});
 
 function onWindowResize(){
     camera.aspect = window.innerWidth / window.innerHeight;
