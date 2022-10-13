@@ -5,10 +5,15 @@ import {FlyControls} from './FlyControls.js';
 import {OrbitControls} from './OrbitControls.js';
 import {DragControls} from './DragControls.js';
 import WebGL from './webGLCheck.js';
+import { QuadraticBezierCurve } from '../node_modules/three/src/Three.js';
 
 // scene globals
 var scene, renderer, loader;
 var flyControls, orbitControls, camera;
+var raycaster, dragControls;
+var kiwi, mixer;
+var kiwiBod, kiwiHead, kiwiGroup;
+var modelReady = false;
 
 // other render globals
 var prevTime;
@@ -18,12 +23,8 @@ var floorY, radius, stringTop, mass, k, kv, kfric;
 var restLen;
 var dampFricU, gravity;
 var nodePos, nodeVel, nodeAcc, vertNodes, horizNodes;
-var objArr;
-var totalDT;
-
-var stats;
-
-setup();
+var objArr, controlArr;
+var totalDT, stats;
 
 function setup() {
     ///////////////////////// RENDERING INFO ////////////////////////////////////////////////////////
@@ -34,6 +35,7 @@ function setup() {
     document.body.appendChild(stats.dom);
 
     scene = new THREE.Scene();
+    scene.add(new THREE.AxesHelper(1000));
 
     // creates renderer and sets its size
     renderer = new THREE.WebGLRenderer({depth:true});
@@ -56,16 +58,7 @@ function setup() {
     orbitControls.zoomSpeed = 2;
 
 
-    // // other setup items go here
-
-    // // kiwi loading, only do after cloth is done
-    // loader = new GLTFLoader();
-
-    // loader.load('../models/kiwi.glb', function(gltf) {
-    //     scene.add(gltf.scene);
-    // }, undefined, function(error) {
-    //     console.error(error);
-    // });
+    // other setup items go here
 
     // adds texture for the ground
     var groundTexture = new THREE.TextureLoader().load("../models/floor-min.png");
@@ -74,7 +67,7 @@ function setup() {
     groundTexture.encoding = THREE.sRGBEncoding;
     var groundMaterial = new THREE.MeshStandardMaterial({map:groundTexture, side: THREE.DoubleSide});
     var mesh = new THREE.Mesh(new THREE.PlaneBufferGeometry(400,400, 10, 10),groundMaterial);
-    mesh.position.y = 0.0;
+    mesh.position.y = -0.1;
     mesh.rotation.x = -Math.PI/2;
     scene.add(mesh);
 
@@ -93,6 +86,8 @@ function setup() {
     // light.position.set(0, 50, 50);
     // scene.add(light);
 
+    raycaster = new THREE.Raycaster();
+
     // date for dt purposes
     prevTime = new Date();
 
@@ -104,7 +99,6 @@ function setup() {
     gravity = new THREE.Vector3(0.0, -10, 0.0);
     stringTop = new THREE.Vector3(0.0, 50.0, 0.0);
     restLen = 3;
-    objArr = [];
 
     nodePos = Array(vertNodes).fill(null).map(() => Array(horizNodes));
     nodeVel = Array(vertNodes).fill(null).map(() => Array(horizNodes));
@@ -124,7 +118,6 @@ function setup() {
             nodeAcc[i][j] = new THREE.Vector3(0.0,0.0,0.0);
         }
     }
-    const controlArr = Array(horizNodes*vertNodes);
 
     for (let i = 0; i < vertNodes-1; i++) {
         for (let j = 0; j < horizNodes-1; j++) {
@@ -203,15 +196,82 @@ function setup() {
     }
 
     dampFricU = new THREE.Vector3(0,0,0);
+    // controlArr = Array(1);
+    // controlArr[0] = scene.children[scene.children.length];
 
-    // after this point, animate() is run
-    if ( WebGL.isWebGLAvailable() ) {
-        // Initiate function or other initializations here
-        animate();
-    } else {
-        const warning = WebGL.getWebGLErrorMessage();
-        document.getElementById( 'container' ).appendChild( warning );
-    }
+    controlArr = [];
+    dragControls = new DragControls(controlArr, camera, renderer.domElement);
+    dragControls.addEventListener('dragstart', (e) => {
+        orbitControls.enabled = false;
+    });
+    dragControls.addEventListener('dragend', (e) => {
+        orbitControls.enabled = true;
+    });
+
+    // kiwi loading, only do after cloth is done
+    loader = new GLTFLoader();
+
+    loader.load('../models/kiwi.glb', function(gltf) {
+        kiwi = gltf.scene;
+        kiwi.scale.set(5,5,5);
+        kiwi.position.y = 7.5;
+        kiwiGroup = kiwi;
+        kiwi.traverse((o) => {
+            if (o.isMesh) {
+                o.castShadow = true;
+                o.receiveShadow = true;
+                o.frustumCulled = false;
+                o.geometry.computeVertexNormals();
+            }
+        });
+
+        mixer = new THREE.AnimationMixer(kiwi);
+        mixer.clipAction(gltf.animations[0]).play();
+
+        kiwiBod = new THREE.Mesh(
+            new THREE.SphereBufferGeometry(
+                6,
+                32,
+                16
+            ),
+            new THREE.MeshBasicMaterial(
+                {
+                    transparent: true,
+                    opacity: 0
+                }
+            )
+        );
+        kiwiBod.position.set(10,10,10);
+        kiwiHead = new THREE.Mesh(
+            new THREE.SphereBufferGeometry(
+                3.5,
+                32,
+                16
+            ),
+            new THREE.MeshBasicMaterial(
+                {
+                    transparent: true,
+                    opacity: 0
+                }
+            )
+        )
+        kiwiHead.position.set(
+            kiwiBod.position.x+headXOff,
+            kiwiBod.position.y+headYOff,
+            kiwiBod.position.z+headZOff
+        );
+
+        scene.add(kiwi);
+
+        scene.add(kiwiBod);
+        scene.add(kiwiHead);
+        controlArr.push(kiwiBod);
+
+        modelReady = true;
+        // after this point, animate() is run
+    }, undefined, function(error) {
+        console.error(error);
+    });
 }
 
 function update(dt) {
@@ -265,12 +325,10 @@ function update(dt) {
         }
     }
 
-    var halfv = vertNodes/2;
-    var halfh = horizNodes/2;
     for (let i = 0; i < vertNodes; i++) {
         for (let j = 0; j < horizNodes; j++) {
-            if (!(i == 0 && j == 0) && !(i == 0 && j == horizNodes-1) &&
-                !(i == vertNodes-1 && j == 0) && !(i == vertNodes-1 && j == horizNodes-1)) {
+            if (!(i == 0 && j == 0) && !(i == 0 && j == horizNodes-1) /*&&
+                !(i == vertNodes-1 && j == 0) && !(i == vertNodes-1 && j == horizNodes-1)*/) {
                 // RK4 (Runge-Kutta) Integration
                 var v1 = nodeVel[i][j].clone();
                 v1.multiplyScalar(dt);
@@ -298,6 +356,16 @@ function update(dt) {
                 
                 nodeVel[i][j] = v1.clone();
                 nodePos[i][j].add(nodeVel[i][j]);
+
+                // check for collisions here
+                if (nodePos[i][j].y < 0) {
+                    nodePos[i][j].y = 0;
+                    nodeVel[i][j].y = 0;
+                    var temp = nodeVel[i][j].clone();
+                    temp.multiplyScalar(100);
+                    temp.multiplyScalar(dt);
+                    nodeVel[i][j].add(temp);
+                }
 
                 // // eulerian integration
                 // nodeAcc[i][j].multiplyScalar(dt)
@@ -328,7 +396,7 @@ function updatePosAndColor() {
             colors[1] = b;
             colors[2] = c;
 
-             // bRight vert
+            // bRight vert
             positions[15] = pos.x;
             positions[16] = pos.y;
             positions[17] = pos.z;
@@ -375,32 +443,15 @@ function updatePosAndColor() {
     }
 }
 
-function checkKeyPressed() {
-    if (mouseDown && mouseMove) {
-
-    } else if (!mouseDown && mouseMove) {
-        mouseMove = false;
-    }
-}
+var bodXOff = 0; var bodYOff = -2; var bodZOff = 3;
+var headXOff = 0; var headYOff = 6; var headZOff = 5;
 
 function animate() {
-    stats.begin()
     requestAnimationFrame( animate );
 
     var now = new Date();
     var dt = (now - prevTime) / 1000;
     prevTime = now;
-
-    checkKeyPressed();
-    
-    if (!paused) {
-        for (let i = 0; i < 100; i++) {
-            totalDT += 1;
-            update(1/100);
-        }
-        updatePosAndColor();
-    }
-    orbitControls.update(1*dt);
 
     for (let i = 0; i < vertNodes-1; i++) {
         for (let j = 0; j < horizNodes-1; j++) {
@@ -411,32 +462,46 @@ function animate() {
         }
     }
 
+    if (modelReady) {
+        // kiwiGroup.position.copy(kiwiBod.position);
+        kiwiGroup.position.set(
+            kiwiBod.position.x+bodXOff, 
+            kiwiBod.position.y+bodYOff, 
+            kiwiBod.position.z+bodZOff
+        );
+        kiwiHead.position.set(
+            kiwiBod.position.x+headXOff,
+            kiwiBod.position.y+headYOff,
+            kiwiBod.position.z+headZOff
+        );
+    }
+    // checkKeyPressed();
+    totalDT += 1;
+    if (!paused) {
+        mixer.update(dt);
+        for (let i = 0; i < 100; i++) {
+            update(1/100);
+        }
+        updatePosAndColor();
+    }
+    orbitControls.update(1*dt);
+
     // adds line and renders scene
 	renderer.render( scene, camera );
-    stats.end()
+    stats.update();
 }
 
 // key handler booleans
 var paused = true;
-var mouseDown = false;
-var mouseMove = false;
 window.addEventListener( 'resize', onWindowResize, false );
 window.addEventListener('keyup', onKeyUp, false);
-window.addEventListener('mousedown', (e) => {
-    mouseDown = true;
-});
-window.addEventListener('mousemove', (e) =>{
-    mouseMove = true;
-});
-window.addEventListener('mousesup', (e) => {
-    mouseDown = true;
-});
 
 function onWindowResize(){
     camera.aspect = window.innerWidth / window.innerHeight;
     camera.updateProjectionMatrix();
 
     renderer.setSize( window.innerWidth, window.innerHeight );
+    renderer.render(scene, camera);
 }
 
 function reset() {
@@ -451,6 +516,7 @@ function reset() {
             nodeAcc[i][j] = new THREE.Vector3(0.0,0.0,0.0);
         }
     }
+    updatePosAndColor();
 }
 
 function onKeyUp(event) {
@@ -461,5 +527,14 @@ function onKeyUp(event) {
     if (event.code == 'KeyR') {
         reset();
     }
+}
+
+setup();
+if ( WebGL.isWebGLAvailable() ) {
+    // Initiate function or other initializations here
+    animate();
+} else {
+    const warning = WebGL.getWebGLErrorMessage();
+    document.getElementById( 'container' ).appendChild( warning );
 }
 
