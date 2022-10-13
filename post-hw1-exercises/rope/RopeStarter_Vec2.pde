@@ -140,7 +140,9 @@ void update(float dt){
     if (pos[i].distanceTo(obstPos) < (3+obstRad)) {
       Vec2 dir = pos[i].minus(obstPos);
       dir.normalize();
+
       pos[i] = obstPos.plus(dir.times(3+obstRad).times(1.01));
+      
       Vec2 velNorm = dir.times(dot(vel[i],dir));
       vel[i].subtract(velNorm.times(1+0.1));
     }

@@ -13,6 +13,8 @@ var flyControls, orbitControls, camera;
 var raycaster, dragControls;
 var kiwi, mixer;
 var kiwiBod, kiwiHead, kiwiGroup;
+var bodRad = 30;
+var headRad = 30;
 var modelReady = false;
 
 // other render globals
@@ -94,11 +96,11 @@ function setup() {
     //////////////////////// ROPE INFO ///////////////////////////////////////
 
     floorY = 0.0; radius = 5.0;
-    mass = 0.1; k = 10000; kv = 1000; kfric = 4000;
+    mass = 0.01; k = 10000; kv = 2000; kfric = 40000;
     vertNodes = 15; horizNodes = 15;
-    gravity = new THREE.Vector3(0.0, -10, 0.0);
+    gravity = new THREE.Vector3(0.0, -100, 0.0);
     stringTop = new THREE.Vector3(0.0, 50.0, 0.0);
-    restLen = 3;
+    restLen = 2;
 
     nodePos = Array(vertNodes).fill(null).map(() => Array(horizNodes));
     nodeVel = Array(vertNodes).fill(null).map(() => Array(horizNodes));
@@ -230,28 +232,28 @@ function setup() {
 
         kiwiBod = new THREE.Mesh(
             new THREE.SphereBufferGeometry(
-                6,
+                bodRad,
                 32,
                 16
             ),
             new THREE.MeshBasicMaterial(
                 {
                     transparent: true,
-                    opacity: 0
+                    opacity: 0.1
                 }
             )
         );
         kiwiBod.position.set(10,10,10);
         kiwiHead = new THREE.Mesh(
             new THREE.SphereBufferGeometry(
-                3.5,
+                headRad,
                 32,
                 16
             ),
             new THREE.MeshBasicMaterial(
                 {
                     transparent: true,
-                    opacity: 0
+                    opacity: 0.1
                 }
             )
         )
@@ -289,6 +291,7 @@ function update(dt) {
             var diff = nodePos[i][j].clone();
             diff.sub(nodePos[i+1][j])
             var stringF = -k*(restLen-diff.length());
+            // figure out way to cap length difference
             
             diff.normalize();
             var projVbot = diff.dot(nodeVel[i][j]);
@@ -357,16 +360,6 @@ function update(dt) {
                 nodeVel[i][j] = v1.clone();
                 nodePos[i][j].add(nodeVel[i][j]);
 
-                // check for collisions here
-                if (nodePos[i][j].y < 0) {
-                    nodePos[i][j].y = 0;
-                    nodeVel[i][j].y = 0;
-                    var temp = nodeVel[i][j].clone();
-                    temp.multiplyScalar(100);
-                    temp.multiplyScalar(dt);
-                    nodeVel[i][j].add(temp);
-                }
-
                 // // eulerian integration
                 // nodeAcc[i][j].multiplyScalar(dt)
                 // nodeVel[i][j].add(nodeAcc[i][j]);
@@ -376,6 +369,8 @@ function update(dt) {
             }
         }
     }
+
+    updateCollision(dt);
 }
 
 function updatePosAndColor() {
@@ -446,6 +441,44 @@ function updatePosAndColor() {
 var bodXOff = 0; var bodYOff = -2; var bodZOff = 3;
 var headXOff = 0; var headYOff = 6; var headZOff = 5;
 
+function updateCollision(dt) {
+    for (let i = 0; i < vertNodes; i++) {
+        for (let j = 0; j < horizNodes; j++) {
+            if (!(i == 0 && j == 0) /*&& !(i == 0 && j == horizNodes-1) &&
+                !(i == vertNodes-1 && j == 0) && !(i == vertNodes-1 && j == horizNodes-1)*/) {
+                // check for collisions here
+                if (nodePos[i][j].y < 0 && Math.abs(nodePos[i][j].x) < 200
+                        && Math.abs(nodePos[i][j].z) < 200) {
+                    nodePos[i][j].y = 0;
+                    nodeVel[i][j].y = 0;
+                    var temp = nodeVel[i][j].clone();
+                    temp.multiplyScalar(100);
+                    temp.multiplyScalar(dt);
+                    nodeVel[i][j].add(temp);
+                }
+
+                if (kiwiHead.position.distanceTo(nodePos[i][j]) < 3+headRad) {
+                    var dir = nodePos[i][j].clone();
+                    dir.sub(kiwiHead.position);
+
+                    dir.normalize();
+
+                    var odir = dir.clone();
+                    odir.multiplyScalar(3+headRad);
+                    odir.add(kiwiHead.position);
+                    nodePos[i][j].x = odir.x;
+                    nodePos[i][j].y = odir.y;
+                    nodePos[i][j].z = odir.z;
+
+                    var dot = nodeVel[i][j].dot(dir);
+                    dir.multiplyScalar(dot*(1+0.001));
+                    nodeVel[i][j].sub(dir);
+                }
+            }
+        }
+    }
+}
+
 function animate() {
     requestAnimationFrame( animate );
 
@@ -479,8 +512,8 @@ function animate() {
     totalDT += 1;
     if (!paused) {
         mixer.update(dt);
-        for (let i = 0; i < 100; i++) {
-            update(1/100);
+        for (let i = 0; i < 300; i++) {
+            update(1/300);
         }
         updatePosAndColor();
     }
