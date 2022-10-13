@@ -528,6 +528,21 @@ function animate() {
 var paused = true;
 window.addEventListener( 'resize', onWindowResize, false );
 window.addEventListener('keyup', onKeyUp, false);
+window.addEventListener('touchstart', (e) => {
+    e.preventDefault();
+    orbitControls.enabled = false;
+})
+window.addEventListener('touchmove', (e) => {
+    e.preventDefault();
+    orbitControls.enabled = true;
+});
+window.addEventListener('touchend', (e) => {
+    e.preventDefault();
+    if (!orbitControls.enabled) {
+        paused = !paused;
+        orbitControls.endabled = true;
+    }
+});
 
 function onWindowResize(){
     camera.aspect = window.innerWidth / window.innerHeight;
