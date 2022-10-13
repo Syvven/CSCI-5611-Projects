@@ -13,6 +13,8 @@ var flyControls, orbitControls, camera;
 var raycaster, dragControls;
 var kiwi, mixer;
 var kiwiBod, kiwiHead, kiwiGroup;
+var topLeftNode, ogTopLeftNodePos;
+var topRightNode, ogTopRightNodePos;
 var bodRad = 30;
 var headRad = 30;
 var modelReady = false;
@@ -25,6 +27,7 @@ var floorY, radius, stringTop, mass, k, kv, kfric;
 var restLen;
 var dampFricU, gravity;
 var nodePos, nodeVel, nodeAcc, vertNodes, horizNodes;
+var currAcc, futureVel;
 var objArr, controlArr;
 var totalDT, stats;
 
@@ -96,11 +99,15 @@ function setup() {
     //////////////////////// ROPE INFO ///////////////////////////////////////
 
     floorY = 0.0; radius = 5.0;
-    mass = 0.01; k = 10000; kv = 2000; kfric = 40000;
+    mass = 1; k = 10000; kv = 2000; kfric = 40000;
     vertNodes = 15; horizNodes = 15;
     gravity = new THREE.Vector3(0.0, -100, 0.0);
     stringTop = new THREE.Vector3(0.0, 50.0, 0.0);
     restLen = 2;
+
+    currAcc = Array(vertNodes).fill(null).map(() => Array(horizNodes));
+    futureVel = Array(vertNodes).fill(null).map(() => Array(horizNodes));
+    futurePos = Array(vertNodes).fill(null).map(() => Array(horizNodes));
 
     nodePos = Array(vertNodes).fill(null).map(() => Array(horizNodes));
     nodeVel = Array(vertNodes).fill(null).map(() => Array(horizNodes));
@@ -112,9 +119,9 @@ function setup() {
     for (let i = 0; i < vertNodes; i++) {
         for (let j = 0; j < horizNodes; j++) {
             nodePos[i][j] = new THREE.Vector3(
-                j*restLen,
+                i*restLen,
                 stringTop.y,
-                restLen*i
+                restLen*j
             );
             nodeVel[i][j] = new THREE.Vector3(0.0,0.0,0.0);
             nodeAcc[i][j] = new THREE.Vector3(0.0,0.0,0.0);
@@ -210,6 +217,46 @@ function setup() {
         orbitControls.enabled = true;
     });
 
+    ogTopLeftNodePos = nodePos[0][0].clone();
+    topLeftNode = new THREE.Mesh(
+        new THREE.SphereBufferGeometry(
+            2,
+            32,
+            16
+        ),
+        new THREE.MeshBasicMaterial(
+            {
+                transparent: true,
+                opacity: 0.1
+            }
+        )
+    )
+    topLeftNode.position.set(nodePos[0][0].x, nodePos[0][0].y, nodePos[0][0].z);
+    scene.add(topLeftNode);
+    controlArr.push(topLeftNode);
+
+    ogTopRightNodePos = nodePos[0][nodePos[0].length-1].clone();
+    topRightNode = new THREE.Mesh(
+        new THREE.SphereBufferGeometry(
+            2,
+            32,
+            16
+        ),
+        new THREE.MeshBasicMaterial(
+            {
+                transparent: true,
+                opacity: 0.1
+            }
+        )
+    );
+    topRightNode.position.set(
+        ogTopRightNodePos.x,
+        ogTopRightNodePos.y,
+        ogTopRightNodePos.z
+    );
+    scene.add(topRightNode);
+    controlArr.push(topRightNode);
+
     // kiwi loading, only do after cloth is done
     loader = new GLTFLoader();
 
@@ -276,7 +323,7 @@ function setup() {
     });
 }
 
-function update(dt) {
+function calculateForces(vels) {
     // var newVel = Array(vertNodes).fill(null).map(() => Array(horizNodes));
     for (let i = 0; i < vertNodes; i++) {
         for (let j = 0; j < horizNodes; j++) {
@@ -287,25 +334,24 @@ function update(dt) {
 
     for (let i = 0; i < vertNodes-1; i++) {
         for (let j = 0; j < horizNodes; j++) {
-            
             var diff = nodePos[i][j].clone();
             diff.sub(nodePos[i+1][j])
             var stringF = -k*(restLen-diff.length());
             // figure out way to cap length difference
             
             diff.normalize();
-            var projVbot = diff.dot(nodeVel[i][j]);
-            var projVtop = diff.dot(nodeVel[i+1][j]);
+            var projVbot = diff.dot(vels[i][j]);
+            var projVtop = diff.dot(vels[i+1][j]);
             var dampF = -kv*(projVtop - projVbot);
             
-            dampFricU.x = -kfric*((i===0?0:nodeVel[i-1][j].x)-nodeVel[i][j].x);
-            dampFricU.y = 0;
-            dampFricU.z = -kfric*((i===0?0:nodeVel[i-1][j].z)-nodeVel[i][j].z);
+            // dampFricU.x = -kfric*((i===0?0:vels[i-1][j].x)-vels[i][j].x);
+            // dampFricU.y = 0;
+            // dampFricU.z = -kfric*((i===0?0:vels[i-1][j].z)-vels[i][j].z);
             
             diff.multiplyScalar((stringF+dampF)*(1/mass));
 
             nodeAcc[i][j].sub(diff);
-            nodeAcc[i][j].sub(dampFricU);
+            // nodeAcc[i][j].sub(dampFricU);
             nodeAcc[i+1][j].add(diff);
         }
     }  
@@ -313,12 +359,12 @@ function update(dt) {
     for (let i = 0; i < vertNodes; i++) {
         for (let j = 0; j < horizNodes-1; j++) {
             var diff = nodePos[i][j].clone();
-            diff.sub(nodePos[i][j+1])
+            diff.sub(nodePos[i][j+1]);
             var stringF = -k*(restLen-diff.length());
             
             diff.normalize();
-            var projVbot = diff.dot(nodeVel[i][j]);
-            var projVtop = diff.dot(nodeVel[i][j+1]);
+            var projVbot = diff.dot(vels[i][j]);
+            var projVtop = diff.dot(vels[i][j+1]);
             var dampF = -kv*(projVtop - projVbot);
 
             diff.multiplyScalar((stringF+dampF)*(1/mass));
@@ -327,48 +373,53 @@ function update(dt) {
             nodeAcc[i][j+1].add(diff);
         }
     }
+}
 
+function update(dt) {
+    // start with current Velocity
+    // calculate forces
+    // currentAcceleration = function(current_velocity)
+    calculateForces(nodeVel);
+    var atemp, currSlope, currSlope2;
+    // loop through all nodes, 
     for (let i = 0; i < vertNodes; i++) {
         for (let j = 0; j < horizNodes; j++) {
             if (!(i == 0 && j == 0) && !(i == 0 && j == horizNodes-1) /*&&
                 !(i == vertNodes-1 && j == 0) && !(i == vertNodes-1 && j == horizNodes-1)*/) {
-                // RK4 (Runge-Kutta) Integration
-                var v1 = nodeVel[i][j].clone();
-                v1.multiplyScalar(dt);
-
-                var v2 = nodeVel[i][j].clone();
-                var atemp = nodeAcc[i][j].clone();
-                atemp.multiplyScalar(0.5*dt)
-                v2.add(atemp);
-                v2.multiplyScalar(dt);
-
-                var v3 = nodeVel[i][j].clone();
-                v3.add(atemp);
-                v3.multiplyScalar(dt);
-
-                var v4 = nodeVel[i][j].clone();
-                atemp = nodeAcc[i][j].clone().multiplyScalar(dt);
-                v2.add(atemp);
-                v2.multiplyScalar(dt);
+                // Heun?
+                // futureVel[i][j] = nodeVel[i][j] + nodeAcc[i][j]*dt
+                futureVel[i][j] = nodeVel[i][j].clone();
+                currAcc[i][j] = nodeAcc[i][j].clone();
+                nodeAcc[i][j].multiplyScalar(dt);
+                futureVel[i][j].add(nodeAcc[i][j]);
+                futurePos[i][j] = nodePos[i][j].clone();
                 
-                v2.multiplyScalar(2);
-                v3.multiplyScalar(2);
-
-                v1.add(v2); v1.add(v3); v1.add(v4);
-                v1.multiplyScalar(dt/6);
-                
-                nodeVel[i][j] = v1.clone();
-                nodePos[i][j].add(nodeVel[i][j]);
-
-                // // eulerian integration
-                // nodeAcc[i][j].multiplyScalar(dt)
-                // nodeVel[i][j].add(nodeAcc[i][j]);
-                // var temp = nodeVel[i][j].clone();
-                // temp.multiplyScalar(dt)
-                // nodePos[i][j].add(temp);
             }
         }
     }
+    // calculate forces using new future velocity
+    calculateForces(futureVel);
+    for (let i = 0; i < vertNodes; i++) {
+        for (let j = 0; j < horizNodes; j++) {
+            if (!(i == 0 && j == 0) && !(i == 0 && j == horizNodes-1) /*&&
+                !(i == vertNodes-1 && j == 0) && !(i == vertNodes-1 && j == horizNodes-1)*/) {
+
+            }
+        }
+    }
+    // loop over all nodes
+    // final_acc[i][j] = 0.5 * (currAcc[i][j]+nodeAcc[i][j])
+    // final_vel[i][j] = nodeVel[i][j] + final_acc[i][j]*dt
+
+    // // eulerian integration
+    // dxdt > xn = xn+vn*dt
+    // dvdt > vn = vi+a*dt
+
+    // nodeAcc[i][j].multiplyScalar(dt)
+    // nodeVel[i][j].add(nodeAcc[i][j]);
+    // var temp = nodeVel[i][j].clone();
+    // temp.multiplyScalar(dt)
+    // nodePos[i][j].add(temp);
 
     updateCollision(dt);
 }
@@ -486,15 +537,6 @@ function animate() {
     var dt = (now - prevTime) / 1000;
     prevTime = now;
 
-    for (let i = 0; i < vertNodes-1; i++) {
-        for (let j = 0; j < horizNodes-1; j++) {
-            objArr[i][j].geometry.attributes.position.needsUpdate = true;
-            objArr[i][j].geometry.attributes.color.needsUpdate = true;
-            objArr[i][j].geometry.computeBoundingBox();
-            objArr[i][j].geometry.computeBoundingSphere();
-        }
-    }
-
     if (modelReady) {
         // kiwiGroup.position.copy(kiwiBod.position);
         kiwiGroup.position.set(
@@ -508,6 +550,10 @@ function animate() {
             kiwiBod.position.z+headZOff
         );
     }
+
+    nodePos[0][0].copy(topLeftNode.position);
+    nodePos[0][nodePos[0].length-1].copy(topRightNode.position);
+
     // checkKeyPressed();
     totalDT += 1;
     if (!paused) {
@@ -518,6 +564,15 @@ function animate() {
         updatePosAndColor();
     }
     orbitControls.update(1*dt);
+
+    for (let i = 0; i < vertNodes-1; i++) {
+        for (let j = 0; j < horizNodes-1; j++) {
+            objArr[i][j].geometry.attributes.position.needsUpdate = true;
+            objArr[i][j].geometry.attributes.color.needsUpdate = true;
+            objArr[i][j].geometry.computeBoundingBox();
+            objArr[i][j].geometry.computeBoundingSphere();
+        }
+    }
 
     // adds line and renders scene
 	renderer.render( scene, camera );
@@ -556,14 +611,16 @@ function reset() {
     for (let i = 0; i < vertNodes; i++) {
         for (let j = 0; j < horizNodes; j++) {
             nodePos[i][j] = new THREE.Vector3(
-                j*restLen,
+                i*restLen,
                 stringTop.y,
-                restLen*i
+                restLen*j
             );
             nodeVel[i][j] = new THREE.Vector3(0.0,0.0,0.0);
             nodeAcc[i][j] = new THREE.Vector3(0.0,0.0,0.0);
         }
     }
+    topLeftNode.position.copy(ogTopLeftNodePos);
+    topRightNode.position.copy(ogTopRightNodePos);
     updatePosAndColor();
 }
 
