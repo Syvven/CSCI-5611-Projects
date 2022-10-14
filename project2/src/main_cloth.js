@@ -513,10 +513,6 @@ function updateCollision(dt) {
                         && Math.abs(nodePos[i][j].z) < 200) {
                     nodePos[i][j].y = 0;
                     nodeVel[i][j].y = 0;
-                    var temp = nodeVel[i][j].clone();
-                    temp.multiplyScalar(100);
-                    temp.multiplyScalar(dt);
-                    nodeVel[i][j].add(temp);
                 }
 
                 if (kiwiHead.position.distanceTo(nodePos[i][j]) < 1+headRad) {
@@ -592,8 +588,8 @@ function animate() {
     totalDT += 1;
     if (!paused) {
         mixer.update(dt);
-        for (let i = 0; i < 200; i++) {
-            update(1/200);
+        for (let i = 0; i < 300; i++) {
+            update(1/300);
         }
         // tempAnim();
         updateCollision();
