@@ -15,8 +15,8 @@ var kiwi, mixer;
 var kiwiBod, kiwiHead, kiwiGroup;
 var topLeftNode, ogTopLeftNodePos;
 var topRightNode, ogTopRightNodePos;
-var bodRad = 30;
-var headRad = 30;
+var bodRad = 7;
+var headRad = 5;
 var modelReady = false;
 
 // other render globals
@@ -27,7 +27,7 @@ var floorY, radius, stringTop, mass, k, kv, kfric;
 var restLen;
 var dampFricU, gravity;
 var nodePos, nodeVel, nodeAcc, vertNodes, horizNodes;
-var currAcc, futureVel;
+var currAcc, futureVel, futurePos;
 var objArr, controlArr;
 var totalDT, stats;
 
@@ -99,9 +99,9 @@ function setup() {
     //////////////////////// ROPE INFO ///////////////////////////////////////
 
     floorY = 0.0; radius = 5.0;
-    mass = 1; k = 10000; kv = 2000; kfric = 40000;
-    vertNodes = 15; horizNodes = 15;
-    gravity = new THREE.Vector3(0.0, -100, 0.0);
+    mass = 1; k = 50; kv = 50; kfric = 1;
+    vertNodes = 16; horizNodes = 16;
+    gravity = new THREE.Vector3(0.0, -0.1, 0.0);
     stringTop = new THREE.Vector3(0.0, 50.0, 0.0);
     restLen = 2;
 
@@ -286,7 +286,7 @@ function setup() {
             new THREE.MeshBasicMaterial(
                 {
                     transparent: true,
-                    opacity: 0.1
+                    opacity: 0
                 }
             )
         );
@@ -300,7 +300,7 @@ function setup() {
             new THREE.MeshBasicMaterial(
                 {
                     transparent: true,
-                    opacity: 0.1
+                    opacity: 0
                 }
             )
         )
@@ -323,7 +323,7 @@ function setup() {
     });
 }
 
-function calculateForces(vels) {
+function calculateForces(pos, vels) {
     // var newVel = Array(vertNodes).fill(null).map(() => Array(horizNodes));
     for (let i = 0; i < vertNodes; i++) {
         for (let j = 0; j < horizNodes; j++) {
@@ -334,8 +334,8 @@ function calculateForces(vels) {
 
     for (let i = 0; i < vertNodes-1; i++) {
         for (let j = 0; j < horizNodes; j++) {
-            var diff = nodePos[i][j].clone();
-            diff.sub(nodePos[i+1][j])
+            var diff = pos[i][j].clone();
+            diff.sub(pos[i+1][j])
             var stringF = -k*(restLen-diff.length());
             // figure out way to cap length difference
             
@@ -344,14 +344,14 @@ function calculateForces(vels) {
             var projVtop = diff.dot(vels[i+1][j]);
             var dampF = -kv*(projVtop - projVbot);
             
-            // dampFricU.x = -kfric*((i===0?0:vels[i-1][j].x)-vels[i][j].x);
-            // dampFricU.y = 0;
-            // dampFricU.z = -kfric*((i===0?0:vels[i-1][j].z)-vels[i][j].z);
+            dampFricU.x = -kfric*((i===0?0:vels[i-1][j].x)-vels[i][j].x);
+            dampFricU.y = 0;
+            dampFricU.z = -kfric*((i===0?0:vels[i-1][j].z)-vels[i][j].z);
             
             diff.multiplyScalar((stringF+dampF)*(1/mass));
 
             nodeAcc[i][j].sub(diff);
-            // nodeAcc[i][j].sub(dampFricU);
+            nodeAcc[i][j].sub(dampFricU);
             nodeAcc[i+1][j].add(diff);
         }
     }  
@@ -375,41 +375,53 @@ function calculateForces(vels) {
     }
 }
 
+function checkPinnedPoint(i,j) {
+    var topLeft = (i != 0 || j != 0);
+    var topRight = (i != 0 || j != horizNodes-1);
+    var botLeft = (i != vertNodes-1 || j != 0)
+    var botRight = (i != vertNodes-1 || j != horizNodes-1)
+    return topLeft && topRight;
+}
+
+var veltemp;
 function update(dt) {
     // start with current Velocity
     // calculate forces
     // currentAcceleration = function(current_velocity)
-    calculateForces(nodeVel);
-    var atemp, currSlope, currSlope2;
+    calculateForces(nodePos, nodeVel);
     // loop through all nodes, 
     for (let i = 0; i < vertNodes; i++) {
         for (let j = 0; j < horizNodes; j++) {
-            if (!(i == 0 && j == 0) && !(i == 0 && j == horizNodes-1) /*&&
-                !(i == vertNodes-1 && j == 0) && !(i == vertNodes-1 && j == horizNodes-1)*/) {
-                // Heun?
-                // futureVel[i][j] = nodeVel[i][j] + nodeAcc[i][j]*dt
-                futureVel[i][j] = nodeVel[i][j].clone();
-                currAcc[i][j] = nodeAcc[i][j].clone();
-                nodeAcc[i][j].multiplyScalar(dt);
-                futureVel[i][j].add(nodeAcc[i][j]);
-                futurePos[i][j] = nodePos[i][j].clone();
-                
-            }
+            // Heun?
+            // futureVel[i][j] = nodeVel[i][j] + nodeAcc[i][j]*dt
+            futureVel[i][j] = nodeVel[i][j].clone();
+            currAcc[i][j] = nodeAcc[i][j].clone();
+            nodeAcc[i][j].multiplyScalar(dt);
+            futureVel[i][j].add(nodeAcc[i][j]);
+
+            // futurePos[i][j] = nodePos[i][j] + futureVel[i][j]*dt
+            futurePos[i][j] = nodePos[i][j].clone();
+            veltemp = futureVel[i][j].clone();
+            veltemp.multiplyScalar(dt);
+            futurePos[i][j].add(veltemp);
         }
     }
     // calculate forces using new future velocity
-    calculateForces(futureVel);
+    calculateForces(futurePos, futureVel);
     for (let i = 0; i < vertNodes; i++) {
         for (let j = 0; j < horizNodes; j++) {
-            if (!(i == 0 && j == 0) && !(i == 0 && j == horizNodes-1) /*&&
-                !(i == vertNodes-1 && j == 0) && !(i == vertNodes-1 && j == horizNodes-1)*/) {
-
+            if (checkPinnedPoint(i,j)) {
+                nodeAcc[i][j].add(currAcc[i][j]);
+                nodeAcc[i][j].multiplyScalar(0.5*dt);
+                nodeVel[i][j].add(nodeAcc[i][j]);
+                veltemp = nodeVel[i][j].clone();
+                veltemp.multiplyScalar(dt);
+                nodePos[i][j].add(veltemp);
             }
         }
     }
-    // loop over all nodes
-    // final_acc[i][j] = 0.5 * (currAcc[i][j]+nodeAcc[i][j])
-    // final_vel[i][j] = nodeVel[i][j] + final_acc[i][j]*dt
+    // console.log(nodePos);
+    // quit();
 
     // // eulerian integration
     // dxdt > xn = xn+vn*dt
@@ -421,7 +433,7 @@ function update(dt) {
     // temp.multiplyScalar(dt)
     // nodePos[i][j].add(temp);
 
-    updateCollision(dt);
+    // updateCollision(dt);
 }
 
 function updatePosAndColor() {
@@ -495,8 +507,7 @@ var headXOff = 0; var headYOff = 6; var headZOff = 5;
 function updateCollision(dt) {
     for (let i = 0; i < vertNodes; i++) {
         for (let j = 0; j < horizNodes; j++) {
-            if (!(i == 0 && j == 0) /*&& !(i == 0 && j == horizNodes-1) &&
-                !(i == vertNodes-1 && j == 0) && !(i == vertNodes-1 && j == horizNodes-1)*/) {
+            if (checkPinnedPoint(i,j)) {
                 // check for collisions here
                 if (nodePos[i][j].y < 0 && Math.abs(nodePos[i][j].x) < 200
                         && Math.abs(nodePos[i][j].z) < 200) {
@@ -508,15 +519,33 @@ function updateCollision(dt) {
                     nodeVel[i][j].add(temp);
                 }
 
-                if (kiwiHead.position.distanceTo(nodePos[i][j]) < 3+headRad) {
+                if (kiwiHead.position.distanceTo(nodePos[i][j]) < 1+headRad) {
                     var dir = nodePos[i][j].clone();
                     dir.sub(kiwiHead.position);
 
                     dir.normalize();
 
                     var odir = dir.clone();
-                    odir.multiplyScalar(3+headRad);
+                    odir.multiplyScalar(1+headRad);
                     odir.add(kiwiHead.position);
+                    nodePos[i][j].x = odir.x;
+                    nodePos[i][j].y = odir.y;
+                    nodePos[i][j].z = odir.z;
+
+                    var dot = nodeVel[i][j].dot(dir);
+                    dir.multiplyScalar(dot*(1+0.1));
+                    nodeVel[i][j].sub(dir);
+                }
+
+                if (kiwiBod.position.distanceTo(nodePos[i][j]) < 1+bodRad) {
+                    var dir = nodePos[i][j].clone();
+                    dir.sub(kiwiBod.position);
+
+                    dir.normalize();
+
+                    var odir = dir.clone();
+                    odir.multiplyScalar(1+bodRad);
+                    odir.add(kiwiBod.position);
                     nodePos[i][j].x = odir.x;
                     nodePos[i][j].y = odir.y;
                     nodePos[i][j].z = odir.z;
@@ -528,6 +557,11 @@ function updateCollision(dt) {
             }
         }
     }
+}
+
+function tempAnim() {
+    requestAnimationFrame( tempAnim );
+    renderer.render( scene, camera );
 }
 
 function animate() {
@@ -558,9 +592,11 @@ function animate() {
     totalDT += 1;
     if (!paused) {
         mixer.update(dt);
-        for (let i = 0; i < 300; i++) {
-            update(1/300);
+        for (let i = 0; i < 200; i++) {
+            update(1/200);
         }
+        // tempAnim();
+        updateCollision();
         updatePosAndColor();
     }
     orbitControls.update(1*dt);
