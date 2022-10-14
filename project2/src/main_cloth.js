@@ -5,7 +5,6 @@ import {FlyControls} from './FlyControls.js';
 import {OrbitControls} from './OrbitControls.js';
 import {DragControls} from './DragControls.js';
 import WebGL from './webGLCheck.js';
-import { QuadraticBezierCurve } from '../node_modules/three/src/Three.js';
 
 // scene globals
 var scene, renderer, loader;
