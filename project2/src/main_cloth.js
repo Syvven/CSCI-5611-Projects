@@ -37,7 +37,7 @@ var objArr, controlArr;
 // stats and gui
 var totalDT, stats;
 var gui;
-var resetObj, pauseObj;
+var resetObj, pauseObj, dragObj;
 
 function setup() {
     ///////////////////////// STATS AND GUI /////////////////////////////////////////////////////////
@@ -111,9 +111,9 @@ function setup() {
 
     floorY = 0.0; radius = 5.0;
     mass = 1; k = 100; kv = 50; kfric = 1;
-    dragC = 9; airD = 2;
+    dragC = 5; airD = 0.8;
     vertNodes = 15; horizNodes = 10;
-    gravity = new THREE.Vector3(0.0, -0.1, 0.0);
+    gravity = new THREE.Vector3(0.0, -1, 0.0);
     wind = new THREE.Vector3(0.0, 0.0, 0.4);
     stringTop = new THREE.Vector3(0.0, 50.0, 0.0);
     restLen = 3;
@@ -340,18 +340,30 @@ function setup() {
     windFolder.add(wind, 'y', 0, 1, 0.01).name('Wind Y');
     windFolder.add(wind, 'z', 0, 1, 0.01).name('Wind Z');
 
+    dragObj = {
+        dragC: dragC,
+        airD: airD
+    }
+    const dragFolder = gui.addFolder('Drag Controls');
+    dragFolder.add(dragObj, 'dragC', 0, 15, 0.1).name('Drag Coefficient');
+    dragFolder.add(dragObj, 'airD', 0, 6, 0.1).name('Air Density');
+
     const gravityFolder = gui.addFolder('Gravity Controls');
-    gravityFolder.add(gravity, 'y', -3, 0, 0.01).name('Gravity');
+    gravityFolder.add(gravity, 'y', -2, 0, 0.01).name('Gravity');
 
     const simControlFolder = gui.addFolder('Sim Control');
-    resetObj = {reset: false};
-    const resetButton = simControlFolder.add(resetObj, 'reset', "Reset:");
+    resetObj = {
+        reset: false
+    };
+    const resetButton = simControlFolder.add(resetObj, 'reset');
     resetButton.onChange(() => {
         reset();
     });
 
-    pauseObj = {pause: true};
-    const pauseButton = simControlFolder.add(pauseObj, 'pause', "Pause:");
+    pauseObj = {
+        pause: true
+    };
+    const pauseButton = simControlFolder.add(pauseObj, 'pause');
     pauseButton.onChange(() => {
         paused = !paused;
     });
@@ -460,6 +472,8 @@ function getRandomArbitrary(min, max) {
 
 var veltemp;
 function update(dt) {
+    dragC = dragObj.dragC;
+    airD = dragObj.airD;
     // start with current Velocity
     // calculate forces
     // currentAcceleration = function(current_velocity)
@@ -677,7 +691,6 @@ function animate() {
 // key handler booleans
 var paused = true;
 window.addEventListener( 'resize', onWindowResize, false );
-window.addEventListener('keyup', onKeyUp, false);
 window.addEventListener('touchstart', (e) => {
     e.preventDefault();
     orbitControls.enabled = false;
@@ -717,16 +730,6 @@ function reset() {
     topLeftNode.position.copy(ogTopLeftNodePos);
     topRightNode.position.copy(ogTopRightNodePos);
     updatePosAndColor();
-}
-
-function onKeyUp(event) {
-    if (event.code == 'Space') {
-        paused = !paused;
-    }
-
-    if (event.code == 'KeyR') {
-        reset();
-    }
 }
 
 setup();
