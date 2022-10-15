@@ -26,8 +26,6 @@ var mass, k, kv, kfric;
 var airD, dragC;
 
 // rope globals
-var topLeftNode, ogTopLeftNodePos;
-var topRightNode, ogTopRightNodePos;
 var floorY, radius, stringTop
 var restLen;
 var nodePos, nodeVel, nodeAcc, vertNodes, horizNodes;
@@ -37,17 +35,19 @@ var objArr, controlArr;
 // stats and gui
 var totalDT, stats;
 var gui;
-var resetObj, pauseObj, dragObj;
+var resetObj, pauseObj, dragObj, clothObj;
+var dragF = false;
+var moveTopLeft = true;
+var moveTopRight = true;
+var moveBotLeft = false;
+var moveBotRight = false;
+var topLeftNode, ogTopLeftNodePos;
+var topRightNode, ogTopRightNodePos;
+var botLeftNode, ogBotLeftNodePos;
+var botRightNode, ogBotRightNodePos;
+var numTimesteps = 350;
 
 function setup() {
-    ///////////////////////// STATS AND GUI /////////////////////////////////////////////////////////
-    totalDT = 0;
-
-    stats = new Stats();
-    stats.showPanel(0);
-    document.body.appendChild(stats.dom);
-
-    gui = new GUI();
     ///////////////////////// RENDERING INFO ////////////////////////////////////////////////////////
 
     scene = new THREE.Scene();
@@ -111,7 +111,7 @@ function setup() {
 
     floorY = 0.0; radius = 5.0;
     mass = 1; k = 100; kv = 50; kfric = 1;
-    dragC = 5; airD = 0.8;
+    dragC = 9; airD = 0.8;
     vertNodes = 15; horizNodes = 10;
     gravity = new THREE.Vector3(0.0, -1, 0.0);
     wind = new THREE.Vector3(0.0, 0.0, 0.4);
@@ -270,6 +270,42 @@ function setup() {
     scene.add(topRightNode);
     controlArr.push(topRightNode);
 
+    ogBotLeftNodePos = new THREE.Vector3(10000, 10000, 10000);
+    botLeftNode = new THREE.Mesh(
+        new THREE.SphereBufferGeometry(
+            2,
+            32,
+            16
+        ),
+        new THREE.MeshBasicMaterial(
+            {
+                transparent: true,
+                opacity: 0
+            }
+        )
+    );
+    botLeftNode.position.copy(ogBotLeftNodePos);
+    scene.add(botLeftNode);
+    controlArr.push(botLeftNode);
+
+    ogBotRightNodePos = new THREE.Vector3(10000, 10000, 10000);
+    botRightNode = new THREE.Mesh(
+        new THREE.SphereBufferGeometry(
+            2,
+            32,
+            16
+        ),
+        new THREE.MeshBasicMaterial(
+            {
+                transparent: true,
+                opacity: 0
+            }
+        )
+    );
+    botRightNode.position.copy(ogBotRightNodePos);
+    scene.add(botRightNode);
+    controlArr.push(botRightNode);
+
     // kiwi loading, only do after cloth is done
     loader = new GLTFLoader();
 
@@ -335,14 +371,26 @@ function setup() {
         console.error(error);
     });
 
+    ///////////////////////// STATS AND GUI /////////////////////////////////////////////////////////
+    totalDT = 0;
+
+    stats = new Stats();
+    stats.showPanel(0);
+    document.body.appendChild(stats.dom);
+
+    gui = new GUI();
+    // base is 246
+    gui.width = 300;
+
     const windFolder = gui.addFolder('Wind Controls');
-    windFolder.add(wind, 'x', 0, 1, 0.01).name('Wind X');
+    windFolder.add(wind, 'x', -1, 1, 0.01).name('Wind X');
     windFolder.add(wind, 'y', 0, 1, 0.01).name('Wind Y');
-    windFolder.add(wind, 'z', 0, 1, 0.01).name('Wind Z');
+    windFolder.add(wind, 'z', -1, 1, 0.01).name('Wind Z');
 
     dragObj = {
         dragC: dragC,
-        airD: airD
+        airD: airD,
+        dragF: false
     }
     const dragFolder = gui.addFolder('Drag Controls');
     dragFolder.add(dragObj, 'dragC', 0, 15, 0.1).name('Drag Coefficient');
@@ -351,22 +399,106 @@ function setup() {
     const gravityFolder = gui.addFolder('Gravity Controls');
     gravityFolder.add(gravity, 'y', -2, 0, 0.01).name('Gravity');
 
+    clothObj = {
+        k: k,
+        kv: kv,
+        mass: mass,
+        restLen: restLen,
+        topLeft: true,
+        topRight: true,
+        botLeft: false,
+        botRight: false,
+        top: false,
+        left: false,
+        right: false,
+        bot: false
+    }
+    const clothFolder = gui.addFolder("Cloth Controls");
+    clothFolder.add(clothObj, 'k', 0, 5000, 5).name('Spring Coefficient').onChange(() => {
+        k = clothObj.k;
+    });
+    clothFolder.add(clothObj, 'kv', 0, 1000, 1).name('Damping Factor').onChange(() => {
+        kv = clothObj.kv;
+    });
+    clothFolder.add(clothObj, 'mass', 0, 10, 0.1).name('Vertex Mass').onChange(() => {
+        mass = clothObj.mass;
+    });
+    clothFolder.add(clothObj, 'restLen', 0, 10, 0.1).name('Rest Length').onChange(() => {
+        restLen = clothObj.restLen;
+    });
+    clothFolder.add(clothObj, 'topLeft').name("Pin Top Left").onChange(() => {
+        if (clothObj.topLeft) {
+            moveTopLeft = true;
+            topLeftNode.material.opacity = 0.1;
+            topLeftNode.position.copy(nodePos[0][0]);
+        } else {
+            moveTopLeft = false;
+            topLeftNode.material.opacity = 0.0;
+            botRightNode.position.copy(ogBotLeftNodePos);
+
+        }
+    });
+    clothFolder.add(clothObj, 'topRight').name("Pin Top Right").onChange(() => {
+        if (clothObj.topRight) {
+            moveTopRight = true;
+            topRightNode.material.opacity = 0.1;
+            topRightNode.position.copy(nodePos[0][horizNodes-1]);
+        } else {
+            moveTopRight = false;
+            topRightNode.material.opacity = 0.0;
+            botRightNode.position.copy(ogBotLeftNodePos);
+        }
+    });
+    clothFolder.add(clothObj, 'botLeft').name("Pin Bottom Left").onChange(() => {
+        if (clothObj.botLeft) {
+            moveBotLeft = true;
+            botLeftNode.material.opacity = 0.1;
+            botLeftNode.position.copy(nodePos[vertNodes-1][0]);
+        } else {
+            moveBotLeft = false;
+            botLeftNode.material.opacity = 0.0;
+            botRightNode.position.copy(ogBotLeftNodePos);
+        }
+    });
+    clothFolder.add(clothObj, 'botRight').name("Pin Bottom Right").onChange(() => {
+        if (clothObj.botRight) {
+            moveBotRight = true;
+            botRightNode.material.opacity = 0.1;
+            botRightNode.position.copy(nodePos[vertNodes-1][horizNodes-1]);
+        } else {
+            moveBotRight = false;
+            botRightNode.material.opacity = 0.0;
+            botRightNode.position.copy(ogBotLeftNodePos);
+        }
+    });
+    clothFolder.add(clothObj, 'top').name("Pin Top Row");
+    clothFolder.add(clothObj, 'bot').name("Pin Bottom Row");
+    clothFolder.add(clothObj, 'left').name("Pin Left Column");
+    clothFolder.add(clothObj, 'right').name("Pin Right Column");
+
+    var simControlObj = {
+        reset: false,
+        pause: true,
+        numTimesteps: numTimesteps
+    }
     const simControlFolder = gui.addFolder('Sim Control');
-    resetObj = {
-        reset: false
-    };
-    const resetButton = simControlFolder.add(resetObj, 'reset');
-    resetButton.onChange(() => {
+
+    simControlFolder.add(simControlObj, 'reset').name("Reset Sim").onChange(() => {
         reset();
     });
 
-    pauseObj = {
-        pause: true
-    };
-    const pauseButton = simControlFolder.add(pauseObj, 'pause');
-    pauseButton.onChange(() => {
+    simControlFolder.add(simControlObj, 'pause').name("Pause Sim").onChange(() => {
         paused = !paused;
     });
+
+    simControlFolder.add(dragObj, 'dragF').name("Enable Drag").onChange(() => {
+        dragObj.dragF = !dragF;
+    });
+
+    simControlFolder.add(simControlObj, 'numTimesteps', 1, 1000).name('Timesteps')
+        .onChange(() => {
+            numTimesteps = simControlObj.numTimesteps;
+        });
 }
 
 function calculateMiscForces(pos, vels) {
@@ -376,9 +508,9 @@ function calculateMiscForces(pos, vels) {
             nodeAcc[i][j].x = 0; nodeAcc[i].y = 0; nodeAcc[i].z = 0;
             if (!paused) {
                 nodeAcc[i][j].add(gravity);
-                // nodeAcc[i][j].add(wind); 
+                if (!dragF) nodeAcc[i][j].add(wind); 
 
-                if (i != vertNodes-1 && j != horizNodes-1) {
+                if (i != vertNodes-1 && j != horizNodes-1 && dragF) {
                     // compute drag per quad
                     // drag = -0.5(dragC * airD * |v|^2 * a * n)
 
@@ -407,7 +539,7 @@ function calculateMiscForces(pos, vels) {
                     nodeAcc[i][j+1].add(nStar);
                     nodeAcc[i+1][j+1].add(nStar);
                 }
-            }
+            } 
         }
     }
 }
@@ -427,9 +559,12 @@ function calculateForces(pos, vels) {
             var projVtop = diff.dot(vels[i+1][j]);
             var dampF = -kv*(projVtop - projVbot);
             
-            // dampFricU.x = -kfric*((i===0?0:vels[i-1][j].x)-vels[i][j].x);
-            // dampFricU.y = 0;
-            // dampFricU.z = -kfric*((i===0?0:vels[i-1][j].z)-vels[i][j].z);
+            if (!dragF) {
+                dampFricU.x = -kfric*((i===0?0:vels[i-1][j].x)-vels[i][j].x);
+                dampFricU.y = 0;
+                dampFricU.z = -kfric*((i===0?0:vels[i-1][j].z)-vels[i][j].z);
+            }
+            
             
             diff.multiplyScalar((stringF+dampF)*(1/mass));
 
@@ -459,11 +594,26 @@ function calculateForces(pos, vels) {
 }
 
 function checkPinnedPoint(i,j) {
-    var topLeft = (i != 0 || j != 0);
-    var topRight = (i != 0 || j != horizNodes-1);
-    var botLeft = (i != vertNodes-1 || j != 0);
-    var botRight = (i != vertNodes-1 || j != horizNodes-1);
-    return topLeft && topRight;
+    if (clothObj.topLeft && (i == 0 && j == 0))
+        return false;
+
+    if (clothObj.topRight && (i == 0 && j == horizNodes-1))
+        return false;
+
+    if (clothObj.botLeft && (i == vertNodes-1 && j == 0))
+        return false;
+
+    if (clothObj.botRight && (i == vertNodes-1 && j == horizNodes-1)) 
+        return false;
+
+
+    if (clothObj.left && (j == 0)) return false;
+    
+    if (clothObj.right && (j == horizNodes-1)) return false; 
+    if (clothObj.top && (i == 0)) return false; 
+    if (clothObj.bot && (i == vertNodes-1)) return false;
+    
+    return true;
 }
 
 function getRandomArbitrary(min, max) {
@@ -474,6 +624,7 @@ var veltemp;
 function update(dt) {
     dragC = dragObj.dragC;
     airD = dragObj.airD;
+    dragF = dragObj.dragF;
     // start with current Velocity
     // calculate forces
     // currentAcceleration = function(current_velocity)
@@ -510,7 +661,9 @@ function update(dt) {
                 if (nodePos[i][j].y < 0 && Math.abs(nodePos[i][j].x) < 200
                         && Math.abs(nodePos[i][j].z) < 200) {
                     nodePos[i][j].y = 0;
-                    nodeVel[i][j].y = 0;
+                    var fric = nodeVel[i][j].clone();
+                    fric.multiplyScalar(-0.0001);
+                    nodeVel[i][j].add(fric);
                 }
 
                 if (kiwiHead.position.distanceTo(nodePos[i][j]) < 1+headRad) {
@@ -661,14 +814,16 @@ function animate() {
         );
     }
 
-    nodePos[0][0].copy(topLeftNode.position);
-    nodePos[0][nodePos[0].length-1].copy(topRightNode.position);
+    if (moveTopLeft) nodePos[0][0].copy(topLeftNode.position);
+    if (moveTopRight) nodePos[0][horizNodes-1].copy(topRightNode.position);
+    if (moveBotLeft) nodePos[vertNodes-1][0].copy(botLeftNode.position);
+    if (moveBotRight) nodePos[vertNodes-1][horizNodes-1].copy(botRightNode.position);
 
     // checkKeyPressed();
     totalDT += 1;
     if (!paused) mixer.update(dt);
-    for (let i = 0; i < 300; i++) {
-        update(1/300);
+    for (let i = 0; i < numTimesteps; i++) {
+        update(1/numTimesteps);
     }
     // tempAnim();
     updatePosAndColor();
@@ -727,8 +882,11 @@ function reset() {
             nodeAcc[i][j] = new THREE.Vector3(0.0,0.0,0.0);
         }
     }
-    topLeftNode.position.copy(ogTopLeftNodePos);
-    topRightNode.position.copy(ogTopRightNodePos);
+    if (moveTopLeft) topLeftNode.position.copy(nodePos[0][0]);
+    if (moveTopRight) topRightNode.position.copy(nodePos[0][horizNodes-1]);
+    if (moveBotLeft) botLeftNode.position.copy(nodePos[vertNodes-1][0]);
+    if (moveBotRight) botRightNode.position.copy(nodePos[vertNodes-1][horizNodes-1]);
+    
     updatePosAndColor();
 }
 
