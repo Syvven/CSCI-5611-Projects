@@ -5,6 +5,7 @@ import {FlyControls} from './FlyControls.js';
 import {OrbitControls} from './OrbitControls.js';
 import {DragControls} from './DragControls.js';
 import WebGL from './webGLCheck.js';
+import { QuadraticBezierCurve } from '../node_modules/three/src/Three.js';
 
 // scene globals
 var scene, renderer, loader;
@@ -12,19 +13,22 @@ var flyControls, orbitControls, camera;
 var raycaster, dragControls;
 var kiwi, mixer;
 var kiwiBod, kiwiHead, kiwiGroup;
-var topLeftNode, ogTopLeftNodePos;
-var topRightNode, ogTopRightNodePos;
-var bodRad = 7;
-var headRad = 5;
+var bodRad = 6; var headRad = 5;
 var modelReady = false;
 
 // other render globals
 var prevTime;
 
+// force globals
+var dampFricU, gravity, wind;
+var mass, k, kv, kfric;
+var airD, dragC;
+
 // rope globals
-var floorY, radius, stringTop, mass, k, kv, kfric;
+var topLeftNode, ogTopLeftNodePos;
+var topRightNode, ogTopRightNodePos;
+var floorY, radius, stringTop
 var restLen;
-var dampFricU, gravity;
 var nodePos, nodeVel, nodeAcc, vertNodes, horizNodes;
 var currAcc, futureVel, futurePos;
 var objArr, controlArr;
@@ -98,11 +102,13 @@ function setup() {
     //////////////////////// ROPE INFO ///////////////////////////////////////
 
     floorY = 0.0; radius = 5.0;
-    mass = 1; k = 50; kv = 50; kfric = 1;
-    vertNodes = 16; horizNodes = 16;
+    mass = 1; k = 100; kv = 50; kfric = 1;
+    dragC = 9; airD = 2;
+    vertNodes = 15; horizNodes = 10;
     gravity = new THREE.Vector3(0.0, -0.1, 0.0);
+    wind = new THREE.Vector3(0.0, 0.0, 0.4);
     stringTop = new THREE.Vector3(0.0, 50.0, 0.0);
-    restLen = 2;
+    restLen = 3;
 
     currAcc = Array(vertNodes).fill(null).map(() => Array(horizNodes));
     futureVel = Array(vertNodes).fill(null).map(() => Array(horizNodes));
@@ -322,14 +328,51 @@ function setup() {
     });
 }
 
-function calculateForces(pos, vels) {
+function calculateMiscForces(pos, vels) {
     // var newVel = Array(vertNodes).fill(null).map(() => Array(horizNodes));
     for (let i = 0; i < vertNodes; i++) {
         for (let j = 0; j < horizNodes; j++) {
             nodeAcc[i][j].x = 0; nodeAcc[i].y = 0; nodeAcc[i].z = 0;
-            nodeAcc[i][j].add(gravity);
+            if (!paused) {
+                nodeAcc[i][j].add(gravity);
+                // nodeAcc[i][j].add(wind); 
+
+                if (i != vertNodes-1 && j != horizNodes-1) {
+                    // compute drag per quad
+                    // drag = -0.5(dragC * airD * |v|^2 * a * n)
+
+                    // v
+                    var v = vels[i][j].clone();
+                    v.add(vels[i+1][j]);
+                    v.add(vels[i][j+1]);
+                    v.add(vels[i+1][j+1]);
+                    v.multiplyScalar(1/4);
+                    v.sub(wind);
+
+                    var nStar = pos[i+1][j].clone();
+                    var b = pos[i][j+1].clone();
+                    nStar.sub(pos[i][j]);
+                    b.sub(pos[i][j]);
+                    
+                    nStar.cross(b);
+
+                    var x = (v.length()*v.dot(nStar))/(2*nStar.length());
+                    nStar.multiplyScalar(x);
+                    
+                    nStar.multiplyScalar(dragC*-0.5*airD);
+                    nStar.multiplyScalar(1/4);
+                    nodeAcc[i][j].add(nStar);
+                    nodeAcc[i+1][j].add(nStar);
+                    nodeAcc[i][j+1].add(nStar);
+                    nodeAcc[i+1][j+1].add(nStar);
+                }
+            }
         }
     }
+}
+
+function calculateForces(pos, vels) {
+    calculateMiscForces(pos, vels);
 
     for (let i = 0; i < vertNodes-1; i++) {
         for (let j = 0; j < horizNodes; j++) {
@@ -343,9 +386,9 @@ function calculateForces(pos, vels) {
             var projVtop = diff.dot(vels[i+1][j]);
             var dampF = -kv*(projVtop - projVbot);
             
-            dampFricU.x = -kfric*((i===0?0:vels[i-1][j].x)-vels[i][j].x);
-            dampFricU.y = 0;
-            dampFricU.z = -kfric*((i===0?0:vels[i-1][j].z)-vels[i][j].z);
+            // dampFricU.x = -kfric*((i===0?0:vels[i-1][j].x)-vels[i][j].x);
+            // dampFricU.y = 0;
+            // dampFricU.z = -kfric*((i===0?0:vels[i-1][j].z)-vels[i][j].z);
             
             diff.multiplyScalar((stringF+dampF)*(1/mass));
 
@@ -377,13 +420,27 @@ function calculateForces(pos, vels) {
 function checkPinnedPoint(i,j) {
     var topLeft = (i != 0 || j != 0);
     var topRight = (i != 0 || j != horizNodes-1);
-    var botLeft = (i != vertNodes-1 || j != 0)
-    var botRight = (i != vertNodes-1 || j != horizNodes-1)
+    var botLeft = (i != vertNodes-1 || j != 0);
+    var botRight = (i != vertNodes-1 || j != horizNodes-1);
     return topLeft && topRight;
+}
+
+function getRandomArbitrary(min, max) {
+    return Math.random() * (max - min) + min;
 }
 
 var veltemp;
 function update(dt) {
+    if (totalDT % 1000 == 0) {
+        wind.x = getRandomArbitrary(-0.6, 0.6);
+        wind.z = getRandomArbitrary(-0.6, 0.6);
+    }
+    if (totalDT % 50 == 0) {
+        wind.x += getRandomArbitrary(-0.001, 0.001)
+    }
+    if (totalDT % 25 == 0 && totalDT % 50 != 0) {
+        wind.z += getRandomArbitrary(-0.001, 0.001)
+    }
     // start with current Velocity
     // calculate forces
     // currentAcceleration = function(current_velocity)
@@ -416,6 +473,48 @@ function update(dt) {
                 veltemp = nodeVel[i][j].clone();
                 veltemp.multiplyScalar(dt);
                 nodePos[i][j].add(veltemp);
+
+                if (nodePos[i][j].y < 0 && Math.abs(nodePos[i][j].x) < 200
+                        && Math.abs(nodePos[i][j].z) < 200) {
+                    nodePos[i][j].y = 0;
+                    nodeVel[i][j].y = 0;
+                }
+
+                if (kiwiHead.position.distanceTo(nodePos[i][j]) < 1+headRad) {
+                    var dir = nodePos[i][j].clone();
+                    dir.sub(kiwiHead.position);
+
+                    dir.normalize();
+
+                    var odir = dir.clone();
+                    odir.multiplyScalar(1+headRad);
+                    odir.add(kiwiHead.position);
+                    nodePos[i][j].x = odir.x;
+                    nodePos[i][j].y = odir.y;
+                    nodePos[i][j].z = odir.z;
+
+                    var dot = nodeVel[i][j].dot(dir);
+                    dir.multiplyScalar(dot*(1+0.1));
+                    nodeVel[i][j].sub(dir);
+                }
+
+                if (kiwiBod.position.distanceTo(nodePos[i][j]) < 1+bodRad) {
+                    var dir = nodePos[i][j].clone();
+                    dir.sub(kiwiBod.position);
+
+                    dir.normalize();
+
+                    var odir = dir.clone();
+                    odir.multiplyScalar(1+bodRad);
+                    odir.add(kiwiBod.position);
+                    nodePos[i][j].x = odir.x;
+                    nodePos[i][j].y = odir.y;
+                    nodePos[i][j].z = odir.z;
+
+                    var dot = nodeVel[i][j].dot(dir);
+                    dir.multiplyScalar(dot*(1+0.001));
+                    nodeVel[i][j].sub(dir);
+                }
             }
         }
     }
@@ -503,57 +602,6 @@ function updatePosAndColor() {
 var bodXOff = 0; var bodYOff = -2; var bodZOff = 3;
 var headXOff = 0; var headYOff = 6; var headZOff = 5;
 
-function updateCollision(dt) {
-    for (let i = 0; i < vertNodes; i++) {
-        for (let j = 0; j < horizNodes; j++) {
-            if (checkPinnedPoint(i,j)) {
-                // check for collisions here
-                if (nodePos[i][j].y < 0 && Math.abs(nodePos[i][j].x) < 200
-                        && Math.abs(nodePos[i][j].z) < 200) {
-                    nodePos[i][j].y = 0;
-                    nodeVel[i][j].y = 0;
-                }
-
-                if (kiwiHead.position.distanceTo(nodePos[i][j]) < 1+headRad) {
-                    var dir = nodePos[i][j].clone();
-                    dir.sub(kiwiHead.position);
-
-                    dir.normalize();
-
-                    var odir = dir.clone();
-                    odir.multiplyScalar(1+headRad);
-                    odir.add(kiwiHead.position);
-                    nodePos[i][j].x = odir.x;
-                    nodePos[i][j].y = odir.y;
-                    nodePos[i][j].z = odir.z;
-
-                    var dot = nodeVel[i][j].dot(dir);
-                    dir.multiplyScalar(dot*(1+0.1));
-                    nodeVel[i][j].sub(dir);
-                }
-
-                if (kiwiBod.position.distanceTo(nodePos[i][j]) < 1+bodRad) {
-                    var dir = nodePos[i][j].clone();
-                    dir.sub(kiwiBod.position);
-
-                    dir.normalize();
-
-                    var odir = dir.clone();
-                    odir.multiplyScalar(1+bodRad);
-                    odir.add(kiwiBod.position);
-                    nodePos[i][j].x = odir.x;
-                    nodePos[i][j].y = odir.y;
-                    nodePos[i][j].z = odir.z;
-
-                    var dot = nodeVel[i][j].dot(dir);
-                    dir.multiplyScalar(dot*(1+0.001));
-                    nodeVel[i][j].sub(dir);
-                }
-            }
-        }
-    }
-}
-
 function tempAnim() {
     requestAnimationFrame( tempAnim );
     renderer.render( scene, camera );
@@ -585,15 +633,12 @@ function animate() {
 
     // checkKeyPressed();
     totalDT += 1;
-    if (!paused) {
-        mixer.update(dt);
-        for (let i = 0; i < 300; i++) {
-            update(1/300);
-        }
-        // tempAnim();
-        updateCollision();
-        updatePosAndColor();
+    if (!paused) mixer.update(dt);
+    for (let i = 0; i < 300; i++) {
+        update(1/300);
     }
+    // tempAnim();
+    updatePosAndColor();
     orbitControls.update(1*dt);
 
     for (let i = 0; i < vertNodes-1; i++) {
