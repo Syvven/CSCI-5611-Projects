@@ -1,11 +1,12 @@
 import * as THREE from '../node_modules/three/src/Three.js';
 import Stats from '../node_modules/stats.js/src/Stats.js';
+import GUI from '../node_modules/dat.gui/src/dat/gui/GUI.js';
 import {GLTFLoader} from './GLTFLoader.js';
 import {FlyControls} from './FlyControls.js';
 import {OrbitControls} from './OrbitControls.js';
 import {DragControls} from './DragControls.js';
 import WebGL from './webGLCheck.js';
-import { QuadraticBezierCurve } from '../node_modules/three/src/Three.js';
+
 
 // scene globals
 var scene, renderer, loader;
@@ -32,15 +33,22 @@ var restLen;
 var nodePos, nodeVel, nodeAcc, vertNodes, horizNodes;
 var currAcc, futureVel, futurePos;
 var objArr, controlArr;
+
+// stats and gui
 var totalDT, stats;
+var gui;
+var resetObj, pauseObj;
 
 function setup() {
-    ///////////////////////// RENDERING INFO ////////////////////////////////////////////////////////
+    ///////////////////////// STATS AND GUI /////////////////////////////////////////////////////////
     totalDT = 0;
 
     stats = new Stats();
     stats.showPanel(0);
     document.body.appendChild(stats.dom);
+
+    gui = new GUI();
+    ///////////////////////// RENDERING INFO ////////////////////////////////////////////////////////
 
     scene = new THREE.Scene();
     scene.add(new THREE.AxesHelper(1000));
@@ -326,6 +334,27 @@ function setup() {
     }, undefined, function(error) {
         console.error(error);
     });
+
+    const windFolder = gui.addFolder('Wind Controls');
+    windFolder.add(wind, 'x', 0, 1, 0.01).name('Wind X');
+    windFolder.add(wind, 'y', 0, 1, 0.01).name('Wind Y');
+    windFolder.add(wind, 'z', 0, 1, 0.01).name('Wind Z');
+
+    const gravityFolder = gui.addFolder('Gravity Controls');
+    gravityFolder.add(gravity, 'y', -3, 0, 0.01).name('Gravity');
+
+    const simControlFolder = gui.addFolder('Sim Control');
+    resetObj = {reset: false};
+    const resetButton = simControlFolder.add(resetObj, 'reset', "Reset:");
+    resetButton.onChange(() => {
+        reset();
+    });
+
+    pauseObj = {pause: true};
+    const pauseButton = simControlFolder.add(pauseObj, 'pause', "Pause:");
+    pauseButton.onChange(() => {
+        paused = !paused;
+    });
 }
 
 function calculateMiscForces(pos, vels) {
@@ -431,16 +460,6 @@ function getRandomArbitrary(min, max) {
 
 var veltemp;
 function update(dt) {
-    if (totalDT % 1000 == 0) {
-        wind.x = getRandomArbitrary(-0.6, 0.6);
-        wind.z = getRandomArbitrary(-0.6, 0.6);
-    }
-    if (totalDT % 50 == 0) {
-        wind.x += getRandomArbitrary(-0.001, 0.001)
-    }
-    if (totalDT % 25 == 0 && totalDT % 50 != 0) {
-        wind.z += getRandomArbitrary(-0.001, 0.001)
-    }
     // start with current Velocity
     // calculate forces
     // currentAcceleration = function(current_velocity)
