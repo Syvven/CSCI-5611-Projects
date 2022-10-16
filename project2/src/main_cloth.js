@@ -7,7 +7,6 @@ import {OrbitControls} from './OrbitControls.js';
 import {DragControls} from './DragControls.js';
 import WebGL from './webGLCheck.js';
 
-
 // scene globals
 var scene, renderer, loader;
 var flyControls, orbitControls, camera;
@@ -31,6 +30,7 @@ var restLen;
 var nodePos, nodeVel, nodeAcc, vertNodes, horizNodes;
 var currAcc, futureVel, futurePos;
 var objArr, controlArr;
+var cloth;
 
 // stats and gui
 var totalDT, stats;
@@ -98,9 +98,9 @@ function setup() {
     hemiLight.position.set( 0, 300, 0 );
     scene.add( hemiLight );
 
-    // const light = new THREE.PointLight(0xffffff);
-    // light.position.set(0, 50, 50);
-    // scene.add(light);
+    const light = new THREE.PointLight(0xffffff);
+    light.position.set(0, 50, 50);
+    scene.add(light);
 
     raycaster = new THREE.Raycaster();
 
@@ -141,81 +141,94 @@ function setup() {
         }
     }
 
-    for (let i = 0; i < vertNodes-1; i++) {
-        for (let j = 0; j < horizNodes-1; j++) {
-            var geo = new THREE.BufferGeometry();
-            var positions = new Float32Array(18);
-            var colors = new Float32Array(18);
+    var geo = new THREE.PlaneGeometry(restLen * horizNodes, restLen * vertNodes, horizNodes-1, vertNodes-1);
+    // console.log(geo.positions)
+    // var positions = new Float32Array((horizNodes-1)*(vertNodes-1)*18);
+    // var index = 0;
+    const positionAttribute = geo.getAttribute( 'position' );
+    console.log(positionAttribute);
+    for (let i = 0; i < vertNodes; i++) {
+        for (let j = 0; j < horizNodes; j++) {
+            positionAttribute.setXYZ( i*horizNodes+j, nodePos[i][j].x, nodePos[i][j].y, nodePos[i][j].z );
+            // for (let i = 0; i < vertNodes-1; i++) {
+    //     for (let j = 0; j < horizNodes-1; j++) {
+    //         var positions = objArr[i][j].geometry.attributes.position.array;
+    //         var colors = objArr[i][j].geometry.attributes.color.array;
 
-            var pos = nodePos[i][j];
-            // tleft vert
-            positions[0] = pos.x;
-            positions[1] = pos.y;
-            positions[2] = pos.z;
-            colors[0] = ((pos.y*10)%256)/256;
-            colors[1] = ((pos.y*20)%256)/256;
-            colors[2] = ((pos.y*30)%256)/256;
+    //         var pos = nodePos[i][j];
+    //         var a = ((pos.y*10)%256)/256;
+    //         var b = ((pos.y*20)%256)/256;
+    //         var c = ((pos.z*30)%256)/256;
+    //         // tleft vert
+    //         positions[0] = pos.x;
+    //         positions[1] = pos.y;
+    //         positions[2] = pos.z;
+    //         colors[0] = a;
+    //         colors[1] = b;
+    //         colors[2] = c;
 
-             // bRight vert
-            positions[15] = pos.x;
-            positions[16] = pos.y;
-            positions[17] = pos.z;
-            colors[15] = ((pos.y*10)%256)/256;
-            colors[16] = ((pos.y*20)%256)/256;
-            colors[17] = ((pos.y*30)%256)/256;
+    //         // bRight vert
+    //         positions[15] = pos.x;
+    //         positions[16] = pos.y;
+    //         positions[17] = pos.z;
+    //         colors[15] = a;
+    //         colors[16] = b;
+    //         colors[17] = c;
 
-            pos = nodePos[i][j+1];
-            // tRight vert
-            positions[3] = pos.x;
-            positions[4] = pos.y;
-            positions[5] = pos.z;
-            colors[3] = ((pos.y*10)%256)/256;
-            colors[4] = ((pos.y*20)%256)/256;
-            colors[5] = ((pos.y*30)%256)/256;
+    //         pos = nodePos[i][j+1];
+    //         // tRight vert
+    //         positions[3] = pos.x;
+    //         positions[4] = pos.y;
+    //         positions[5] = pos.z;
+    //         colors[3] = ((pos.y*10)%256)/256;
+    //         colors[4] = ((pos.y*20)%256)/256;
+    //         colors[5] = ((pos.z*30)%256)/256;
 
-            pos = nodePos[i+1][j+1];
-            positions[6] = pos.x;
-            positions[7] = pos.y;
-            positions[8] = pos.z;
-            colors[6] = ((pos.y*10)%256)/256;
-            colors[7] = ((pos.y*20)%256)/256;
-            colors[8] = ((pos.y*30)%256)/256;
+    //         pos = nodePos[i+1][j+1];
+    //         a = ((pos.y*10)%256)/256;
+    //         b = ((pos.y*20)%256)/256;
+    //         c = ((pos.z*30)%256)/256;
+    //         positions[6] = pos.x;
+    //         positions[7] = pos.y;
+    //         positions[8] = pos.z;
+    //         colors[6] = a;
+    //         colors[7] = b;
+    //         colors[8] = c;
 
-            // bLeft vert
-            positions[9] = pos.x;
-            positions[10] = pos.y;
-            positions[11] = pos.z;
-            colors[9] = ((pos.y*10)%256)/256;
-            colors[10] = ((pos.y*20)%256)/256;
-            colors[11] = ((pos.y*30)%256)/256;
+    //         // bLeft vert
+    //         positions[9] = pos.x;
+    //         positions[10] = pos.y;
+    //         positions[11] = pos.z;
+    //         colors[9] = a;
+    //         colors[10] = b;
+    //         colors[11] = c;
             
-            pos = nodePos[i+1][j];
-            positions[12] = pos.x;
-            positions[13] = pos.y;
-            positions[14] = pos.z;
-            colors[12] = ((pos.y*10)%256)/256;
-            colors[13] = ((pos.y*20)%256)/256;
-            colors[14] = ((pos.y*30)%256)/256;
-
-            geo.setAttribute('position', new THREE.BufferAttribute(positions, 3));
-            geo.setAttribute('color', new THREE.BufferAttribute(colors, 3));
-            geo.setDrawRange(0,6);
-
-            geo.computeBoundingBox();
-
-            var material = new THREE.MeshPhongMaterial({
-                vertexColors: true,
-                flatShading: true
-            });
-
-            material.side = THREE.DoubleSide;
-
-
-            objArr[i][j] = new THREE.Mesh(geo, material);
-            objArr[i][j].material.transparent = false;
-            scene.add(objArr[i][j]);
+    //         pos = nodePos[i+1][j];
+    //         positions[12] = pos.x;
+    //         positions[13] = pos.y;
+    //         positions[14] = pos.z;
+    //         colors[12] = ((pos.y*10)%256)/256;
+    //         colors[13] = ((pos.y*20)%256)/256;
+    //         colors[14] = ((pos.z*30)%256)/256;
+    //     }
+    // }
         }
     }
+    // geo.setAttribute('position', new THREE.BufferAttribute(positions, 3));
+    var material = new THREE.MeshPhysicalMaterial({
+        side: THREE.DoubleSide,
+    });
+    material.reflectivity = 0
+    material.transmission = 1
+    material.roughness = 0.5
+    material.metalness = 0
+    material.clearcoat = 0.3
+    material.clearcoatRoughness = 0.25
+    material.color = new THREE.Color(0xffffff)
+    material.ior = 1.7
+    material.thickness = 10.0
+    cloth = new THREE.Mesh(geo, material);
+    scene.add(cloth);
 
     dampFricU = new THREE.Vector3(0,0,0);
     // controlArr = Array(1);
@@ -606,7 +619,6 @@ function checkPinnedPoint(i,j) {
     if (clothObj.botRight && (i == vertNodes-1 && j == horizNodes-1)) 
         return false;
 
-
     if (clothObj.left && (j == 0)) return false;
     
     if (clothObj.right && (j == horizNodes-1)) return false; 
@@ -662,7 +674,7 @@ function update(dt) {
                         && Math.abs(nodePos[i][j].z) < 200) {
                     nodePos[i][j].y = 0;
                     var fric = nodeVel[i][j].clone();
-                    fric.multiplyScalar(-0.0001);
+                    fric.multiplyScalar(-0.01);
                     nodeVel[i][j].add(fric);
                 }
 
@@ -704,83 +716,13 @@ function update(dt) {
             }
         }
     }
-    // console.log(nodePos);
-    // quit();
-
-    // // eulerian integration
-    // dxdt > xn = xn+vn*dt
-    // dvdt > vn = vi+a*dt
-
-    // nodeAcc[i][j].multiplyScalar(dt)
-    // nodeVel[i][j].add(nodeAcc[i][j]);
-    // var temp = nodeVel[i][j].clone();
-    // temp.multiplyScalar(dt)
-    // nodePos[i][j].add(temp);
-
-    // updateCollision(dt);
 }
 
 function updatePosAndColor() {
-    for (let i = 0; i < vertNodes-1; i++) {
-        for (let j = 0; j < horizNodes-1; j++) {
-            var positions = objArr[i][j].geometry.attributes.position.array;
-            var colors = objArr[i][j].geometry.attributes.color.array;
-
-            var pos = nodePos[i][j];
-            var a = ((pos.y*10)%256)/256;
-            var b = ((pos.y*20)%256)/256;
-            var c = ((pos.z*30)%256)/256;
-            // tleft vert
-            positions[0] = pos.x;
-            positions[1] = pos.y;
-            positions[2] = pos.z;
-            colors[0] = a;
-            colors[1] = b;
-            colors[2] = c;
-
-            // bRight vert
-            positions[15] = pos.x;
-            positions[16] = pos.y;
-            positions[17] = pos.z;
-            colors[15] = a;
-            colors[16] = b;
-            colors[17] = c;
-
-            pos = nodePos[i][j+1];
-            // tRight vert
-            positions[3] = pos.x;
-            positions[4] = pos.y;
-            positions[5] = pos.z;
-            colors[3] = ((pos.y*10)%256)/256;
-            colors[4] = ((pos.y*20)%256)/256;
-            colors[5] = ((pos.z*30)%256)/256;
-
-            pos = nodePos[i+1][j+1];
-            a = ((pos.y*10)%256)/256;
-            b = ((pos.y*20)%256)/256;
-            c = ((pos.z*30)%256)/256;
-            positions[6] = pos.x;
-            positions[7] = pos.y;
-            positions[8] = pos.z;
-            colors[6] = a;
-            colors[7] = b;
-            colors[8] = c;
-
-            // bLeft vert
-            positions[9] = pos.x;
-            positions[10] = pos.y;
-            positions[11] = pos.z;
-            colors[9] = a;
-            colors[10] = b;
-            colors[11] = c;
-            
-            pos = nodePos[i+1][j];
-            positions[12] = pos.x;
-            positions[13] = pos.y;
-            positions[14] = pos.z;
-            colors[12] = ((pos.y*10)%256)/256;
-            colors[13] = ((pos.y*20)%256)/256;
-            colors[14] = ((pos.z*30)%256)/256;
+    const positionAttribute = cloth.geometry.getAttribute( 'position' );
+    for (let i = 0; i < vertNodes; i++) {
+        for (let j = 0; j < horizNodes; j++) {
+            positionAttribute.setXYZ( i*horizNodes+j, nodePos[i][j].x, nodePos[i][j].y, nodePos[i][j].z );
         }
     }
 }
@@ -829,14 +771,11 @@ function animate() {
     updatePosAndColor();
     orbitControls.update(1*dt);
 
-    for (let i = 0; i < vertNodes-1; i++) {
-        for (let j = 0; j < horizNodes-1; j++) {
-            objArr[i][j].geometry.attributes.position.needsUpdate = true;
-            objArr[i][j].geometry.attributes.color.needsUpdate = true;
-            objArr[i][j].geometry.computeBoundingBox();
-            objArr[i][j].geometry.computeBoundingSphere();
-        }
-    }
+    cloth.geometry.attributes.position.needsUpdate = true;
+    cloth.geometry.computeVertexNormals(true);
+    cloth.geometry.normalsNeedUpdate = true;
+    cloth.geometry.computeBoundingBox();
+    cloth.geometry.computeBoundingSphere();
 
     // adds line and renders scene
 	renderer.render( scene, camera );
