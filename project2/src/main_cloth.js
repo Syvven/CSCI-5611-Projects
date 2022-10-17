@@ -2,7 +2,6 @@ import * as THREE from '../node_modules/three/src/Three.js';
 import Stats from '../node_modules/stats.js/src/Stats.js';
 import GUI from '../node_modules/dat.gui/src/dat/gui/GUI.js';
 import {GLTFLoader} from './GLTFLoader.js';
-import {FlyControls} from './FlyControls.js';
 import {OrbitControls} from './OrbitControls.js';
 import {DragControls} from './DragControls.js';
 import WebGL from './webGLCheck.js';
@@ -13,12 +12,11 @@ import { MTLLoader } from './MTLLoader.js';
 
 // scene globals
 var scene, renderer, loader, objLoader, mtlLoader;
-var flyControls, orbitControls, camera;
+var orbitControls, camera;
 var raycaster, dragControls;
 var kiwi, mixer;
 var kiwiBod, kiwiHead, kiwiGroup;
 var bodRad = 6; var headRad = 5;
-var modelReady = false; 
 
 // other render globals
 var prevTime;
@@ -35,12 +33,12 @@ var nodePos, nodeVel, nodeAcc, vertNodes, horizNodes;
 var currAcc, futureVel, futurePos;
 var objArr, controlArr;
 var cloth;
-var bathHB, bath
+var bathHB, bath;
 
 // stats and gui
 var totalDT, stats;
 var gui;
-var resetObj, pauseObj, dragObj, clothObj;
+var dragObj, clothObj, simControlObj;
 var dragF = false;
 var moveTopLeft = true;
 var moveTopRight = true;
@@ -50,7 +48,8 @@ var topLeftNode, ogTopLeftNodePos;
 var topRightNode, ogTopRightNodePos;
 var botLeftNode, ogBotLeftNodePos;
 var botRightNode, ogBotRightNodePos;
-var numTimesteps = 350;
+var numTimesteps = 200;
+var ndt = 200;
 
 function setup() {
     ///////////////////////// RENDERING INFO ////////////////////////////////////////////////////////
@@ -69,11 +68,6 @@ function setup() {
     camera.position.set( 0, 50, 200 );
     camera.lookAt( 0, 0, 0 );
 
-    // flyControls = new FlyControls(camera, renderer.domElement);
-    // flyControls.dragToLook = true;
-    // flyControls.movementSpeed = 10;
-    // flyControls.rollSpeed = 1;
-
     orbitControls = new OrbitControls(camera, renderer.domElement);
     orbitControls.enableDamping = true;
     orbitControls.zoomSpeed = 2;
@@ -91,12 +85,6 @@ function setup() {
     mesh.position.y = -0.1;
     mesh.rotation.x = -Math.PI/2;
     scene.add(mesh);
-
-    // // adds a rotating cube, just for testing purposes
-    // geometry = new THREE.BoxGeometry( 1, 1, 1 );
-    // material = new THREE.MeshBasicMaterial( { color: 0x00ff00 } );
-    // cube = new THREE.Mesh( geometry, material );
-    // scene.add( cube );
 
     // hemisphere light for equal lighting
     var hemiLight = new THREE.HemisphereLight( 0xffffff, 0x444444 );
@@ -118,7 +106,7 @@ function setup() {
     mass = 1; k = 100; kv = 50; kfric = 1;
     dragC = 9; airD = 0.8;
     vertNodes = 15; horizNodes = 10;
-    gravity = new THREE.Vector3(0.0, -1, 0.0);
+    gravity = new THREE.Vector3(0.0, -0.2, 0.0);
     wind = new THREE.Vector3(0.0, 0.0, 0.4);
     stringTop = new THREE.Vector3(0.0, 50.0, 0.0);
     restLen = 3;
@@ -151,9 +139,7 @@ function setup() {
         new Float32Array(horizNodes*vertNodes*3),
         3
     ));
-    // console.log(geo.positions)
-    // var positions = new Float32Array((horizNodes-1)*(vertNodes-1)*18);
-    // var index = 0;
+    
     const positionAttribute = geo.getAttribute( 'position' );
     const colorAttribute = geo.getAttribute( 'color' );
     for (let i = 0; i < vertNodes; i++) {
@@ -172,21 +158,11 @@ function setup() {
         side: THREE.DoubleSide,
         vertexColors: true
     });
-    // material.reflectivity = 0
-    // material.transmission = 1
-    // material.roughness = 0.5
-    // material.metalness = 0
-    // material.clearcoat = 0.3
-    // material.clearcoatRoughness = 0.25
-    // material.color = new THREE.Color(0xffffff)
-    // material.ior = 1.7
-    // material.thickness = 10.0
+    
     cloth = new THREE.Mesh(geo, material);
     scene.add(cloth);
 
     dampFricU = new THREE.Vector3(0,0,0);
-    // controlArr = Array(1);
-    // controlArr[0] = scene.children[scene.children.length];
 
     controlArr = [];
     dragControls = new DragControls(controlArr, camera, renderer.domElement);
@@ -277,100 +253,6 @@ function setup() {
     loader = new GLTFLoader();
     objLoader = new OBJLoader();
     mtlLoader = new MTLLoader();
-    
-    mtlLoader.load("../models/bath.mtl", function(mtl) {
-        objLoader.setMaterials(mtl);
-    });
-
-    objLoader.load("../models/bath.obj", function(obj) {
-        bathHB = new THREE.Mesh(
-            new THREE.BoxGeometry(22,17.5,52),
-            new THREE.MeshBasicMaterial(
-                {
-                    transparent: true,
-                    opacity: 0
-                }
-            )
-        );
-
-        obj.scale.set(0.03,0.03,0.03);
-        obj.rotation.y = Math.PI/2;
-        obj.position.y = 0.1
-
-        bathHB.position.set(
-            obj.position.x,
-            obj.position.y+8.75,
-            obj.position.z-0.25
-        );
-
-        bath = obj;
-
-        scene.add(bathHB);
-        scene.add(obj);
-        controlArr.push(bathHB);
-    });
-
-    loader.load('../models/kiwi.glb', function(gltf) {
-        kiwi = gltf.scene;
-        kiwi.scale.set(5,5,5);
-        kiwi.position.y = 7.5;
-        kiwiGroup = kiwi;
-        kiwi.traverse((o) => {
-            if (o.isMesh) {
-                o.castShadow = true;
-                o.receiveShadow = true;
-                o.frustumCulled = false;
-                o.geometry.computeVertexNormals();
-            }
-        });
-
-        mixer = new THREE.AnimationMixer(kiwi);
-        mixer.clipAction(gltf.animations[0]).play();
-
-        kiwiBod = new THREE.Mesh(
-            new THREE.SphereBufferGeometry(
-                bodRad,
-                32,
-                16
-            ),
-            new THREE.MeshBasicMaterial(
-                {
-                    transparent: true,
-                    opacity: 0
-                }
-            )
-        );
-        kiwiBod.position.set(10,10,10);
-        kiwiHead = new THREE.Mesh(
-            new THREE.SphereBufferGeometry(
-                headRad,
-                32,
-                16
-            ),
-            new THREE.MeshBasicMaterial(
-                {
-                    transparent: true,
-                    opacity: 0
-                }
-            )
-        )
-        kiwiHead.position.set(
-            kiwiBod.position.x+headXOff,
-            kiwiBod.position.y+headYOff,
-            kiwiBod.position.z+headZOff
-        );
-
-        scene.add(kiwi);
-
-        scene.add(kiwiBod);
-        scene.add(kiwiHead);
-        controlArr.push(kiwiBod);
-
-        modelReady = true;
-        // after this point, animate() is run
-    }, undefined, function(error) {
-        console.error(error);
-    });
 
     ///////////////////////// STATS AND GUI /////////////////////////////////////////////////////////
     totalDT = 0;
@@ -384,9 +266,9 @@ function setup() {
     gui.width = 300;
 
     const windFolder = gui.addFolder('Wind Controls');
-    windFolder.add(wind, 'x', -1, 1, 0.01).name('Wind X');
-    windFolder.add(wind, 'y', 0, 1, 0.01).name('Wind Y');
-    windFolder.add(wind, 'z', -1, 1, 0.01).name('Wind Z');
+    windFolder.add(wind, 'x', -10, 10, 0.01).name('Wind X');
+    windFolder.add(wind, 'y', 0, 10, 0.01).name('Wind Y');
+    windFolder.add(wind, 'z', -10, 10, 0.01).name('Wind Z');
 
     dragObj = {
         dragC: dragC,
@@ -505,10 +387,13 @@ function setup() {
     colorFolder.add(cloth.material, 'transmission', 0.0, 1.0, 0.01).name("Transmission");
     colorFolder.add(cloth.material, 'opacity', 0.0, 1.0, 0.01).name("Opacity");
 
-    var simControlObj = {
+    simControlObj = {
         reset: false,
         pause: true,
-        numTimesteps: numTimesteps
+        numTimesteps: numTimesteps,
+        kiwiAlive: false,
+        bathAlive: false,
+        ndt: ndt
     }
     const simControlFolder = gui.addFolder('Sim Control');
 
@@ -528,6 +413,114 @@ function setup() {
         .onChange(() => {
             numTimesteps = simControlObj.numTimesteps;
         });
+        simControlFolder.add(simControlObj, 'ndt', 1, 1000).name('dt Control')
+        .onChange(() => {
+            ndt = simControlObj.ndt;
+        });
+    simControlFolder.add(simControlObj, 'kiwiAlive').name("Spawn Kiwi").onChange(() => {
+        if (simControlObj.kiwiAlive) {
+            loader.load('../models/kiwi.glb', function(gltf) {
+                kiwi = gltf.scene;
+                kiwi.scale.set(5,5,5);
+                kiwi.position.y = 7.5;
+                kiwiGroup = kiwi;
+                kiwi.traverse((o) => {
+                    if (o.isMesh) {
+                        o.castShadow = true;
+                        o.receiveShadow = true;
+                        o.frustumCulled = false;
+                        o.geometry.computeVertexNormals();
+                    }
+                });
+        
+                mixer = new THREE.AnimationMixer(kiwi);
+                mixer.clipAction(gltf.animations[0]).play();
+        
+                kiwiBod = new THREE.Mesh(
+                    new THREE.SphereBufferGeometry(
+                        bodRad,
+                        32,
+                        16
+                    ),
+                    new THREE.MeshBasicMaterial(
+                        {
+                            transparent: true,
+                            opacity: 0
+                        }
+                    )
+                );
+                kiwiBod.position.set(10,10,10);
+                kiwiHead = new THREE.Mesh(
+                    new THREE.SphereBufferGeometry(
+                        headRad,
+                        32,
+                        16
+                    ),
+                    new THREE.MeshBasicMaterial(
+                        {
+                            transparent: true,
+                            opacity: 0
+                        }
+                    )
+                )
+                kiwiHead.position.set(
+                    kiwiBod.position.x+headXOff,
+                    kiwiBod.position.y+headYOff,
+                    kiwiBod.position.z+headZOff
+                );
+        
+                scene.add(kiwi);
+        
+                scene.add(kiwiBod);
+                scene.add(kiwiHead);
+                controlArr.push(kiwiBod);
+        
+                modelReady = true;
+                // after this point, animate() is run
+            }, undefined, function(error) {
+                console.error(error);
+            });
+        } else {
+            scene.remove(kiwi);
+        }
+    });
+    simControlFolder.add(simControlObj, 'bathAlive').name("Spawn Bath").onChange(() => {
+        if (simControlObj.bathAlive) {
+            mtlLoader.load("../models/bath.mtl", function(mtl) {
+                objLoader.setMaterials(mtl);
+                objLoader.load("../models/bath.obj", function(obj) {
+                
+                    bathHB = new THREE.Mesh(
+                        new THREE.BoxGeometry(22,17.5,52),
+                        new THREE.MeshBasicMaterial(
+                            {
+                                transparent: true,
+                                opacity: 0
+                            }
+                        )
+                    );
+            
+                    obj.scale.set(0.03,0.03,0.03);
+                    obj.rotation.y = Math.PI/2;
+                    obj.position.y = 0.1
+            
+                    bathHB.position.set(
+                        obj.position.x,
+                        obj.position.y+8.75,
+                        obj.position.z-0.25
+                    );
+            
+                    bath = obj;
+            
+                    scene.add(bathHB);
+                    scene.add(obj);
+                    controlArr.push(bathHB);
+                });
+            });
+        } else {
+            scene.remove(bath);
+        }
+    });
 }
 
 function calculateMiscForces(pos, vels) {
@@ -694,79 +687,83 @@ function update(dt) {
                     nodeVel[i][j].add(fric);
                 }
 
-                var bbox = new THREE.Box3().setFromObject(bathHB);
-                if (bbox.containsPoint(nodePos[i][j])) {
-                    var distToTop = bbox.max.y - nodePos[i][j].y; 
-                    var distToBot = nodePos[i][j].y - bbox.min.y;
-                    var distY = Math.min(distToTop, distToBot);
-                    if (distY === distToBot) {
-                        var ymod = -1.01;
-                    } else {
-                        var ymod = 1.01;
+                if (simControlObj.bathAlive) {
+                    var bbox = new THREE.Box3().setFromObject(bathHB);
+                    if (bbox.containsPoint(nodePos[i][j])) {
+                        var distToTop = bbox.max.y - nodePos[i][j].y; 
+                        var distToBot = nodePos[i][j].y - bbox.min.y;
+                        var distY = Math.min(distToTop, distToBot);
+                        if (distY === distToBot) {
+                            var ymod = -1.01;
+                        } else {
+                            var ymod = 1.01;
+                        }
+
+                        var distToLeft = nodePos[i][j].x - bbox.min.x;
+                        var distToRight = bbox.max.x - nodePos[i][j].x;
+                        var distX = Math.min(distToLeft, distToRight);
+                        if (distX === distToLeft) {
+                            var xmod = -1.01;
+                        } else {
+                            var xmod = 1.01;
+                        }
+
+                        var distToFront = bbox.max.z - nodePos[i][j].z;
+                        var distToBack = nodePos[i][j].z - bbox.min.z;
+                        var distZ = Math.min(distToFront, distToBack);
+                        if (distZ === distToBack) {
+                            var zmod = -1.01;
+                        } else {
+                            var zmod = 1.01;
+                        }
+
+                        var minXYZ = Math.min(distX, distY, distZ);
+                        distZ = (distZ === minXYZ) ? distZ+1*zmod : 0;
+                        distY = (distY === minXYZ) ? distY+1*ymod : 0;
+                        distX = (distX === minXYZ) ? distX+1*xmod : 0;
+
+                        nodePos[i][j].x += distX;
+                        nodePos[i][j].y += distY;
+                        nodePos[i][j].z += distZ;
                     }
-
-                    var distToLeft = nodePos[i][j].x - bbox.min.x;
-                    var distToRight = bbox.max.x - nodePos[i][j].x;
-                    var distX = Math.min(distToLeft, distToRight);
-                    if (distX === distToLeft) {
-                        var xmod = -1.01;
-                    } else {
-                        var xmod = 1.01;
-                    }
-
-                    var distToFront = bbox.max.z - nodePos[i][j].z;
-                    var distToBack = nodePos[i][j].z - bbox.min.z;
-                    var distZ = Math.min(distToFront, distToBack);
-                    if (distZ === distToBack) {
-                        var zmod = -1.01;
-                    } else {
-                        var zmod = 1.01;
-                    }
-
-                    var minXYZ = Math.min(distX, distY, distZ);
-                    distZ = (distZ === minXYZ) ? distZ+1*zmod : 0;
-                    distY = (distY === minXYZ) ? distY+1*ymod : 0;
-                    distX = (distX === minXYZ) ? distX+1*xmod : 0;
-
-                    nodePos[i][j].x += distX;
-                    nodePos[i][j].y += distY;
-                    nodePos[i][j].z += distZ;
                 }
-
-                if (kiwiHead.position.distanceTo(nodePos[i][j]) < 1+headRad) {
-                    var dir = nodePos[i][j].clone();
-                    dir.sub(kiwiHead.position);
-
-                    dir.normalize();
-
-                    var odir = dir.clone();
-                    odir.multiplyScalar(1+headRad);
-                    odir.add(kiwiHead.position);
-                    nodePos[i][j].x = odir.x;
-                    nodePos[i][j].y = odir.y;
-                    nodePos[i][j].z = odir.z;
-
-                    var dot = nodeVel[i][j].dot(dir);
-                    dir.multiplyScalar(dot*(1+0.1));
-                    nodeVel[i][j].sub(dir);
-                }
-
-                if (kiwiBod.position.distanceTo(nodePos[i][j]) < 1+bodRad) {
-                    var dir = nodePos[i][j].clone();
-                    dir.sub(kiwiBod.position);
-
-                    dir.normalize();
-
-                    var odir = dir.clone();
-                    odir.multiplyScalar(1+bodRad);
-                    odir.add(kiwiBod.position);
-                    nodePos[i][j].x = odir.x;
-                    nodePos[i][j].y = odir.y;
-                    nodePos[i][j].z = odir.z;
-
-                    var dot = nodeVel[i][j].dot(dir);
-                    dir.multiplyScalar(dot*(1+0.001));
-                    nodeVel[i][j].sub(dir);
+                
+                if (simControlObj.kiwiAlive) {
+                    if (kiwiHead.position.distanceTo(nodePos[i][j]) < 1+headRad) {
+                        var dir = nodePos[i][j].clone();
+                        dir.sub(kiwiHead.position);
+    
+                        dir.normalize();
+    
+                        var odir = dir.clone();
+                        odir.multiplyScalar(1+headRad);
+                        odir.add(kiwiHead.position);
+                        nodePos[i][j].x = odir.x;
+                        nodePos[i][j].y = odir.y;
+                        nodePos[i][j].z = odir.z;
+    
+                        var dot = nodeVel[i][j].dot(dir);
+                        dir.multiplyScalar(dot*(1+0.1));
+                        nodeVel[i][j].sub(dir);
+                    }
+    
+                    if (kiwiBod.position.distanceTo(nodePos[i][j]) < 1+bodRad) {
+                        var dir = nodePos[i][j].clone();
+                        dir.sub(kiwiBod.position);
+    
+                        dir.normalize();
+    
+                        var odir = dir.clone();
+                        odir.multiplyScalar(1+bodRad);
+                        odir.add(kiwiBod.position);
+                        nodePos[i][j].x = odir.x;
+                        nodePos[i][j].y = odir.y;
+                        nodePos[i][j].z = odir.z;
+    
+                        var dot = nodeVel[i][j].dot(dir);
+                        dir.multiplyScalar(dot*(1+0.001));
+                        nodeVel[i][j].sub(dir);
+                    }
                 }
             }
         }
@@ -779,12 +776,15 @@ function updatePosAndColor() {
     for (let i = 0; i < vertNodes; i++) {
         for (let j = 0; j < horizNodes; j++) {
             positionAttribute.setXYZ( i*horizNodes+j, nodePos[i][j].x, nodePos[i][j].y, nodePos[i][j].z );
-            colorAttribute.setXYZ(
-                i*horizNodes+j, 
-                (nodePos[i][j].x*10%256)/256,
-                (nodePos[i][j].y*20%256)/256,
-                (nodePos[i][j].z*30%256)/256
-            );
+            if (cloth.material.vertexColors) {
+                colorAttribute.setXYZ(
+                    i*horizNodes+j, 
+                    (nodePos[i][j].x*10%256)/256,
+                    (nodePos[i][j].y*20%256)/256,
+                    (nodePos[i][j].z*30%256)/256
+                );
+                cloth.geometry.attributes.color.needsUpdate = true;
+            }
         }
     }
 }
@@ -804,7 +804,7 @@ function animate() {
     var dt = (now - prevTime) / 1000;
     prevTime = now;
 
-    if (modelReady) {
+    if (simControlObj.kiwiAlive) {
         kiwiGroup.position.set(
             kiwiBod.position.x+bodXOff, 
             kiwiBod.position.y+bodYOff, 
@@ -815,6 +815,9 @@ function animate() {
             kiwiBod.position.y+headYOff,
             kiwiBod.position.z+headZOff
         );
+        if (!paused) mixer.update(dt);
+    }
+    if (simControlObj.bathAlive) {
         bath.position.set(
             bathHB.position.x,
             bathHB.position.y-8.75,
@@ -829,18 +832,13 @@ function animate() {
 
     // checkKeyPressed();
     totalDT += 1;
-    if (!paused) mixer.update(dt);
     for (let i = 0; i < numTimesteps; i++) {
-        update(1/numTimesteps);
+        update(1/ndt);
     }
     // tempAnim();
     updatePosAndColor();
     orbitControls.update(1*dt);
 
-    if (cloth.material.vertexColors) {
-        console.log("updating color");
-        cloth.geometry.attributes.color.needsUpdate = true;
-    }
     cloth.geometry.attributes.position.needsUpdate = true;
     cloth.geometry.computeVertexNormals(true);
     cloth.geometry.normalsNeedUpdate = true;
