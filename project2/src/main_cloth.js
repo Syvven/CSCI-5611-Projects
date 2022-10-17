@@ -6,15 +6,19 @@ import {FlyControls} from './FlyControls.js';
 import {OrbitControls} from './OrbitControls.js';
 import {DragControls} from './DragControls.js';
 import WebGL from './webGLCheck.js';
+import { OBJLoader } from './OBJLoader.js';
+import { MTLLoader } from './MTLLoader.js';
+
+// https://www.cgtrader.com/items/2766614/download-page 
 
 // scene globals
-var scene, renderer, loader;
+var scene, renderer, loader, objLoader, mtlLoader;
 var flyControls, orbitControls, camera;
 var raycaster, dragControls;
 var kiwi, mixer;
 var kiwiBod, kiwiHead, kiwiGroup;
 var bodRad = 6; var headRad = 5;
-var modelReady = false;
+var modelReady = false; 
 
 // other render globals
 var prevTime;
@@ -31,6 +35,7 @@ var nodePos, nodeVel, nodeAcc, vertNodes, horizNodes;
 var currAcc, futureVel, futurePos;
 var objArr, controlArr;
 var cloth;
+var bathHB, bath
 
 // stats and gui
 var totalDT, stats;
@@ -142,91 +147,40 @@ function setup() {
     }
 
     var geo = new THREE.PlaneGeometry(restLen * horizNodes, restLen * vertNodes, horizNodes-1, vertNodes-1);
+    geo.setAttribute('color', new THREE.BufferAttribute(
+        new Float32Array(horizNodes*vertNodes*3),
+        3
+    ));
     // console.log(geo.positions)
     // var positions = new Float32Array((horizNodes-1)*(vertNodes-1)*18);
     // var index = 0;
     const positionAttribute = geo.getAttribute( 'position' );
-    console.log(positionAttribute);
+    const colorAttribute = geo.getAttribute( 'color' );
     for (let i = 0; i < vertNodes; i++) {
         for (let j = 0; j < horizNodes; j++) {
             positionAttribute.setXYZ( i*horizNodes+j, nodePos[i][j].x, nodePos[i][j].y, nodePos[i][j].z );
-            // for (let i = 0; i < vertNodes-1; i++) {
-    //     for (let j = 0; j < horizNodes-1; j++) {
-    //         var positions = objArr[i][j].geometry.attributes.position.array;
-    //         var colors = objArr[i][j].geometry.attributes.color.array;
-
-    //         var pos = nodePos[i][j];
-    //         var a = ((pos.y*10)%256)/256;
-    //         var b = ((pos.y*20)%256)/256;
-    //         var c = ((pos.z*30)%256)/256;
-    //         // tleft vert
-    //         positions[0] = pos.x;
-    //         positions[1] = pos.y;
-    //         positions[2] = pos.z;
-    //         colors[0] = a;
-    //         colors[1] = b;
-    //         colors[2] = c;
-
-    //         // bRight vert
-    //         positions[15] = pos.x;
-    //         positions[16] = pos.y;
-    //         positions[17] = pos.z;
-    //         colors[15] = a;
-    //         colors[16] = b;
-    //         colors[17] = c;
-
-    //         pos = nodePos[i][j+1];
-    //         // tRight vert
-    //         positions[3] = pos.x;
-    //         positions[4] = pos.y;
-    //         positions[5] = pos.z;
-    //         colors[3] = ((pos.y*10)%256)/256;
-    //         colors[4] = ((pos.y*20)%256)/256;
-    //         colors[5] = ((pos.z*30)%256)/256;
-
-    //         pos = nodePos[i+1][j+1];
-    //         a = ((pos.y*10)%256)/256;
-    //         b = ((pos.y*20)%256)/256;
-    //         c = ((pos.z*30)%256)/256;
-    //         positions[6] = pos.x;
-    //         positions[7] = pos.y;
-    //         positions[8] = pos.z;
-    //         colors[6] = a;
-    //         colors[7] = b;
-    //         colors[8] = c;
-
-    //         // bLeft vert
-    //         positions[9] = pos.x;
-    //         positions[10] = pos.y;
-    //         positions[11] = pos.z;
-    //         colors[9] = a;
-    //         colors[10] = b;
-    //         colors[11] = c;
-            
-    //         pos = nodePos[i+1][j];
-    //         positions[12] = pos.x;
-    //         positions[13] = pos.y;
-    //         positions[14] = pos.z;
-    //         colors[12] = ((pos.y*10)%256)/256;
-    //         colors[13] = ((pos.y*20)%256)/256;
-    //         colors[14] = ((pos.z*30)%256)/256;
-    //     }
-    // }
+            colorAttribute.setXYZ(
+                i*horizNodes+j, 
+                (nodePos[i][j].x*10%256)/256,
+                (nodePos[i][j].y*20%256)/256,
+                (nodePos[i][j].z*30%256)/256
+            );
         }
     }
     // geo.setAttribute('position', new THREE.BufferAttribute(positions, 3));
     var material = new THREE.MeshPhysicalMaterial({
         side: THREE.DoubleSide,
+        vertexColors: true
     });
-    material.reflectivity = 0
-    material.transmission = 1
-    material.roughness = 0.5
-    material.metalness = 0
-    material.clearcoat = 0.3
-    material.clearcoatRoughness = 0.25
-    material.color = new THREE.Color(0xffffff)
-    material.ior = 1.7
-    material.thickness = 10.0
+    // material.reflectivity = 0
+    // material.transmission = 1
+    // material.roughness = 0.5
+    // material.metalness = 0
+    // material.clearcoat = 0.3
+    // material.clearcoatRoughness = 0.25
+    // material.color = new THREE.Color(0xffffff)
+    // material.ior = 1.7
+    // material.thickness = 10.0
     cloth = new THREE.Mesh(geo, material);
     scene.add(cloth);
 
@@ -321,6 +275,40 @@ function setup() {
 
     // kiwi loading, only do after cloth is done
     loader = new GLTFLoader();
+    objLoader = new OBJLoader();
+    mtlLoader = new MTLLoader();
+    
+    mtlLoader.load("../models/bath.mtl", function(mtl) {
+        objLoader.setMaterials(mtl);
+    });
+
+    objLoader.load("../models/bath.obj", function(obj) {
+        bathHB = new THREE.Mesh(
+            new THREE.BoxGeometry(22,17.5,52),
+            new THREE.MeshBasicMaterial(
+                {
+                    transparent: true,
+                    opacity: 0
+                }
+            )
+        );
+
+        obj.scale.set(0.03,0.03,0.03);
+        obj.rotation.y = Math.PI/2;
+        obj.position.y = 0.1
+
+        bathHB.position.set(
+            obj.position.x,
+            obj.position.y+8.75,
+            obj.position.z-0.25
+        );
+
+        bath = obj;
+
+        scene.add(bathHB);
+        scene.add(obj);
+        controlArr.push(bathHB);
+    });
 
     loader.load('../models/kiwi.glb', function(gltf) {
         kiwi = gltf.scene;
@@ -424,7 +412,7 @@ function setup() {
         top: false,
         left: false,
         right: false,
-        bot: false
+        bot: false,
     }
     const clothFolder = gui.addFolder("Cloth Controls");
     clothFolder.add(clothObj, 'k', 0, 5000, 5).name('Spring Coefficient').onChange(() => {
@@ -484,10 +472,38 @@ function setup() {
             botRightNode.position.copy(ogBotLeftNodePos);
         }
     });
+
+
     clothFolder.add(clothObj, 'top').name("Pin Top Row");
     clothFolder.add(clothObj, 'bot').name("Pin Bottom Row");
     clothFolder.add(clothObj, 'left').name("Pin Left Column");
     clothFolder.add(clothObj, 'right').name("Pin Right Column");
+
+    const colorFolder = gui.addFolder("Cloth Colors");
+    colorFolder.add(cloth.material, 'vertexColors');
+    colorFolder
+        .addColor(cloth.material, 'attenuationColor')
+        .name("Attenuation Color")
+        .onChange((value) => cloth.material.attenutationColor = value);
+    colorFolder.add(cloth.material, 'attenuationDistance').name('Attenuation Distance');
+    colorFolder.add(cloth.material, 'clearcoat', 0.0, 1.0, 0.01).name("Clear Coat");
+    colorFolder.add(cloth.material, 'clearcoatRoughness', 0.0, 1.0, 0.01).name("Clear Coat Roughness");
+    colorFolder.add(cloth.material, 'ior', 1.0, 2.333, 0.001).name("Index of Refraction");
+    colorFolder.add(cloth.material, 'reflectivity', 0.0, 1.0, 0.01).name("Reflectivity");
+    colorFolder.add(cloth.material, 'sheen', 0.0, 1.0, 0.01).name("Sheen");
+    colorFolder.add(cloth.material, 'sheenRoughness', 0.0, 1.0, 0.01).name("Sheen Roughness");
+    colorFolder
+        .addColor(cloth.material, 'sheenColor')
+        .name("Sheen Color")
+        .onChange((value) => cloth.material.sheenColor = value);
+    colorFolder.add(cloth.material, 'specularIntensity', 0.0, 1.0, 0.01).name("Specular Intensity");
+    colorFolder
+        .addColor(cloth.material, 'specularColor')
+        .name("Specular Color")
+        .onChange((value) => cloth.material.specularColor = value);
+    colorFolder.add(cloth.material, 'thickness', 0.0, 1000, 0.1).name("Thickness");
+    colorFolder.add(cloth.material, 'transmission', 0.0, 1.0, 0.01).name("Transmission");
+    colorFolder.add(cloth.material, 'opacity', 0.0, 1.0, 0.01).name("Opacity");
 
     var simControlObj = {
         reset: false,
@@ -678,6 +694,45 @@ function update(dt) {
                     nodeVel[i][j].add(fric);
                 }
 
+                var bbox = new THREE.Box3().setFromObject(bathHB);
+                if (bbox.containsPoint(nodePos[i][j])) {
+                    var distToTop = bbox.max.y - nodePos[i][j].y; 
+                    var distToBot = nodePos[i][j].y - bbox.min.y;
+                    var distY = Math.min(distToTop, distToBot);
+                    if (distY === distToBot) {
+                        var ymod = -1.01;
+                    } else {
+                        var ymod = 1.01;
+                    }
+
+                    var distToLeft = nodePos[i][j].x - bbox.min.x;
+                    var distToRight = bbox.max.x - nodePos[i][j].x;
+                    var distX = Math.min(distToLeft, distToRight);
+                    if (distX === distToLeft) {
+                        var xmod = -1.01;
+                    } else {
+                        var xmod = 1.01;
+                    }
+
+                    var distToFront = bbox.max.z - nodePos[i][j].z;
+                    var distToBack = nodePos[i][j].z - bbox.min.z;
+                    var distZ = Math.min(distToFront, distToBack);
+                    if (distZ === distToBack) {
+                        var zmod = -1.01;
+                    } else {
+                        var zmod = 1.01;
+                    }
+
+                    var minXYZ = Math.min(distX, distY, distZ);
+                    distZ = (distZ === minXYZ) ? distZ+1*zmod : 0;
+                    distY = (distY === minXYZ) ? distY+1*ymod : 0;
+                    distX = (distX === minXYZ) ? distX+1*xmod : 0;
+
+                    nodePos[i][j].x += distX;
+                    nodePos[i][j].y += distY;
+                    nodePos[i][j].z += distZ;
+                }
+
                 if (kiwiHead.position.distanceTo(nodePos[i][j]) < 1+headRad) {
                     var dir = nodePos[i][j].clone();
                     dir.sub(kiwiHead.position);
@@ -720,9 +775,16 @@ function update(dt) {
 
 function updatePosAndColor() {
     const positionAttribute = cloth.geometry.getAttribute( 'position' );
+    const colorAttribute = cloth.geometry.getAttribute( 'color' );
     for (let i = 0; i < vertNodes; i++) {
         for (let j = 0; j < horizNodes; j++) {
             positionAttribute.setXYZ( i*horizNodes+j, nodePos[i][j].x, nodePos[i][j].y, nodePos[i][j].z );
+            colorAttribute.setXYZ(
+                i*horizNodes+j, 
+                (nodePos[i][j].x*10%256)/256,
+                (nodePos[i][j].y*20%256)/256,
+                (nodePos[i][j].z*30%256)/256
+            );
         }
     }
 }
@@ -743,7 +805,6 @@ function animate() {
     prevTime = now;
 
     if (modelReady) {
-        // kiwiGroup.position.copy(kiwiBod.position);
         kiwiGroup.position.set(
             kiwiBod.position.x+bodXOff, 
             kiwiBod.position.y+bodYOff, 
@@ -754,6 +815,11 @@ function animate() {
             kiwiBod.position.y+headYOff,
             kiwiBod.position.z+headZOff
         );
+        bath.position.set(
+            bathHB.position.x,
+            bathHB.position.y-8.75,
+            bathHB.position.z+0.25
+        )
     }
 
     if (moveTopLeft) nodePos[0][0].copy(topLeftNode.position);
@@ -771,6 +837,10 @@ function animate() {
     updatePosAndColor();
     orbitControls.update(1*dt);
 
+    if (cloth.material.vertexColors) {
+        console.log("updating color");
+        cloth.geometry.attributes.color.needsUpdate = true;
+    }
     cloth.geometry.attributes.position.needsUpdate = true;
     cloth.geometry.computeVertexNormals(true);
     cloth.geometry.normalsNeedUpdate = true;
