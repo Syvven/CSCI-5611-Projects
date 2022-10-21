@@ -30,8 +30,7 @@ var airD, dragC;
 var floorY, radius, stringTop
 var restLen;
 var nodePos, nodeVel, nodeAcc, vertNodes, horizNodes;
-var currAcc, futureVel, futurePos;
-var objArr, controlArr;
+var currAcc, futureVel, futurePos, controlArr;
 var cloth;
 var bathHB, bath;
 

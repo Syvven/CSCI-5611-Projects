@@ -31,236 +31,68 @@ var cells = Array(numCellsX).fill(null).map(() =>
 var krd = 5; 
 var ksN = 1000;
 var ks = 1000;
-var ksr = 50;
+var ksr = 60;
 var gravity = new THREE.Vector3(0, -164, 0);
-var numParticles = 720; // make sure this divided by nLevels can be square rooted
+var numParticles = 1125; // make sure this divided by nLevels can be square rooted
 var nLevels = 5; 
 var perLevel = numParticles / nLevels
 var numXZ = Math.sqrt(perLevel);
-var pRad = 2;
-var drawRad = 10*pRad;
+var pRad = 1;
+var drawRad = 18*pRad;
 console.log(pRad);
 var particles = Array(numParticles);
 var particlesCreated = 0;
 
 // sim info
-var numTimesteps = 10;
+var numTimesteps = 5;
 var paused = true;
 var lWall, rWall, fWall, bWall;
+
+function inBounds(i, j, k) {
+    if (i === numCellsX || i < 0) return false;
+    if (j === numCellsY || j < 0) return false;
+    if (k === numCellsZ || k < 0) return false;
+    console.log(i, j, k)
+    return true;
+}
 
 class Cell {
     constructor(i, j, k, center) {
         this.counter = 0;
         this.i = i; this.j = j; this.k = k;
         this.center = center;
-        this.points = Array(numParticles);
+        this.points = [];
         this.adjCells = [];
-        if (i != 0 && j != 0 && k != 0) {
-            this.adjCells.push({
-                i: i-1,
-                j: j,
-                k: k
-            });
-            this.adjCells.push({
-                i: i,
-                j: j-1,
-                k: k
-            });
-            this.adjCells.push({
-                i: i,
-                j: j,
-                k: k-1
-            });
-            this.adjCells.push({
-                i: i-1,
-                j: j-1,
-                k: k
-            });
-            this.adjCells.push({
-                i: i,
-                j: j-1,
-                k: k-1
-            });
-            this.adjCells.push({
-                i: i-1,
-                j: j,
-                k: k-1
-            });
-            this.adjCells.push({
-                i: i-1,
-                j: j-1,
-                k: k-1
-            });
-        } else if (i != 0 && j != 0) {
-            this.adjCells.push({
-                i: i-1,
-                j: j,
-                k: k
-            });
-            this.adjCells.push({
-                i: i,
-                j: j-1,
-                k: k
-            });
-            this.adjCells.push({
-                i: i-1,
-                j: j-1,
-                k: k
-            });
-        } else if (i != 0 && k != 0) {
-            this.adjCells.push({
-                i: i-1,
-                j: j,
-                k: k
-            });
-            this.adjCells.push({
-                i: i-1,
-                j: j,
-                k: k-1
-            });
-            this.adjCells.push({
-                i: i,
-                j: j,
-                k: k-1
-            });
-        } else if (j != 0 && k != 0) {
-            this.adjCells.push({
-                i: i,
-                j: j-1,
-                k: k
-            });
-            this.adjCells.push({
-                i: i,
-                j: j,
-                k: k-1
-            });
-            this.adjCells.push({
-                i: i,
-                j: j-1,
-                k: k-1
-            });
-        } else if (i != 0) {
-            this.adjCells.push({
-                i: i-1,
-                j: j,
-                k: k
-            });
-        } else if (j != 0) {
-            this.adjCells.push({
-                i: i,
-                j: j-1,
-                k: k
-            });
-        } else if (k != 0) {
-            this.adjCells.push({
-                i: i,
-                j: j,
-                k: k-1
-            });
-        }
-        if (i != numCellsX-1 && j != numCellsY-1 && k != numCellsZ-1) {
-            this.adjCells.push({
-                i: i+1,
-                j: j,
-                k: k
-            });
-            this.adjCells.push({
-                i: i,
-                j: j+1,
-                k: k
-            });
-            this.adjCells.push({
-                i: i,
-                j: j,
-                k: k+1
-            });
-            this.adjCells.push({
-                i: i+1,
-                j: j+1,
-                k: k
-            });
-            this.adjCells.push({
-                i: i,
-                j: j+1,
-                k: k+1
-            });
-            this.adjCells.push({
-                i: i+1,
-                j: j,
-                k: k+1
-            });
-            this.adjCells.push({
-                i: i+1,
-                j: j+1,
-                k: k+1
-            });
-        }  else if (i != numCellsX-1 && j != numCellsY-1) {
-            this.adjCells.push({
-                i: i+1,
-                j: j,
-                k: k
-            });
-            this.adjCells.push({
-                i: i,
-                j: j+1,
-                k: k
-            });
-            this.adjCells.push({
-                i: i+1,
-                j: j+1,
-                k: k
-            });
-        } else if (i != numCellsX-1 && k != numCellsZ-1) {
-            this.adjCells.push({
-                i: i+1,
-                j: j,
-                k: k
-            });
-            this.adjCells.push({
-                i: i+1,
-                j: j,
-                k: k+1
-            });
-            this.adjCells.push({
-                i: i,
-                j: j,
-                k: k+1
-            });
-        } else if (j != numCellsY-1 && k != numCellsZ-1) {
-            this.adjCells.push({
-                i: i,
-                j: j+1,
-                k: k
-            });
-            this.adjCells.push({
-                i: i,
-                j: j,
-                k: k+1
-            });
-            this.adjCells.push({
-                i: i,
-                j: j+1,
-                k: k+1
-            });
-        } else if (i != numCellsX-1) {
-            this.adjCells.push({
-                i: i+1,
-                j: j,
-                k: k
-            });
-        } else if (j != numCellsY-1) {
-            this.adjCells.push({
-                i: i,
-                j: j+1,
-                k: k
-            });
-        } else if (k != numCellsZ-1) {
-            this.adjCells.push({
-                i: i,
-                j: j,
-                k: k+1
-            });
-        } 
+    }
+    getAdjacent(i, j, k) {
+        if (inBounds(i+1, j, k)) this.adjCells.push(cells[i+1][j][k]);
+        if (inBounds(i, j+1, k)) this.adjCells.push(cells[i][j+1][k]);
+        if (inBounds(i, j, k+1)) this.adjCells.push(cells[i][j][k+1]);
+        if (inBounds(i+1, j+1, k)) this.adjCells.push(cells[i+1][j+1][k]);
+        if (inBounds(i+1, j, k+1)) this.adjCells.push(cells[i+1][j][k+1]);
+        if (inBounds(i, j+1, k+1)) this.adjCells.push(cells[i][j+1][k+1]);
+        if (inBounds(i+1, j+1, k+1)) this.adjCells.push(cells[i+1][j+1][k+1]);
+
+        if (inBounds(i-1, j, k)) this.adjCells.push(cells[i-1][j][k]);
+        if (inBounds(i, j-1, k)) this.adjCells.push(cells[i][j-1][k]);
+        if (inBounds(i, j, k-1)) this.adjCells.push(cells[i][j][k-1]);
+        if (inBounds(i-1, j-1, k)) this.adjCells.push(cells[i-1][j-1][k]);
+        if (inBounds(i-1, j, k-1)) this.adjCells.push(cells[i-1][j][k-1]);
+        if (inBounds(i, j-1, k-1)) this.adjCells.push(cells[i][j-1][k-1]);
+        if (inBounds(i-1, j-1, k-1)) this.adjCells.push(cells[i-1][j-1][k-1]);
+
+        if (inBounds(i-1, j-1, k+1)) this.adjCells.push(cells[i-1][j-1][k+1]);
+        if (inBounds(i-1, j+1, k-1)) this.adjCells.push(cells[i-1][j+1][k-1]);
+        if (inBounds(i+1, j-1, k-1)) this.adjCells.push(cells[i+1][j-1][k-1]);
+        if (inBounds(i+1, j+1, k-1)) this.adjCells.push(cells[i+1][j+1][k-1]);
+        if (inBounds(i+1, j-1, k+1)) this.adjCells.push(cells[i+1][j-1][k+1]);
+        if (inBounds(i-1, j+1, k+1)) this.adjCells.push(cells[i-1][j+1][k+1]);
+        if (inBounds(i+1, j-1, k)) this.adjCells.push(cells[i+1][j-1][k]);
+        if (inBounds(i-1, j+1, k)) this.adjCells.push(cells[i-1][j+1][k]);
+        if (inBounds(i+1, j, k-1)) this.adjCells.push(cells[i+1][j][k-1]);
+        if (inBounds(i-1, j, k+1)) this.adjCells.push(cells[i-1][j][k+1]);
+        if (inBounds(i, j+1, k-1)) this.adjCells.push(cells[i][j+1][k-1]);
+        if (inBounds(i, j-1, k+1)) this.adjCells.push(cells[i][j-1][k+1]);
     }
 }
 
@@ -303,11 +135,6 @@ function setup() {
     camera = new THREE.PerspectiveCamera( 60, window.innerWidth / window.innerHeight, 0.1, 5000 );
     camera.position.set( 300, 300, 300 );
     camera.lookAt( 0, 0, 0 );
-
-    // flyControls = new FlyControls(camera, renderer.domElement);
-    // flyControls.dragToLook = true;
-    // flyControls.movementSpeed = 10;
-    // flyControls.rollSpeed = 1;
 
     orbitControls = new OrbitControls(camera, renderer.domElement);
     orbitControls.enableDamping = true;
@@ -467,9 +294,9 @@ function setup() {
     hemiLight.position.set( 0, 300, 0 );
     scene.add( hemiLight );
 
-    const light = new THREE.PointLight(0xffffff);
-    light.position.set(0, 50, 50);
-    scene.add(light);
+    // const light = new THREE.PointLight(0xffffff);
+    // light.position.set(0, 50, 50);
+    // scene.add(light);
 
     // date for dt purposes
     prevTime = new Date();
@@ -491,6 +318,20 @@ function setup() {
                     )
                 );
                 cells[i][j][k] = cell;
+                // // cube representation just for testing
+                // var geometry = new THREE.BoxGeometry( cellW, cellL, cellH );
+                // var material = new THREE.MeshBasicMaterial( { color: 0x00ff00 } );
+                // var cube = new THREE.Mesh( geometry, material );
+                // cube.position.copy(cell.center);
+                // cube.material.wireframe = true;
+                // scene.add( cube );
+            }
+        }
+    }
+    for (let i = 0; i < numCellsX; i++) {
+        for (let j = 0; j < numCellsY; j++) {
+            for (let k = 0; k < numCellsZ; k++) {
+                cells[i][j][k].getAdjacent(i, j, k);
                 // // cube representation just for testing
                 // var geometry = new THREE.BoxGeometry( cellW, cellL, cellH );
                 // var material = new THREE.MeshBasicMaterial( { color: 0x00ff00 } );
@@ -524,16 +365,16 @@ function setup() {
     simInfoFolder.add(simInfoObj, 'paused').name("Pause").onChange(() => {
         paused = !paused;
     });
-    simInfoFolder.add(simInfoObj, 'ks', 0, 1000, 0.01).name("ks").onChange(() => {
+    simInfoFolder.add(simInfoObj, 'ks', 0, 5000, 0.01).name("ks").onChange(() => {
         ks = simInfoObj.ks;
     });
-    simInfoFolder.add(simInfoObj, 'krd', 0, 1000, 0.01).name("krd").onChange(() => {
+    simInfoFolder.add(simInfoObj, 'krd', 0, 5000, 0.01).name("krd").onChange(() => {
         krd = simInfoObj.krd;
     });
-    simInfoFolder.add(simInfoObj, 'ksr', 0, 1000, 0.01).name("ksr").onChange(() => {
+    simInfoFolder.add(simInfoObj, 'ksr', 0, 5000, 0.01).name("ksr").onChange(() => {
         ksr = simInfoObj.ksr;
     });
-    simInfoFolder.add(simInfoObj, 'ksN', 0, 1000, 0.01).name("ksN").onChange(() => {
+    simInfoFolder.add(simInfoObj, 'ksN', 0, 5000, 0.01).name("ksN").onChange(() => {
         ksN = simInfoObj.ksN;
     });
     simInfoFolder.add(simInfoObj.gravity, 'y', -1000, 1000, 0.01).name("Gravity Y").onChange(() => {
@@ -549,7 +390,7 @@ function createParticles() {
                 if (particlesCreated > 0) {
                     scene.remove(particles[index].obj);
                 }
-                var geometry = new THREE.SphereGeometry(drawRad, 16, 16);
+                var geometry = new THREE.SphereGeometry(drawRad, 10, 10);
                 var material = new THREE.MeshPhysicalMaterial({color: 0x00f0ff});
                 var a = Math.random();
                 var b = Math.random();
@@ -572,9 +413,9 @@ function createParticles() {
                 material.transmission = 1.0
                 material.roughness = 0.7
                 material.metalness = 0
-                material.clearcoat = 0.3
+                material.clearcoat = 0
                 material.clearcoatRoughness = 0.25
-                material.color = new THREE.Color(0x9999ff)
+                material.color = new THREE.Color(0x0000ff)
                 material.ior = 1.2
                 material.thickness = 10.0
                 particle.obj.position.copy(particle.pos);
@@ -594,13 +435,14 @@ function createParticles() {
                 }
 
                 particle.cell = minCell;
-                minCell.points[index] = particle;
+                minCell.points.push(particle);
 
                 scene.add(particle.obj);
                 particles[index++] = particle;
             }
         } 
     }
+    console.log(particles);
     particlesCreated += numParticles;
     if (particlesCreated > numParticles) particlesCreated = numParticles;
 }
@@ -617,27 +459,27 @@ function update(dt) {
 
         if (p.pos.y < drawRad) {
             p.pos.y = drawRad+2;
-            p.vel.y *= -0.5;
+            p.vel.y *= -0.3;
         }
         if (p.pos.y > tH) {
             p.pos.y = tH-drawRad+2;
-            p.vel.y *= -0.5;
+            p.vel.y *= -0.3;
         }
         if (p.pos.x < bWall.position.x+drawRad) {
             p.pos.x = bWall.position.x+drawRad+1;
-            p.vel.x *= -0.5;
+            p.vel.x *= -0.3;
         }
         if (p.pos.x > fWall.position.x-drawRad) {
             p.pos.x = fWall.position.x-drawRad-1;
-            p.vel.x *= -0.5;
+            p.vel.x *= -0.3;
         }
         if (p.pos.z < lWall.position.z+drawRad) {
             p.pos.z = lWall.position.z+drawRad+1;
-            p.vel.z *= -0.5;
+            p.vel.z *= -0.3;
         }
         if (p.pos.z > rWall.position.z-drawRad) {
             p.pos.z = rWall.position.z-drawRad-1;
-            p.vel.z *= -0.5;
+            p.vel.z *= -0.3;
         }
 
         p.oldPos = p.pos.clone();
@@ -668,15 +510,17 @@ function update(dt) {
     for (let i = 0; i < numParticles; i++) {
         var p = particles[i];
         for (let j = 0; j < p.cell.points.length; j++) {
-            if (p.cell.points[j] != null) {
+            if (p.cell.points[j] != null && i < p.cell.points[j].listInd) {
                 var dist = p.pos.distanceTo(p.cell.points[j].pos);
                 if (dist < ksr) {
                     var q = 1 - (dist/ksr);
-                    pairs.push(new Pair(
-                        p,
-                        p.cell.points[j], 
-                        q
-                    ));
+                    pairs.push({
+                        p1: p,
+                        p2: p.cell.points[j], 
+                        q: q,
+                        q2: q*q,
+                        q3: q*q*q
+                    });
                 }
             }
         }
@@ -685,15 +529,17 @@ function update(dt) {
             var ind = p.cell.adjCells[j];
             var c = cells[ind.i][ind.j][ind.k];
             for (let k = 0; k < c.points.length; k++) {
-                if (c.points[k] != null) {
+                if (c.points[k] != null && i < c.points[k].listInd) {
                     var dist = p.pos.distanceTo(c.points[k].pos);
                     if (dist < ksr) {
                         var q = 1 - (dist/ksr);
-                        pairs.push(new Pair(
-                            p,
-                            c.points[k],
-                            q
-                        ));
+                        pairs.push({
+                            p1: p,
+                            p2: c.points[k], 
+                            q: q,
+                            q2: q*q,
+                            q3: q*q*q
+                        });
                     }
                 }
             }
