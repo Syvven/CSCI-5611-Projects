@@ -295,15 +295,15 @@ function setup() {
         left: false,
         right: false,
         bot: false,
-        horizNodes: horizNodes,
-        vertNodes: vertNodes
+        horizNodes: 12,
+        vertNodes: 20
     }
     const clothFolder = gui.addFolder("Cloth Controls");
-    clothFolder.add(clothObj, 'vertNodes', 1, 50).name('Vertical Nodes').onChange(() => {
+    clothFolder.add(clothObj, 'vertNodes').name('Vertical Nodes').onChange(() => {
         vertNodes = clothObj.vertNodes;
         reset();
     });
-    clothFolder.add(clothObj, 'horizNodes', 1, 50).name('Horizontal Nodes').onChange(() => {
+    clothFolder.add(clothObj, 'horizNodes').name('Horizontal Nodes').onChange(() => {
         horizNodes = clothObj.horizNodes;
         reset();
     });
