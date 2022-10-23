@@ -16,7 +16,7 @@ var orbitControls, camera;
 var raycaster, dragControls;
 var kiwi, mixer;
 var kiwiBod, kiwiHead, kiwiGroup;
-var bodRad = 6; var headRad = 5;
+var bodRad = 7; var headRad = 5;
 
 // other render globals
 var prevTime;
@@ -30,7 +30,8 @@ var airD, dragC;
 var floorY, radius, stringTop
 var restLen;
 var nodePos, nodeVel, nodeAcc, vertNodes, horizNodes;
-var currAcc, futureVel, futurePos, controlArr;
+var currAcc, futureVel, futurePos;
+var objArr, controlArr;
 var cloth;
 var bathHB, bath;
 
@@ -104,11 +105,11 @@ function setup() {
     floorY = 0.0; radius = 5.0;
     mass = 1; k = 100; kv = 50; kfric = 1;
     dragC = 9; airD = 0.8;
-    vertNodes = 15; horizNodes = 10;
+    vertNodes = 20; horizNodes = 12;
     gravity = new THREE.Vector3(0.0, -0.2, 0.0);
     wind = new THREE.Vector3(0.0, 0.0, 0.4);
     stringTop = new THREE.Vector3(0.0, 50.0, 0.0);
-    restLen = 3;
+    restLen = 2;
 
     currAcc = Array(vertNodes).fill(null).map(() => Array(horizNodes));
     futureVel = Array(vertNodes).fill(null).map(() => Array(horizNodes));
@@ -294,8 +295,18 @@ function setup() {
         left: false,
         right: false,
         bot: false,
+        horizNodes: horizNodes,
+        vertNodes: vertNodes
     }
     const clothFolder = gui.addFolder("Cloth Controls");
+    clothFolder.add(clothObj, 'vertNodes', 1, 50).name('Vertical Nodes').onChange(() => {
+        vertNodes = clothObj.vertNodes;
+        reset();
+    });
+    clothFolder.add(clothObj, 'horizNodes', 1, 50).name('Horizontal Nodes').onChange(() => {
+        horizNodes = clothObj.horizNodes;
+        reset();
+    });
     clothFolder.add(clothObj, 'k', 0, 5000, 5).name('Spring Coefficient').onChange(() => {
         k = clothObj.k;
     });
@@ -764,6 +775,8 @@ function update(dt) {
                         nodeVel[i][j].sub(dir);
                     }
                 }
+            } else {
+                nodeVel[i][j].x = 0; nodeVel[i][j].y = 0; nodeVel[i][j].z = 0;
             }
         }
     }
@@ -788,7 +801,7 @@ function updatePosAndColor() {
     }
 }
 
-var bodXOff = 0; var bodYOff = -2; var bodZOff = 3;
+var bodXOff = 0; var bodYOff = -2; var bodZOff = 3.5;
 var headXOff = 0; var headYOff = 6; var headZOff = 5;
 
 function tempAnim() {
@@ -877,6 +890,14 @@ function onWindowResize(){
 }
 
 function reset() {
+    currAcc = Array(vertNodes).fill(null).map(() => Array(horizNodes));
+    futureVel = Array(vertNodes).fill(null).map(() => Array(horizNodes));
+    futurePos = Array(vertNodes).fill(null).map(() => Array(horizNodes));
+
+    nodePos = Array(vertNodes).fill(null).map(() => Array(horizNodes));
+    nodeVel = Array(vertNodes).fill(null).map(() => Array(horizNodes));
+    nodeAcc = Array(vertNodes).fill(null).map(() => Array(horizNodes));
+
     for (let i = 0; i < vertNodes; i++) {
         for (let j = 0; j < horizNodes; j++) {
             nodePos[i][j] = new THREE.Vector3(
@@ -892,6 +913,36 @@ function reset() {
     if (moveTopRight) topRightNode.position.copy(nodePos[0][horizNodes-1]);
     if (moveBotLeft) botLeftNode.position.copy(nodePos[vertNodes-1][0]);
     if (moveBotRight) botRightNode.position.copy(nodePos[vertNodes-1][horizNodes-1]);
+
+    scene.remove(cloth);
+
+    var geo = new THREE.PlaneGeometry(restLen * horizNodes, restLen * vertNodes, horizNodes-1, vertNodes-1);
+    geo.setAttribute('color', new THREE.BufferAttribute(
+        new Float32Array(horizNodes*vertNodes*3),
+        3
+    ));
+
+    const positionAttribute = geo.getAttribute( 'position' );
+    const colorAttribute = geo.getAttribute( 'color' );
+    for (let i = 0; i < vertNodes; i++) {
+        for (let j = 0; j < horizNodes; j++) {
+            positionAttribute.setXYZ( i*horizNodes+j, nodePos[i][j].x, nodePos[i][j].y, nodePos[i][j].z );
+            colorAttribute.setXYZ(
+                i*horizNodes+j, 
+                (nodePos[i][j].x*10%256)/256,
+                (nodePos[i][j].y*20%256)/256,
+                (nodePos[i][j].z*30%256)/256
+            );
+        }
+    }
+    // geo.setAttribute('position', new THREE.BufferAttribute(positions, 3));
+    var material = new THREE.MeshPhysicalMaterial({
+        side: THREE.DoubleSide,
+        vertexColors: true
+    });
+    
+    cloth = new THREE.Mesh(geo, material);
+    scene.add(cloth);
     
     updatePosAndColor();
 }
