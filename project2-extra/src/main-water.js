@@ -13,35 +13,29 @@ var renderer, camera, scene, orbitControls;
 var stats, prevTime, gui, dragControls;
 
 // Cell / Particle info
-var numCellsX = 1; var cellW = 400/numCellsX;
-var numCellsY = 1; var cellH = 400/numCellsY;
-var numCellsZ = 1; var cellL = 400/numCellsZ;
+var numCellsX = 20; var cellW = 400/numCellsX;
+var numCellsY = 20; var cellH = 400/numCellsY;
+var numCellsZ = 20; var cellL = 400/numCellsZ;
 var tW = cellW * numCellsX;
 var tL = cellL * numCellsZ;
 var tH = cellH * numCellsY;
-var htW = tW*0.5;
-var htL = tL*0.5;
-var htH = tH*0.5;
 var cells = Array(numCellsX).fill(null).map(() => 
     Array(numCellsY).fill(null).map(() => 
         Array(numCellsZ)
     )
 );
 
-var krd = 5; 
-var ksN = 1000;
-var ks = 1000;
-var ksr = 60;
-var gravity = new THREE.Vector3(0, -164, 0);
-var numParticles = 1125; // make sure this divided by nLevels can be square rooted
+var krd = 1; 
+var ksN = 200;
+var ks = 200;
+var ksr = 30;
+var gravity = new THREE.Vector3(0, -100, 0);
+var numParticles = 2000; // make sure this divided by nLevels can be square rooted
 var nLevels = 5; 
 var perLevel = numParticles / nLevels
 var numXZ = Math.sqrt(perLevel);
-var pRad = 1;
-var drawRad = 18*pRad;
-console.log(pRad);
-var particles = Array(numParticles);
-var particlesCreated = 0;
+var drawRad = 20;
+var particles;
 
 // sim info
 var numTimesteps = 5;
@@ -49,10 +43,9 @@ var paused = true;
 var lWall, rWall, fWall, bWall;
 
 function inBounds(i, j, k) {
-    if (i === numCellsX || i < 0) return false;
-    if (j === numCellsY || j < 0) return false;
-    if (k === numCellsZ || k < 0) return false;
-    console.log(i, j, k)
+    if (i == numCellsX || i < 0) return false;
+    if (j == numCellsY || j < 0) return false;
+    if (k == numCellsZ || k < 0) return false;
     return true;
 }
 
@@ -64,6 +57,7 @@ class Cell {
         this.points = [];
         this.adjCells = [];
     }
+    // this should be called after all cells are created
     getAdjacent(i, j, k) {
         if (inBounds(i+1, j, k)) this.adjCells.push(cells[i+1][j][k]);
         if (inBounds(i, j+1, k)) this.adjCells.push(cells[i][j+1][k]);
@@ -109,13 +103,6 @@ class Particle {
         this.listInd = listInd;
         this.cell = null;
         this.cellIndex = -1;
-    }
-}
-
-class Pair {
-    constructor(p1, p2, q) {
-        this.p1 = p1; this.p2 = p2;
-        this.q = q; this.q2 = q*q; this.q3 = q*q*q;
     }
 }
 
@@ -318,13 +305,6 @@ function setup() {
                     )
                 );
                 cells[i][j][k] = cell;
-                // // cube representation just for testing
-                // var geometry = new THREE.BoxGeometry( cellW, cellL, cellH );
-                // var material = new THREE.MeshBasicMaterial( { color: 0x00ff00 } );
-                // var cube = new THREE.Mesh( geometry, material );
-                // cube.position.copy(cell.center);
-                // cube.material.wireframe = true;
-                // scene.add( cube );
             }
         }
     }
@@ -332,13 +312,6 @@ function setup() {
         for (let j = 0; j < numCellsY; j++) {
             for (let k = 0; k < numCellsZ; k++) {
                 cells[i][j][k].getAdjacent(i, j, k);
-                // // cube representation just for testing
-                // var geometry = new THREE.BoxGeometry( cellW, cellL, cellH );
-                // var material = new THREE.MeshBasicMaterial( { color: 0x00ff00 } );
-                // var cube = new THREE.Mesh( geometry, material );
-                // cube.position.copy(cell.center);
-                // cube.material.wireframe = true;
-                // scene.add( cube );
             }
         }
     }
@@ -349,18 +322,21 @@ function setup() {
     // base is 246
     gui.width = 300;
 
-    var simInfoObj = {
+    simInfoObj = {
         reset: false,
         paused: paused,
         ks: ks,
         krd: krd,
         ksr: ksr,
         ksN: ksN,
-        gravity: gravity
+        gravity: gravity,
+        partRad: drawRad,
+        numParts: numParticles,
+        numCells: 20,
     }
     const simInfoFolder = gui.addFolder("Sim Info");
     simInfoFolder.add(simInfoObj, 'reset').name("Reset").onChange(() => {
-        createParticles();
+        reset();
     });
     simInfoFolder.add(simInfoObj, 'paused').name("Pause").onChange(() => {
         paused = !paused;
@@ -380,30 +356,93 @@ function setup() {
     simInfoFolder.add(simInfoObj.gravity, 'y', -1000, 1000, 0.01).name("Gravity Y").onChange(() => {
         gravity.y = simInfoObj.gravity.y;
     });
+    simInfoFolder.add(simInfoObj, 'partRad', drawRad).name("Particle Radius").onChange(() => {
+        drawRad = simInfoObj.partRad;
+        reset();
+    })
+    simInfoFolder.add(simInfoObj, 'numParts', numParticles).name("Total Particles").onChange(() => {
+        reset();
+    })
+    simInfoFolder.add(simInfoObj, 'numCells', 0).name("Cells").onChange(() => {
+        numCellsX = simInfoObj.numCells;
+        numCellsY = simInfoObj.numCells;
+        numCellsZ = simInfoObj.numCells;
+        reset();
+    })
 }   
+
+var simInfoObj;
+var prevParticles = numParticles;
+function reset() {
+    prevParticles = numParticles;
+    numParticles = simInfoObj.numParts;
+
+    for (let i = 0; i < prevParticles; i++) {
+        scene.remove(particles[i].obj);
+        particles[i].cell.points.length = 0;
+    }
+
+    cellW = 400/numCellsX;
+    cellH = 400/numCellsY;
+    cellL = 400/numCellsZ;
+    tW = cellW * numCellsX;
+    tL = cellL * numCellsZ;
+    tH = cellH * numCellsY;
+    cells = Array(numCellsX).fill(null).map(() =>
+        Array(numCellsY).fill(null).map(() => 
+            Array(numCellsZ)
+        )
+    );
+
+    for (let i = 0; i < numCellsX; i++) {
+        for (let j = 0; j < numCellsY; j++) {
+            for (let k = 0; k < numCellsZ; k++) {
+                var cell = new Cell(
+                    i, j, k, 
+                    new THREE.Vector3(
+                        -tW*0.5+cellW*i+cellW*0.5,
+                        cellH * j + cellH/2,
+                        -tL*0.5+cellL*k+cellL*0.5
+                    )
+                );
+                cells[i][j][k] = cell;
+            }
+        }
+    }
+    for (let i = 0; i < numCellsX; i++) {
+        for (let j = 0; j < numCellsY; j++) {
+            for (let k = 0; k < numCellsZ; k++) {
+                cells[i][j][k].getAdjacent(i, j, k);
+            }
+        }
+    }
+    createParticles();
+}
 
 function createParticles() {
     var index = 0;
+    particles = Array(numParticles);
+    perLevel = numParticles / nLevels
+    numXZ = Math.sqrt(perLevel);
+
     for (let i = 0; i < numXZ; i++) {
         for (let k = 0; k < numXZ; k++) {
             for (let j = 0; j < nLevels; j++) {
-                if (particlesCreated > 0) {
-                    scene.remove(particles[index].obj);
-                }
                 var geometry = new THREE.SphereGeometry(drawRad, 10, 10);
                 var material = new THREE.MeshPhysicalMaterial({color: 0x00f0ff});
-                var a = Math.random();
-                var b = Math.random();
+                var offsetX = 200/numXZ;
+                var offsetZ = 200/numXZ;
+                var offsetY = drawRad;
                 var particle = new Particle(
                     new THREE.Vector3( // pos
-                        -tW*0.5+(drawRad-4)*2*i+drawRad+a,
-                        (drawRad-4)*2*j+drawRad + j + a + b,
-                        -tL*0.5+(drawRad-4)*2*k+drawRad+b
+                        -tW*0.5 + drawRad + offsetX*i,
+                        drawRad + offsetY*j*1.5,
+                        -tL*0.5 + drawRad + offsetZ*k
                     ),
                     new THREE.Vector3( // oldPos
-                        -tW*0.5+(drawRad-4)*2*i+drawRad+a,
-                        (drawRad-4)*2*j+drawRad + j + a + b,
-                        -tL*0.5+(drawRad-4)*2*k+drawRad+b
+                        -tW*0.5 + drawRad + offsetX*i,
+                        drawRad + offsetY*j*1.5,
+                        -tL*0.5 + drawRad + offsetZ*k
                     ),
                     new THREE.Vector3(0,0,0), // vel
                     new THREE.Mesh(geometry, material), // object
@@ -442,11 +481,9 @@ function createParticles() {
             }
         } 
     }
-    console.log(particles);
-    particlesCreated += numParticles;
-    if (particlesCreated > numParticles) particlesCreated = numParticles;
 }
 
+var changed = false;
 function update(dt) {
     var dtGrav = gravity.clone();
     dtGrav.multiplyScalar(dt);
@@ -467,19 +504,19 @@ function update(dt) {
         }
         if (p.pos.x < bWall.position.x+drawRad) {
             p.pos.x = bWall.position.x+drawRad+1;
-            p.vel.x *= -0.3;
+            p.vel.x *= -0.5;
         }
         if (p.pos.x > fWall.position.x-drawRad) {
             p.pos.x = fWall.position.x-drawRad-1;
-            p.vel.x *= -0.3;
+            p.vel.x *= -0.5;
         }
         if (p.pos.z < lWall.position.z+drawRad) {
             p.pos.z = lWall.position.z+drawRad+1;
-            p.vel.z *= -0.3;
+            p.vel.z *= -0.5;
         }
         if (p.pos.z > rWall.position.z-drawRad) {
             p.pos.z = rWall.position.z-drawRad-1;
-            p.vel.z *= -0.3;
+            p.vel.z *= -0.5;
         }
 
         p.oldPos = p.pos.clone();
@@ -489,20 +526,29 @@ function update(dt) {
         p.dens = 0.0;
         p.densN = 0.0;
 
-        if ( Math.abs(p.pos.x - p.cell.center.x) > cellW ||
-                Math.abs(p.pos.y - p.cell.center.y) > cellH ||
-                Math.abs(p.pos.z - p.cell.center.z) > cellL ) {
-            var i = p.cell.i; var j = p.cell.j; var k = p.cell.k;
-            if (p.pos.x > p.cell.center.x) (i == numCellsX-1) ? 0 : i++;
-            else (i == 0) ? 0 : i--;
-            if (p.pos.y > p.cell.center.y) (j == numCellsY-1) ? 0 : j++;
-            else (j == 0) ? 0 : j--;
-            if (p.pos.z > p.cell.center.z) (k == numCellsZ-1) ? 0 : k++;
-            else (k == 0) ? 0 : k--;
-            
-            p.cell.points[p.index] = null;
+        var i = p.cell.i; var j = p.cell.j; var k = p.cell.k;
+        if ( Math.abs(p.pos.x - p.cell.center.x) > (cellW*0.5) ) {
+            if (p.pos.x > p.cell.center.x) i += (i == numCellsX-1) ? 0 : 1;
+            else i -= (i == 0) ? 0 : 1;
+            changed = true;
+        }
+        if ( Math.abs(p.pos.y - p.cell.center.y) > (cellH*0.5) ) {
+            if (p.pos.y > p.cell.center.y) j += (j == numCellsY-1) ? 0 : 1;
+            else j -= (j == 0) ? 0 : 1;
+            changed = true;
+        }
+        if ( Math.abs(p.pos.z - p.cell.center.z) > (cellL*0.5) ) {
+            if (p.pos.z > p.cell.center.z) k += (k == numCellsZ-1) ? 0 : 1;
+            else k -= (k == 0) ? 0 : 1;
+            changed = true;
+        }
+        if (changed) {
+            p.cell.points = p.cell.points.filter((v) => {
+                return v !== p;
+            });
             p.cell = cells[i][j][k];
-            p.cell.points[p.index] = p;
+            p.cell.points.push(p);
+            changed = false;
         }
     }
 
@@ -526,8 +572,7 @@ function update(dt) {
         }
 
         for (let j = 0; j < p.cell.adjCells.length; j++) {
-            var ind = p.cell.adjCells[j];
-            var c = cells[ind.i][ind.j][ind.k];
+            var c = p.cell.adjCells[j];
             for (let k = 0; k < c.points.length; k++) {
                 if (c.points[k] != null && i < c.points[k].listInd) {
                     var dist = p.pos.distanceTo(c.points[k].pos);
