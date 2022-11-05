@@ -34,7 +34,7 @@ public:
 	Matrix* Gradient(int maxIter, bool inf);
 	Matrix* GradientMomentum(int maxIter, float beta, bool inf);
 	Matrix* GradientMomentumScale(int maxIter, float beta, float alpha, bool inf);
-	Matrix* CrossEntropy(int maxIter, bool inf, float mean=-6.0, float var=100.0);
+	Matrix* CrossEntropy(int maxIter, bool inf);
 	Matrix predict(Matrix& input);
 
 	// Printing stuff

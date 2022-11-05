@@ -212,7 +212,7 @@ Matrix* Network::GradientMomentumScale(int maxIter, float beta, float alpha, boo
 	return nullptr;
 }
 
-Matrix* Network::CrossEntropy(int maxIter, bool inf, float mean, float var) {
+Matrix* Network::CrossEntropy(int maxIter, bool inf) {
 	int input_rows = this->layers[0]->getWeights().getCols();
 	int input_cols = 1;
 
