@@ -64,7 +64,7 @@ function setup() {
     document.body.appendChild( renderer.domElement );
 
     // creates new camera / sets position / sets looking angle
-    camera = new THREE.PerspectiveCamera( 60, window.innerWidth / window.innerHeight, 0.1, 5000 );
+    camera = new THREE.OrthographicCamera( window.innerWidth / - 2, window.innerWidth / 2, window.innerHeight / 2, window.innerHeight / - 2, 1, 1000 );
     camera.position.set( 0, 50, 200 );
     camera.lookAt( 0, 0, 0 );
 
@@ -850,6 +850,7 @@ function animate() {
     // tempAnim();
     updatePosAndColor();
     orbitControls.update(1*dt);
+
 
     cloth.geometry.attributes.position.needsUpdate = true;
     cloth.geometry.computeVertexNormals(true);
