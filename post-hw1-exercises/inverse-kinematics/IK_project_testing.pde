@@ -120,9 +120,11 @@ void solve(){
             start_to_end = true;
         }
         segments.get(solve_end).start = endPoint;
+        segments.get(solve_end).a = total_angle;
 
-        for (int i = solve_start; i != solve_end; i+=solve_dir) {
+        for (int i = solve_end-solve_dir; i != solve_start; i-=solve_dir) {
             segments.get(i).switchEnds();
+            segments.get(i).a = segments.get(i+solve_dir).a - segments.get(i).a;
         }
 
         just_paused = true;
@@ -143,7 +145,6 @@ void fk(){
         }
         Vec2 res = new Vec2(cos(total_angle)*prev.l, sin(total_angle)*prev.l);
         segments.get(i).start = res.plus(prev.start);
-        segments.get(i).end = res.plus(prev.end);
     }
 
     total_angle = 0;
