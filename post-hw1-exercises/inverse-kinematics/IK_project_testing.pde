@@ -3,13 +3,13 @@ void setup(){
     size(1000,1000);
     surface.setTitle("Inverse Kinematics [CSCI 5611 Example]");
     
-    float len = 70;
-    for (int i = 9; i >= 0; i--) {
+    float len = 60;
+    for (int i = 10; i >= 0; i--) {
         segments.add(
             new Segment(
-                len, 30, 0, Float.POSITIVE_INFINITY,
-                Float.POSITIVE_INFINITY, 1, 
-                new Vec2(i*70,0), new Vec2((i+1)*70,0)
+                len, 0, 0, Float.POSITIVE_INFINITY,
+                Float.POSITIVE_INFINITY, 1-(0.001*i*i), 0.001*i*i,
+                new Vec2(i*len,0), new Vec2((i+1)*len,0)
             )
         );
     }
@@ -27,20 +27,21 @@ void setup(){
 ArrayList<Segment> segments = new ArrayList<Segment>();
 
 Vec2[] locs = new Vec2[]{
-  new Vec2(100,100), new Vec2(100, 700), new Vec2(200, 100), new Vec2(200, 700),
-  new Vec2(300,100), new Vec2(300, 700), new Vec2(400, 100), 
-  new Vec2(400,700), new Vec2(500, 100), new Vec2(500, 700), 
-  new Vec2(600,100), new Vec2(600, 700)
+  new Vec2(300,100), new Vec2(300, 700), new Vec2(400, 100), new Vec2(400, 700),
+  new Vec2(500,100), new Vec2(500, 700), new Vec2(600, 100), 
+  new Vec2(600,700), new Vec2(700, 100), new Vec2(700, 700), 
+  new Vec2(800,100), new Vec2(800, 700)
 };
 
 class Segment {
-    public float l, a, total_a, acc, min_a, max_a;
+    public float l, a, total_a, acc, acc2, min_a, max_a;
     public Vec2 start, end;
-    Segment(float l, float a, float total_a, float max_a, float min_a, float acc, Vec2 start, Vec2 end) {
+    Segment(float l, float a, float total_a, float max_a, float min_a, float acc, float acc2, Vec2 start, Vec2 end) {
         this.l = l;
         this.a = a;
         this.total_a = total_a;
         this.acc = acc;
+        this.acc2 = acc;
         this.max_a = max_a;
         this.min_a = min_a;
         this.start = start;
@@ -50,6 +51,11 @@ class Segment {
         Vec2 temp = new Vec2(this.start.x, this.start.y);
         this.start = this.end;
         this.end = temp;
+    }
+    void switchAcc() {
+        float temp = this.acc;
+        this.acc = this.acc2;
+        this.acc2 = temp;
     }
 }
 
@@ -87,9 +93,9 @@ void solve(){
         }
         fk(); //Update link positions with fk (e.g. end effector changed)
 
-        if (i != solve_start) {
-            segments.get(i-solve_dir).end = segments.get(i).start;
-        }
+        // if (i != solve_start) {
+        //     segments.get(i-solve_dir).end = segments.get(i).start;
+        // }
     }
 
     if (just_paused) {
@@ -119,15 +125,17 @@ void solve(){
 
             start_to_end = true;
         }
+        // paused = true;
         segments.get(solve_end).start = endPoint;
-        segments.get(solve_end).a = total_angle;
+        println(segments.get(solve_end).a);
+        segments.get(solve_end).a = radians(180)+segments.get(solve_end).a;
 
-        for (int i = solve_end-solve_dir; i != solve_start; i-=solve_dir) {
-            segments.get(i).switchEnds();
-            segments.get(i).a = segments.get(i+solve_dir).a - segments.get(i).a;
+        for (int i = solve_end; i != solve_start-solve_dir; i-=solve_dir) {
+            segments.get(i).switchAcc();
+            // segments.get(i).a = segments.get(i+solve_dir).a - segments.get(i).a;
         }
 
-        just_paused = true;
+        // just_paused = true;
 
         curr++;
         curr %= 12;
@@ -150,7 +158,7 @@ void fk(){
     total_angle = 0;
     for (int i = solve_start; i != solve_end+solve_dir; i+=solve_dir) {
         total_angle += segments.get(i).a;
-        segments.get(i).total_a = total_angle;
+        // segments.get(i).total_a = total_angle;
     }
     Segment end = segments.get(fk_end);
     endPoint = new Vec2(cos(total_angle)*end.l,sin(total_angle)*end.l).plus(end.start);
