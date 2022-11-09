@@ -58,6 +58,8 @@ void drawFloor() {
     }
 }
 
+void windowResized()
+
 void draw() {
     background(0,0,0);
 

@@ -866,6 +866,7 @@ function animate() {
 // key handler booleans
 var paused = true;
 window.addEventListener( 'resize', onWindowResize, false );
+
 function onWindowResize(){
     camera.aspect = window.innerWidth / window.innerHeight;
     camera.updateProjectionMatrix();
