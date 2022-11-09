@@ -16,7 +16,15 @@ var boxes = [];
 
 // controls whether or not view is fixed
 // from top down at the center of the scene
-var freeCam = false;
+var freeCam = true;
+
+var field_of_view = 45;
+var cam_init_height = window.innerWidth/3.25;
+var floorBaseVertHeight = 6;
+var floorBaseVertWidth = 9;
+var vertScale = 3;
+var floorNumVertHeight = floorBaseVertHeight*vertScale;
+var floorNumVertWidth = floorBaseVertWidth*vertScale
 
 function setup() {
     // intialize scene, renderer, cameras, and controls for use later on
@@ -31,9 +39,9 @@ function setup() {
     document.body.appendChild( renderer.domElement );
 
     // creates new camera / sets position / sets looking angle
-    camera = new THREE.PerspectiveCamera(45, window.innerWidth / window.innerHeight, 0.00001, 1000 );
+    camera = new THREE.PerspectiveCamera(field_of_view, window.innerWidth / window.innerHeight, 0.00001, 1000 );
     console.log(window.innerWidth, window.innerHeight);
-    camera.position.set( 0, window.innerWidth/3, 0 );
+    camera.position.set( 0, cam_init_height, 0 );
     camera.lookAt( 0, 0, 0 );
 
     // orbit controls
@@ -51,22 +59,54 @@ function setup() {
     document.body.appendChild(stats.dom);
 
     // hemisphere light for equal lighting
-    var hemiLight = new THREE.HemisphereLight( 0xffffff, 0x444444 );
+    var hemiLight = new THREE.HemisphereLight( 0xffffff, 0xffffff );
     hemiLight.position.set( 0, 300, 0 );
     scene.add( hemiLight );
 
     // initialize aspects of the scene such as walls, IK things, and objects to be thrown around
     // adds texture for the ground
-    var groundTexture = new THREE.TextureLoader().load("../images/floor.png");
+    setup_room_walls();
+}
+
+function setup_room_walls() {
+    var groundTexture = new THREE.TextureLoader().load("../images/floor_full.png");
     // groundTexture.wrapS = groundTexture.wrapT = THREE.RepeatWrapping;
     // groundTexture.repeat.set(10,10);
     groundTexture.encoding = THREE.sRGBEncoding;
-    var groundMaterial = new THREE.MeshStandardMaterial({map:groundTexture, side: THREE.DoubleSide});
-    var mesh = new THREE.Mesh(new THREE.PlaneGeometry(window.innerWidth/2, window.innerHeight/2, 10),groundMaterial);
+    var groundMaterial = new THREE.MeshStandardMaterial(
+        {
+            map:groundTexture, 
+            side: THREE.DoubleSide
+        }
+    );
+    var groundGeometry = new THREE.PlaneGeometry(
+        window.innerWidth/2, 
+        window.innerHeight/2, 
+        floorNumVertWidth, 
+        floorNumVertHeight
+    );
+    var mesh = new THREE.Mesh(groundGeometry,groundMaterial);
     mesh.position.y = -0.1;
     mesh.rotation.x = -Math.PI/2;
+    mesh.material.wireframe = false;
     scene.add(mesh);
 
+    // // little bit of code for debugging floor vertices
+    // let wireframe = new THREE.WireframeGeometry( groundGeometry );
+    // let line = new THREE.LineSegments( wireframe );
+    // line.position.y = 1;
+    // line.rotation.x = -Math.PI/2;
+    // line.material.color.setHex(0x000000);
+        
+    // scene.add(line);
+
+    const posAttrib = mesh.geometry.getAttribute('position');
+    for (let j = 0; j < floorBaseVertHeight*vertScale; j++) {
+        for (let i = 0; i < vertScale; i++) {
+            console.log(posAttrib);
+            posAttrib.setXYZ(j*(floorBaseVertWidth*vertScale)+i, posAttrib.getX(vertScale), posAttrib.getY(vertScale), 20-(i*(20/vertScale)) );
+        }
+    }
 }
 
 function animate() {
