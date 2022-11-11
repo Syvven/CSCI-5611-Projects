@@ -8,6 +8,7 @@ import {GLTFLoader} from './GLTFLoader.js';
 
 // important things
 var scene, camera, renderer, stats;
+var raycaster; 
 var orbitControls, dragControls;
 var orbitControlsWereEnabled = false;
 var gui, simObj;
@@ -65,8 +66,15 @@ function setup() {
     renderer.setClearColor(0x555555);
     document.body.appendChild( renderer.domElement );
 
+    raycaster = new THREE.Raycaster();
+
     // creates new camera / sets position / sets looking angle
     camera = new THREE.PerspectiveCamera(field_of_view, window.innerWidth / window.innerHeight, 0.1, 3000 );
+    // camera = new THREE.OrthographicCamera(
+    //     window.innerWidth / - 2, window.innerWidth / 2, 
+    //     window.innerHeight / 2, window.innerHeight / - 2, 
+    //     1, 1000
+    // )
     camera.position.set( 0, cam_init_height, 0 );
     camera.lookAt( 0, 0, 0 );
 
@@ -115,20 +123,34 @@ function setup() {
     initiate_kinematic_stuff();
 }
 
-var numSegments = 5;
+// initializes and creates the lines for the inverse kinematics stuff
+var numSegments = 10;
 var segments = []
-var endpoint = new THREE.Vector3(0,0,0);
+var endpoint = new THREE.Vector2(0,0);
+var IK_line;
+var pointHeight = 10;
 function initiate_kinematic_stuff() {
+    const points = [];
     for (let i = 0; i < numSegments; i++) {
         segments.push({
             len: 10,
             ang: 30,
             acc: 1,
-            max_a: NaN,
-            min_a: NaN,
-            start: new THREE.Vector3(0,10,0)
+            max_a: radians(30),
+            min_a: radians(-30),
+            start: new THREE.Vector2(0,0)
         });
+
+        points.push(new THREE.Vector3(0, pointHeight, 0));
     }
+    points.push(new THREE.Vector3(0, pointHeight, 0));
+
+    const material = new THREE.LineBasicMaterial({
+        color: 0x0000ff
+    });
+    const geometry = new THREE.BufferGeometry().setFromPoints(points);
+    IK_line = new THREE.Line(geometry, material);
+    scene.add(IK_line);
 }
 
 function load_kiwi() {
@@ -138,6 +160,7 @@ function load_kiwi() {
         kiwi = gltf.scene;
         kiwi.scale.set(5,5,5);
         kiwi.position.y = 7.5;
+        kiwi.position.x = 100;
         kiwi.traverse((o) => {
             if (o.isMesh) {
                 o.castShadow = true;
@@ -246,8 +269,39 @@ function setup_room_walls() {
     }
 }
 
+var goal = new THREE.Vector2();
 function solve() {
+    var dotProd, angleDiff;
 
+    for (let i = 0; i < segments.length; i++) {
+        var startToGoal = goal.clone();
+        startToGoal.sub(segments[i].start);
+
+        var startToEndEffector = endpoint.clone();
+        startToEndEffector.sub(segments[i].start);
+
+        startToGoal.normalize(); 
+        startToEndEffector.normalize();
+
+        dotProd = startToGoal.dot(startToEndEffector);
+        dotProd = clamp(dotProd, -1, 1);
+
+        angleDiff = Math.acos(dotProd);
+
+        if (startToGoal.cross(startToEndEffector) < 0) segments[i].ang += angleDiff;
+        else segments[i].ang -= angleDiff;
+        
+
+        // add angle limits here
+        if (segments[i].max_ang != NaN && segments[i].ang > segments[i].max_ang) {
+            segments[i].ang = segments[i].max_ang 
+        }
+        if (segments[i].min_ang != NaN && segments[i].ang < segments[i].min_ang) {
+            segments[i].ang = segments[i].min_ang;
+        }
+
+        fk();
+    }
 }
 
 function fk() {
@@ -255,11 +309,11 @@ function fk() {
     for (let i = segments.length-2; i >= 0; i--) {
         tot = 0;
         var prev = segments[i+1];
-        for (let j = segments.length-1; j > 1; j--) {
+        for (let j = segments.length-1; j > i; j--) {
             tot += segments[j].ang;
         }
         segments[i].start.x = Math.cos(tot)*prev.len;
-        segments[i].start.z = Math.sin(tot)*prev.len;
+        segments[i].start.y = Math.sin(tot)*prev.len;
 
         segments[i].start.add(prev.start);
     }
@@ -270,8 +324,20 @@ function fk() {
     }
 
     endpoint.x = Math.cos(tot)*segments[0].len;
-    endpoint.z = Math.sin(tot)*segments[0].len;
+    endpoint.y = Math.sin(tot)*segments[0].len;
     endpoint.add(segments[0].start);
+}
+
+function update_line_points() {
+    const ik_pos = IK_line.geometry.getAttribute('position');
+    ik_pos.setXYZ(0, endpoint.x, pointHeight, endpoint.y);
+    for (let i = segments.length; i >= 1; i--) {
+        var s = segments[i-1].start;
+        console.log(s);
+        ik_pos.setXYZ(i, s.x, pointHeight, s.y);
+    }
+    IK_line.geometry.verticesNeedUpdate = true;
+    IK_line.geometry.attributes.position.needsUpdate = true;
 }
 
 function animate() {
@@ -284,6 +350,8 @@ function animate() {
     fk();
     solve();
 
+    update_line_points();
+
     if (moving) mixer.update(dt);
     if (orbitControls.enabled) orbitControls.update(1*dt);
     
@@ -295,6 +363,9 @@ function animate() {
 window.addEventListener( 'resize', () => {
     camera.aspect = window.innerWidth / window.innerHeight;
     camera.updateProjectionMatrix();
+
+    // cam_init_height = window.innerWidth/3.25;
+    // camera.position.set( 0, cam_init_height, 0 );
 
     renderer.setSize( window.innerWidth, window.innerHeight );
     renderer.render(scene, camera);
@@ -361,7 +432,21 @@ document.addEventListener( 'keyup', (e) => {
     }
     if (!(moveForward || moveBackward || moveLeft || moveRight)) {
         moving = false;
+        mixer.setTime(1.905);
     }
+});
+
+var mouse = new THREE.Vector2();
+var plane = new THREE.Plane(new THREE.Vector3(0,1,0), 0);
+var intersects = new THREE.Vector3();
+document.addEventListener('mousemove', (e) => {
+    mouse.x = ( e.clientX / window.innerWidth ) * 2 - 1;
+	mouse.y = - ( e.clientY / window.innerHeight ) * 2 + 1;
+    e.preventDefault();
+    raycaster.setFromCamera(mouse, camera);
+    raycaster.ray.intersectPlane(plane, intersects);
+    goal.x = intersects.x;
+    goal.y = intersects.z;
 });
 
 setup();
@@ -373,4 +458,16 @@ if ( WebGL.isWebGLAvailable() ) {
 } else {
     const warning = WebGL.getWebGLErrorMessage();
     document.getElementById( 'container' ).appendChild( warning );
+}
+
+// helper functions
+
+function clamp(f, min, max) {
+    if (f < min) return min;
+    if (f > max) return max;
+    return f;
+}
+
+function radians(degrees) {
+    return degrees * (Math.PI / 180);
 }
