@@ -112,6 +112,23 @@ function setup() {
     gen_boxes();
     set_gui();
     load_kiwi();
+    initiate_kinematic_stuff();
+}
+
+var numSegments = 5;
+var segments = []
+var endpoint = new THREE.Vector3(0,0,0);
+function initiate_kinematic_stuff() {
+    for (let i = 0; i < numSegments; i++) {
+        segments.push({
+            len: 10,
+            ang: 30,
+            acc: 1,
+            max_a: NaN,
+            min_a: NaN,
+            start: new THREE.Vector3(0,10,0)
+        });
+    }
 }
 
 function load_kiwi() {
@@ -229,12 +246,43 @@ function setup_room_walls() {
     }
 }
 
+function solve() {
+
+}
+
+function fk() {
+    var tot = 0;
+    for (let i = segments.length-2; i >= 0; i--) {
+        tot = 0;
+        var prev = segments[i+1];
+        for (let j = segments.length-1; j > 1; j--) {
+            tot += segments[j].ang;
+        }
+        segments[i].start.x = Math.cos(tot)*prev.len;
+        segments[i].start.z = Math.sin(tot)*prev.len;
+
+        segments[i].start.add(prev.start);
+    }
+
+    tot = 0;
+    for (let i = 0; i < segments.length; i++) {
+        tot += segments[i].ang;
+    }
+
+    endpoint.x = Math.cos(tot)*segments[0].len;
+    endpoint.z = Math.sin(tot)*segments[0].len;
+    endpoint.add(segments[0].start);
+}
+
 function animate() {
     requestAnimationFrame( animate );
 
     var now = new Date();
     var dt = (now - prevTime) / 1000;
     prevTime = now;
+
+    fk();
+    solve();
 
     if (moving) mixer.update(dt);
     if (orbitControls.enabled) orbitControls.update(1*dt);
