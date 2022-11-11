@@ -6,17 +6,20 @@ import {OrbitControls} from './OrbitControls.js';
 import WebGL from './webGLCheck.js';
 
 // important things
-var scene, camera, renderer, stats, orbitControls;
+var scene, camera, renderer, stats;
+var orbitControls, dragControls;
+var orbitControlsWereEnabled = false;
+var gui, simObj;
+var gui_width = 300;
 var prevTime;
 
 // object values
+var numBoxes = 10;
+var boxSize = 10;
 var boxes = [];
+var controlArr = [];
 
 // control booleans
-
-// controls whether or not view is fixed
-// from top down at the center of the scene
-var freeCam = true;
 
 var field_of_view = 45;
 var cam_init_height = window.innerWidth/3.25;
@@ -25,6 +28,12 @@ var floorBaseVertWidth = 9;
 var vertScale = 3;
 var floorNumVertHeight = floorBaseVertHeight*vertScale;
 var floorNumVertWidth = floorBaseVertWidth*vertScale
+var floorWidth = ((window.innerWidth/1.75)/9) * 7;
+var floorHeight = ((window.innerHeight/1.5)/6) * 4;
+
+function getRandomArbitrary(min, max) {
+    return Math.random() * (max - min) + min;
+}
 
 function setup() {
     // intialize scene, renderer, cameras, and controls for use later on
@@ -39,19 +48,34 @@ function setup() {
     document.body.appendChild( renderer.domElement );
 
     // creates new camera / sets position / sets looking angle
-    camera = new THREE.PerspectiveCamera(field_of_view, window.innerWidth / window.innerHeight, 0.00001, 1000 );
-    console.log(window.innerWidth, window.innerHeight);
+    camera = new THREE.PerspectiveCamera(field_of_view, window.innerWidth / window.innerHeight, 0.1, 1000 );
     camera.position.set( 0, cam_init_height, 0 );
     camera.lookAt( 0, 0, 0 );
 
     // orbit controls
     // for testing purposes
     // get rid of once done ?
-    if (freeCam) {
-        orbitControls = new OrbitControls(camera, renderer.domElement);
-        orbitControls.enableDamping = true;
-        orbitControls.zoomSpeed = 2;
-    }
+    orbitControls = new OrbitControls(camera, renderer.domElement);
+    orbitControls.enableDamping = true;
+    orbitControls.zoomSpeed = 2;
+    orbitControls.enabled = false;
+
+    dragControls = new DragControls(controlArr, camera, renderer.domElement);
+    dragControls.addEventListener('dragstart', (e) => {
+        if (orbitControls.enabled) {
+            orbitControlsWereEnabled = true;
+            orbitControls.enabled = false;
+        }
+    });
+    dragControls.addEventListener('drag', (e) => {
+        console.log(e.object.position.y);
+    })
+    dragControls.addEventListener('dragend', (e) => {
+        if (orbitControlsWereEnabled) {
+            orbitControls.enabled = true;
+            orbitControlsWereEnabled = false;
+        } 
+    });
 
     // sets up the fps counter in the top left of the window
     stats = new Stats();
@@ -59,13 +83,49 @@ function setup() {
     document.body.appendChild(stats.dom);
 
     // hemisphere light for equal lighting
-    var hemiLight = new THREE.HemisphereLight( 0xffffff, 0xffffff );
-    hemiLight.position.set( 0, 300, 0 );
+    var hemiLight = new THREE.PointLight( 0xffffff, 2, 100000 );
+    hemiLight.position.set( 0, 700, 0 );
     scene.add( hemiLight );
 
     // initialize aspects of the scene such as walls, IK things, and objects to be thrown around
     // adds texture for the ground
     setup_room_walls();
+    gen_boxes();
+    set_gui();
+}
+
+function set_gui() {
+    gui = new GUI();
+    // base is 246
+    gui.width = gui_width;
+
+    simObj = {
+        freeCam: false
+    }
+
+    const simFolder = gui.addFolder('Sim Controls');
+    simFolder.add(simObj, 'freeCam').name('Lock Camera').onChange(() => {
+        orbitControls.enabled = !orbitControls.enabled;
+    });
+}
+
+function gen_boxes() {
+    for (let i = 0; i < numBoxes; i++) {
+        // adds a rotating cube, just for testing purposes
+       var geometry = new THREE.BoxGeometry( boxSize, boxSize, boxSize);
+       var material = new THREE.MeshBasicMaterial( { color: 0x957433 } );
+       var cube = new THREE.Mesh( geometry, material );
+       cube.geometry.translate(
+           getRandomArbitrary(-floorWidth/2, floorWidth/2),
+           boxSize/2,
+           getRandomArbitrary(-floorHeight/2, floorHeight/2)
+       );
+
+       boxes.push(cube);
+       controlArr.push(cube);
+
+       scene.add( cube );
+   }
 }
 
 function setup_room_walls() {
@@ -80,8 +140,8 @@ function setup_room_walls() {
         }
     );
     var groundGeometry = new THREE.PlaneGeometry(
-        window.innerWidth/2, 
-        window.innerHeight/2, 
+        window.innerWidth/1.75, 
+        window.innerHeight/1.5, 
         floorNumVertWidth, 
         floorNumVertHeight
     );
@@ -100,11 +160,25 @@ function setup_room_walls() {
         
     // scene.add(line);
 
+    var end = floorNumVertHeight+1;
     const posAttrib = mesh.geometry.getAttribute('position');
-    for (let j = 0; j < floorBaseVertHeight*vertScale; j++) {
+    for (let j = 0; j < floorNumVertHeight+1; j++) {
         for (let i = 0; i < vertScale; i++) {
-            console.log(posAttrib);
-            posAttrib.setXYZ(j*(floorBaseVertWidth*vertScale)+i, posAttrib.getX(vertScale), posAttrib.getY(vertScale), 20-(i*(20/vertScale)) );
+            var off = j*(floorNumVertWidth+1);
+            var end = (j+1)*(floorNumVertWidth+1)-1;
+            posAttrib.setXYZ(off + i, posAttrib.getX(off+vertScale), posAttrib.getY(off+vertScale), 100 - i*100/vertScale);
+            posAttrib.setXYZ(end - i, posAttrib.getX(end-vertScale), posAttrib.getY(end-vertScale), 100 - i*100/vertScale);
+        }
+    }
+
+    var off = vertScale*(floorNumVertWidth+1);
+    var end = (floorNumVertWidth+1) * (floorNumVertHeight+1)-1;
+    for (let i = 0; i < vertScale; i++) {
+        for (let j = 0; j < floorNumVertWidth+1; j++) {
+            var ind = end - i*(floorNumVertWidth+1)-j;
+            var get = (floorNumVertHeight-vertScale+1) * (floorNumVertWidth+1)-1;
+            posAttrib.setXYZ(i*(floorNumVertWidth+1) + j, posAttrib.getX(off + j), posAttrib.getY(off + j), 100 - i*100/vertScale);
+            posAttrib.setXYZ(ind, posAttrib.getX(get - j), posAttrib.getY(get - j), 100 - i*100/vertScale);
         }
     }
 }
@@ -116,9 +190,7 @@ function animate() {
     var dt = (now - prevTime) / 1000;
     prevTime = now;
 
-    if (freeCam) {
-        orbitControls.update(1*dt);
-    }
+    orbitControls.update(1*dt);
     
 	renderer.render( scene, camera );
     stats.update();
