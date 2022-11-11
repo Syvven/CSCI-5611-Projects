@@ -4,6 +4,7 @@ import GUI from '../node_modules/dat.gui/src/dat/gui/GUI.js';
 import {DragControls} from './DragControls.js';
 import {OrbitControls} from './OrbitControls.js';
 import WebGL from './webGLCheck.js';
+import {GLTFLoader} from './GLTFLoader.js';
 
 // important things
 var scene, camera, renderer, stats;
@@ -18,6 +19,23 @@ var numBoxes = 10;
 var boxSize = 10;
 var boxes = [];
 var controlArr = [];
+
+// kiwi values
+var kiwi, gltfLoader, mixer
+var modelReady = false;
+var speed = 0;
+var moving = false;
+var moveForward = false;
+var moveBackward = false;
+var moveLeft = false;
+var moveRight = false;
+
+// var rot_inertia = (boxSize*boxSize + boxSize*boxSize)/12;
+// var momentum = THREE.Vector3(0,0,0);
+// var angular_momentum = 0.0;
+// var total_force = THREE.Vector3(0,0);
+// var total_torque = 0.0; // turn all these into arrays
+// get started on kinematics first though!!!!
 
 // control booleans
 
@@ -48,7 +66,7 @@ function setup() {
     document.body.appendChild( renderer.domElement );
 
     // creates new camera / sets position / sets looking angle
-    camera = new THREE.PerspectiveCamera(field_of_view, window.innerWidth / window.innerHeight, 0.1, 1000 );
+    camera = new THREE.PerspectiveCamera(field_of_view, window.innerWidth / window.innerHeight, 0.1, 3000 );
     camera.position.set( 0, cam_init_height, 0 );
     camera.lookAt( 0, 0, 0 );
 
@@ -58,21 +76,22 @@ function setup() {
     orbitControls = new OrbitControls(camera, renderer.domElement);
     orbitControls.enableDamping = true;
     orbitControls.zoomSpeed = 2;
-    orbitControls.enabled = false;
 
     dragControls = new DragControls(controlArr, camera, renderer.domElement);
     dragControls.addEventListener('dragstart', (e) => {
         if (orbitControls.enabled) {
             orbitControlsWereEnabled = true;
             orbitControls.enabled = false;
+            orbitControls.enableDamping = false;
         }
     });
     dragControls.addEventListener('drag', (e) => {
-        console.log(e.object.position.y);
+        e.object.position.y = 0;
     })
     dragControls.addEventListener('dragend', (e) => {
         if (orbitControlsWereEnabled) {
             orbitControls.enabled = true;
+            orbitControls.enableDamping = true;
             orbitControlsWereEnabled = false;
         } 
     });
@@ -92,6 +111,33 @@ function setup() {
     setup_room_walls();
     gen_boxes();
     set_gui();
+    load_kiwi();
+}
+
+function load_kiwi() {
+    gltfLoader = new GLTFLoader();
+    mixer = 
+    gltfLoader.load('../models/kiwi.glb', function(gltf) {
+        kiwi = gltf.scene;
+        kiwi.scale.set(5,5,5);
+        kiwi.position.y = 7.5;
+        kiwi.traverse((o) => {
+            if (o.isMesh) {
+                o.castShadow = true;
+                o.receiveShadow = true;
+            }
+        });
+
+        mixer = new THREE.AnimationMixer(kiwi);
+        mixer.clipAction(gltf.animations[0]).play();
+
+        scene.add(kiwi);
+
+        modelReady = true;
+        // after this point, animate() is run
+    }, undefined, function(error) {
+        console.error(error);
+    });
 }
 
 function set_gui() {
@@ -190,7 +236,8 @@ function animate() {
     var dt = (now - prevTime) / 1000;
     prevTime = now;
 
-    orbitControls.update(1*dt);
+    if (moving) mixer.update(dt);
+    if (orbitControls.enabled) orbitControls.update(1*dt);
     
 	renderer.render( scene, camera );
     stats.update();
@@ -204,6 +251,70 @@ window.addEventListener( 'resize', () => {
     renderer.setSize( window.innerWidth, window.innerHeight );
     renderer.render(scene, camera);
 }, false);
+
+document.addEventListener( 'keydown', (e) => {
+    switch (e.code) {
+        case 'ArrowUp':
+        case 'KeyW':
+            moveForward = true;
+            moving = true;
+            break;
+
+        case 'ArrowLeft':
+        case 'KeyA':
+            moveLeft = true;
+            moving = true;
+            break;
+
+        case 'ArrowDown':
+        case 'KeyS':
+            moveBackward = true;
+            moving = true;
+            break;
+
+        case 'ArrowRight':
+        case 'KeyD':
+            moveRight = true;
+            moving = true;
+            break;
+    }
+    if (moveForward && moveBackward) {
+        if (!(moveLeft && moveRight)) {
+            if (moveLeft || moveRight) {
+                moving = false;
+            }
+        }
+    }
+});
+
+document.addEventListener( 'keyup', (e) => {
+    switch ( e.code ) {
+
+        case 'ArrowUp':
+        case 'KeyW':
+            moveForward = false;
+            break;
+
+        case 'ArrowLeft':
+        case 'KeyA':
+            moveLeft = false;
+            break;
+
+        case 'ArrowDown':
+        case 'KeyS':
+            moveBackward = false;
+            break;
+
+        case 'ArrowRight':
+        case 'KeyD':
+            moveRight = false;
+            break;
+
+    }
+    if (!(moveForward || moveBackward || moveLeft || moveRight)) {
+        moving = false;
+    }
+});
 
 setup();
 if ( WebGL.isWebGLAvailable() ) {
