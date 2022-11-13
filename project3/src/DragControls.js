@@ -146,6 +146,8 @@ class DragControls extends EventDispatcher {
 
 			if ( scope.enabled === false ) return;
 
+			if (event.button === 0) return;
+
 			updatePointer( event );
 
 			_intersections.length = 0;

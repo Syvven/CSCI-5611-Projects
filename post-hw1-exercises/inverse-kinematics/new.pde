@@ -40,7 +40,7 @@ Vec2 c = new Vec2(300, 100);
 int curr = 0;
 
 void solve(){
-    Vec2 goal = locs[curr];
+    Vec2 goal = new Vec2(mouseX, mouseY);
     
     Vec2 startToGoal, startToEndEffector;
     float dotProd, angleDiff;
@@ -121,6 +121,7 @@ void draw(){
     for (int i = segments.size()-1; i >= 0; i--) {
         Segment curr = segments.get(i);
         total_angle += curr.a;
+        println(total_angle);
         pushMatrix();
         translate(curr.start.x, curr.start.y);
         rotate(total_angle);
