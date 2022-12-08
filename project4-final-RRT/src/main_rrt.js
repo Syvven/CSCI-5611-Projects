@@ -29,6 +29,7 @@ var floorNumVertWidth = floorBaseVertWidth*vertScale
 var floorWidth = ((window.innerWidth/1.75)/9) * 7;
 var floorHeight = ((window.innerHeight/1.5)/6) * 4;
 
+var program;
 function setup() {
     // intialize scene, renderer, cameras, and controls for use later on
     // initializes scene and axis helpers
@@ -84,6 +85,18 @@ function setup() {
 
     // initialize aspects of the scene such as walls, IK things, and objects to be thrown around
     // adds texture for the ground
+
+    // hard coding goal for now
+    program = new RRT(
+        new THREE.Vector3(
+            floorWidth*0.5+agent_rad*2,
+            agent.position.y
+            -floorHeight*0.5+agent_rad*2
+        ), // goal
+        agent,
+        obstacles,
+        100 // n_iters
+    ); // rrt program to do things
 }
 
 function set_gui() {
@@ -164,20 +177,6 @@ function setup_room_walls() {
     }
 }
 
-function update_obstacles(dt) {
-    obstacles.forEach((obs) => {
-        obs.obj.position.z += obs.vel.y*dt;
-        if (obs.obj.position.z <= (-floorHeight*0.5+obs.rad)) {
-            obs.vel.y *= -1;
-            obs.obj.position.z = -floorHeight*0.5+obs.rad
-        }
-        if (obs.obj.position.z >= (floorHeight*0.5-obs.rad)) {
-            obs.vel.y *= -1;
-            obs.obj.position.z = floorHeight*0.5-obs.rad
-        }
-    });
-}
-
 function animate() {
     requestAnimationFrame( animate );
 
@@ -185,7 +184,7 @@ function animate() {
     var dt = (now - prevTime) / 1000;
     prevTime = now;
 
-    update_obstacles(dt);
+    program.step(dt);
 
     // var guy1 = new Agent(dt);
     // var guy2 = new Agent(dt);
@@ -231,16 +230,149 @@ window.addEventListener('mousemove', (e) => {
     raycaster.ray.intersectPlane(plane, intersects);
 }, false);
 
-setup();
-if ( WebGL.isWebGLAvailable() ) {
-    // Initiate function or other initializations here
-    // date for dt purposes
-    prevTime = new Date();
-    animate();
-} else {
-    const warning = WebGL.getWebGLErrorMessage();
-    document.getElementById( 'container' ).appendChild( warning );
+class Node {
+    constructor(pos) {
+        this.pos = pos;
+        this.links = []
+    }
+
+    add_link(node) {
+        this.links.push(node);
+    }
 }
+
+class RRT {
+    constructor(startGoal, agent, obstacles, n_iters) {
+        this.goal = startGoal;
+        
+        this.agent = agent;
+        this.obstacles = obstacles;
+
+        this.root = new Node(new THREE.Vector3(
+            this.agent.position.x + 1,
+            this.agent.position.y,
+            this.agent.position.z + 1
+        ));
+    
+        this.changeGoal = false;
+        this.newGoal = new THREE.Vector3(
+            0,
+            this.agent.position.y,
+            0
+        );
+
+        this.iterations = n_iters;
+        this.epsilon = 3; // for distance calculations
+
+        this.planned_path = []
+
+        this.Qr = Queue();
+        this.Qs = Queue();
+    }
+
+    step(dt) {
+        // step serves as alogirthm 1 from the paper
+
+        // update goal, obstacles
+        if (this.changeGoal) {
+            this.goal = this.newGoal;
+        }
+        this.update_obstacles(dt);
+
+        // do expanding and rewiring for # of iterations
+        for (let i = 0; i < this.n_iters; i++) {
+            this.algorithm2();
+        }
+
+        // plan path using algorithm 6
+        this.algorithm6();
+        
+        if (this.agent.position.distanceTo(this.root.pos) < this.epsilon) {
+            // update this.root to the next node in the path
+        }
+
+        var dir = this.root.pos.clone();
+        dir.sub(this.agent.position);
+        dir.normalize();
+        console.log(dir);
+        this.agent.position.x += dir.x*dt;
+        this.agent.position.z += dir.z*dt;
+    }
+
+    algorithm2() {
+        // input is Tree, random queue, and queue for rewiring from root
+        // T, Qr, Qs
+    }
+
+    algorithm6() {
+
+    }
+
+    update_obstacles(dt) {
+        // replace this with other updating code in future? 
+        obstacles.forEach((obs) => {
+            obs.obj.position.z += obs.vel.y*dt;
+            if (obs.obj.position.z <= (-floorHeight*0.5+obs.rad)) {
+                obs.vel.y *= -1;
+                obs.obj.position.z = -floorHeight*0.5+obs.rad
+            }
+            if (obs.obj.position.z >= (floorHeight*0.5-obs.rad)) {
+                obs.vel.y *= -1;
+                obs.obj.position.z = floorHeight*0.5-obs.rad
+            }
+        });
+    }
+}
+
+class Queue {
+    constructor() {
+      this.items = [];
+    }
+  
+    // Implementing various methods of javascript queue:
+  
+    // 1. adding element to the queue
+    enqueue(item) {
+      this.items.push(item);
+    }
+  
+    // 2. removing element from the queue
+    dequeue() {
+      // checking if the queue is empty or not before removing it!
+      if (this.isEmpty()) {
+        return "Queue is empty: underflow!";
+      }
+      return this.items.shift();
+    }
+  
+    // 3. returning the Front element of
+    front() {
+      // checking if the queue is empty or not!
+      if (this.isEmpty()) {
+        return "Queue is empty!";
+      }
+      return this.items[0];
+    }
+  
+    // 4. returning true if the queue is empty.
+    isEmpty() {
+      return this.items.length == 0;
+    }
+  
+    // 5. printing the queue.
+    printQueue() {
+      var queue = "";
+      for (var i = 0; i < this.items.length; i++) {
+        queue += this.items[i] + " ";
+      }
+      return queue;
+    }
+  
+    // 6. getting the size of the queue.
+    size() {
+      return this.items.length;
+    }
+  }
 
 // helper functions
 
@@ -260,4 +392,17 @@ function cross(v1, v2) {
 
 function getRandomArbitrary(min, max) {
     return Math.random() * (max - min) + min;
+}
+
+// at very end so that everything is initialized
+
+setup();
+if ( WebGL.isWebGLAvailable() ) {
+    // Initiate function or other initializations here
+    // date for dt purposes
+    prevTime = new Date();
+    animate();
+} else {
+    const warning = WebGL.getWebGLErrorMessage();
+    document.getElementById( 'container' ).appendChild( warning );
 }
