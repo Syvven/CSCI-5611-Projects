@@ -6,17 +6,38 @@
 #include "glm/vec2.hpp"
 
 #include "RTRRTStar.hpp"
+#include "utils.hpp"
 
-static float scrWidth = 900;
-static float scrHeight = 900;
+static float scrWidth = 300;
+static float scrHeight = 300;
 static bool fullscreen = false;
 
 static SDL_Window* window;
 static SDL_GLContext context;
 
 static RTRRTStar* rrt;
-static glm::vec2 upper_left;
+static glm::vec2 top_left;
 static glm::vec2 bottom_right;
+static glm::vec2 top_right;
+static glm::vec2 bottom_left;
+
+const GLchar* rainbowFragment =
+	"#version 150 core\n"
+	"in vec3 Color;"
+	"out vec4 outColor;"
+	"void main() {"
+	"   outColor = vec4(Color, 1.0);"
+	"}";
+
+const GLchar* rainbowVertex =
+	"#version 150 core\n"
+	"in vec2 position;"
+	"in vec3 inColor;"
+	"out vec3 Color;"
+	"void main() {"
+	"   Color = inColor;"
+	"   gl_Position = vec4(position, 0.0, 1.0);"
+	"}";
 
 // https://open.gl 
 
@@ -72,22 +93,105 @@ void drawCircle(float radius, glm::vec2& loc, int segments) {
 	}*/
 }
 
-void drawBounds() {
-	GLfloat vertices[] = {
-		upper_left.x / scrWidth, upper_left.y / scrHeight,  // vertex 1 at top left
-		bottom_right.x / scrWidth, upper_left.y / scrHeight,  // vertex 2 at top right
-		bottom_right.x / scrWidth, bottom_right.y / scrHeight,  // vertex 3 at bottom right
-		upper_left.x / scrWidth, bottom_right.y / scrHeight,  // vertex 4 at bottom left
-	};
+void setup() {
+	// initialize anything needed here, RRT, agents, etc...
+	
+	// initialize RRT things --------------------------------
+	std::vector<std::pair<int, GLuint>> vba_pairs;
+
+	glm::vec2 init_pos(0.f, 0.f);
+	glm::vec2 init_goal(scrWidth, scrHeight);
+	rrt = new RTRRTStar(
+		init_pos, init_goal
+	);
+
+	top_left.x = -scrWidth/2 + 10.f;
+	top_left.y = scrHeight/2 - 10.f;
+
+	bottom_right.x = (scrWidth/2) - 10.f;
+	bottom_right.y = -(scrHeight/2) + 10.f;
+
+	bottom_left.x = -(scrWidth / 2) + 10.f;
+	bottom_left.y = -(scrHeight / 2) + 10.f;
+
+	top_right.x = (scrWidth / 2) - 10.f;
+	top_right.y = (scrHeight / 2) - 10.f;
+
+	// ------------------------------------------------------
+
+	GLuint vao;
+	glGenVertexArrays(1, &vao);
+	glBindVertexArray(vao);
 
 	GLuint vbo;
 	glGenBuffers(1, &vbo);
-	glBindBuffer(GL_ARRAY_BUFFER, vbo);
-	glBufferData(GL_ARRAY_BUFFER, sizeof(vertices), vertices, GL_STATIC_DRAW);
-	glDrawArrays(GL_TRIANGLES, 0, 2);
-}
 
-void loop() {
+	GLfloat vertices[] = {
+		top_left.x / (scrWidth / 2), top_left.y / (scrHeight / 2), 0.f,0.f,0.f, // vertex 1 at top left
+		top_right.x / (scrWidth / 2), top_right.y / (scrHeight / 2), 0.f,0.f,0.f, // vertex 2 at top right
+		bottom_right.x / (scrWidth / 2), bottom_right.y / (scrHeight / 2), 0.f,0.f,0.f, // vertex 3 at bottom right
+		bottom_left.x / (scrWidth / 2), bottom_left.y / (scrHeight / 2), 0.f,0.f,0.f // vertex 4 at bottom left
+	};
+
+	glBindBuffer(GL_ARRAY_BUFFER, vbo);
+	glBufferData(
+		GL_ARRAY_BUFFER,
+		sizeof(vertices),
+		vertices,
+		GL_STATIC_DRAW // static if not changing much
+	);
+
+	GLuint ebo;
+	glGenBuffers(1, &ebo);
+
+	GLuint elements[] = {
+		0, 1, 1, 2,
+		2, 3, 3, 0
+	};
+	
+	glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, ebo);
+	glBufferData(
+		GL_ELEMENT_ARRAY_BUFFER,
+		sizeof(elements),
+		elements,
+		GL_STATIC_DRAW
+	);
+
+	// Setup shaders and vertices for bounds ----------------
+	GLuint vertexShader = glCreateShader(GL_VERTEX_SHADER);
+	loadShader(vertexShader, rainbowVertex);
+	GLuint fragmentShader = glCreateShader(GL_FRAGMENT_SHADER);
+	loadShader(fragmentShader, rainbowFragment);
+
+	GLuint shaderProgram = glCreateProgram();
+	glAttachShader(shaderProgram, vertexShader);
+	glAttachShader(shaderProgram, fragmentShader);
+	glBindFragDataLocation(shaderProgram, 0, "outColor");
+	glLinkProgram(shaderProgram);
+	glUseProgram(shaderProgram);
+
+	GLint posAttrib = glGetAttribLocation(shaderProgram, "position");
+	glEnableVertexAttribArray(posAttrib);
+	glVertexAttribPointer(
+		posAttrib, // attribute
+		2, GL_FLOAT, // vals per attrib, type
+		GL_FALSE, // isNormalized
+		5 * sizeof(GL_FLOAT), // stride
+		0 // offset
+	);
+
+	GLint colAttrib = glGetAttribLocation(shaderProgram, "inColor");
+	glEnableVertexAttribArray(colAttrib);
+	glVertexAttribPointer(
+		colAttrib,
+		3, GL_FLOAT,
+		GL_FALSE,
+		5 * sizeof(GL_FLOAT),
+		(void*)(2 * sizeof(GL_FLOAT))
+	);
+
+	// ------------------------------------------------------
+
 	// this is the main gameloop
 	// it updates the screen and also listens for events
 	SDL_Event windowEvent;
@@ -102,33 +206,24 @@ void loop() {
 				SDL_SetWindowFullscreen(window, fullscreen ? SDL_WINDOW_FULLSCREEN : 0);
 			}
 		}
-		SDL_GL_SwapWindow(window); // double buffering
 
 		glClearColor(0.2f, 0.5f, 0.8f, 1.0f); // clears screen to blue
 		glClear(GL_COLOR_BUFFER_BIT);
 
 		// do drawing of agents and lines here
-		drawBounds();
+		
+		// first draw the bounds
+
+		glDrawElements(GL_LINES, 8, GL_UNSIGNED_INT, 0);
+
+		SDL_GL_SwapWindow(window); // double buffering
 	}
-}
 
-void setup() {
-	// initialize anything needed here, RRT, agents, etc...
-
-	glm::vec2 init_pos(0.f, 0.f);
-	glm::vec2 init_goal(scrWidth, scrHeight);
-	rrt = new RTRRTStar(
-		init_pos, init_goal
-	);
-
-	upper_left.x = 10.f;
-	upper_left.y = 10.f;
-
-	bottom_right.x = scrWidth - 10.f;
-	bottom_right.y = scrHeight - 10.f;
-
-	loop();
-
+	glDeleteProgram(shaderProgram);
+	glDeleteShader(fragmentShader);
+	glDeleteShader(vertexShader);
+	glDeleteBuffers(1, &vbo);
+	glDeleteVertexArrays(1, &vao);
 	delete rrt;
 }
 
