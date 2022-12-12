@@ -231,13 +231,10 @@ window.addEventListener('mousemove', (e) => {
 }, false);
 
 class Node {
-    constructor(pos) {
+    constructor(pos, parent) {
         this.pos = pos;
         this.links = []
-    }
-
-    add_link(node) {
-        this.links.push(node);
+        this.parent = parent;
     }
 }
 
@@ -268,6 +265,21 @@ class RRT {
 
         this.Qr = Queue();
         this.Qs = Queue();
+
+        this.goal_path_found = false;
+        /* value for controlling sampling of xrand */
+        this.alpha = 0.1;
+        /* max number of nodes that can be returned from find_nearest */
+        this.kmax = 1;
+        /* max euclidean distance between nodes in the tree */
+        this.rs = 1;
+        /* 
+         *  used for returning closest nodes to xrand
+         *  sqrt(u(X)kmax / PI*ntotal
+         *  u(X) is volume / area of search space
+         *  if epsilon becomes smaller than rs, set epsilon to rs
+         */
+        this.epsilon = 1;
     }
 
     step(dt) {
@@ -302,6 +314,67 @@ class RRT {
     algorithm2() {
         // input is Tree, random queue, and queue for rewiring from root
         // T, Qr, Qs
+        var xrand;
+        // sample random x
+        if (this.goal_path_found) {
+            xrand = this.sample_elipse();
+        } else {
+            var pr = getRandomArbitrary(0, 1);
+            if (pr > (1 - this.alpha)) {
+                xrand = this.sample_to_goal();
+            } else {
+                xrand = this.sample_uniform();
+            }
+        }
+        /*  
+         *  XSI is subset of nodes that are contained 
+         *  in the cell or adjacent cells to the random node
+         */
+        var XSI = this.get_cell_from_node(xrand);
+
+        var xclosest = this.getClosestNode(xrand);
+
+        if (this.line_to(xclosest, xrand)) {
+            var Xnear = this.find_nodes_near(xrand, XSI);
+            if (Xnear.length < this.kmax || xrand.distanceTo(xclosest) > this.rs) {
+                this.add_node_to_tree(xrand, xclosest, Xnear);
+                this.Qr.enqueue_front(xrand);
+            } else {
+                this.Qr.enqueue_front(xclosest);
+            }
+            this.rewire_random_node();
+        }
+        this.rewire_from_root();
+    }
+
+    add_note_to_tree(xnew, xclosest, Xnear) {
+        var xmin = xclosest; 
+        var cmin = this.cost(xclosest) + xclosest.distanceTo(xnew);
+        for (let i = 0; i < Xnear.length; i++) {
+            var xnear = Xnear[i];
+            var cnew = this.cost(xnear) + xnear.distanceTo(xnew);
+            if (cnew < cmin && this.line_to(xnear, xnew)) {
+                cmin = cnew;
+                xmin = xnear;
+            }
+        }
+        xmin.links.push(xnew);
+    }
+
+    rewire_random_node() {
+        var xr = this.Qr.dequeue();
+        var XSI = this.get_cell_from_node(xrand);
+        var Xnear = this.find_nodes_near(xr, XSI);
+        for (let i = 0; i < Xnear.length; i++) {
+            var xnear = Xnear[i];
+            cold = this.cost(xnear);
+            cnew = this.cost(xr) + xr.distanceTo(xnear);
+            if (cnew < cold && this.line_to(xr, xnear)) {
+                xnear.parent = xr;
+                this.Qr.enqueue(xnear);
+            }
+        }
+
     }
 
     algorithm6() {
@@ -334,6 +407,10 @@ class Queue {
     // 1. adding element to the queue
     enqueue(item) {
       this.items.push(item);
+    }
+    
+    enqueue_front(item) {
+        this.items.unshift(item);
     }
   
     // 2. removing element from the queue
