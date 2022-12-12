@@ -5,6 +5,7 @@ import {DragControls} from './DragControls.js';
 import {OrbitControls} from './OrbitControls.js';
 import WebGL from './webGLCheck.js';
 import {GLTFLoader} from './GLTFLoader.js';
+import { dirxml } from 'console';
 
 // important things
 var scene, camera, renderer, stats;
@@ -471,7 +472,28 @@ class RRT {
     }
 
     line_to(n1, n2) {
+        /* 
+         * returns true or false depending on 
+         * if there is direct line of sight from n1 to n2
+         */ 
+        var dir = n2.clone();
+        dir.sub(n1);
+        dir.normalize();
+        for (let i = 0; i < this.obstacles.length; i++) {
+            var toCircle = this.obstacles[i].position.clone();
+            toCircle.sub(n1);
 
+            var a = 1.0;
+            var b = -2 * dir.dot(toCircle);
+            var c = toCircle.lengthSqr() - obstacle_rad*obstacle_rad;
+            var d = b*b - 4*a*c;
+
+            if (d >= 0) {
+                return true;
+            } else {
+                return false;
+            }
+        }
     }
 
     sample_to_goal() {
