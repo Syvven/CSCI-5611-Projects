@@ -230,11 +230,42 @@ window.addEventListener('mousemove', (e) => {
     raycaster.ray.intersectPlane(plane, intersects);
 }, false);
 
+class Cell {
+    constructor(row, col) {
+        this.row = row;
+        this.col = col;
+        this.nodes = [];
+    }
+}
+
+class Grid {
+    constructor(rows, cols, size) {
+        this.rows = rows;
+        this.cols = cols;
+        this.size = size;
+
+        this.grid = []
+        for (let i = 0; i < this.rows; i++) {
+            var t = []
+            for (let j = 0; j < this.cols; j++) {
+                t.append(new Cell(i, j));
+            }
+            this.grid.append(t);
+        }
+    }
+
+    get(i, j) {
+        return this.grid[i][j];
+    }
+}
+
 class Node {
     constructor(pos, parent) {
         this.pos = pos;
         this.links = []
         this.parent = parent;
+        
+        
     }
 }
 
@@ -263,8 +294,8 @@ class RRT {
 
         this.planned_path = []
 
-        this.Qr = Queue();
-        this.Qs = Queue();
+        this.Qr = new Queue();
+        this.Qs = new Queue();
 
         this.goal_path_found = false;
         /* value for controlling sampling of xrand */
@@ -280,10 +311,25 @@ class RRT {
          *  if epsilon becomes smaller than rs, set epsilon to rs
          */
         this.epsilon = 1;
+
+        /* spatial grid for faster neighbor search */
+        this.spat_grid = new Grid(
+            1, /* placeholder: row cells */
+            1, /* palceholder: column cells */
+            10 /* placeholder: size of cells */
+        )
+        this.display_grid = null;
+    }
+
+    display_spatial_grid() {
+        if (this.display_grid === null) {
+            
+        }
     }
 
     step(dt) {
         // step serves as alogirthm 1 from the paper
+        this.display_spatial_grid();
 
         // update goal, obstacles
         if (this.changeGoal) {
@@ -293,11 +339,11 @@ class RRT {
 
         // do expanding and rewiring for # of iterations
         for (let i = 0; i < this.n_iters; i++) {
-            this.algorithm2();
+            this.expand_and_rewire();
         }
 
         // plan path using algorithm 6
-        this.algorithm6();
+        this.k_step_path_plan();
         
         if (this.agent.position.distanceTo(this.root.pos) < this.epsilon) {
             // update this.root to the next node in the path
@@ -311,12 +357,13 @@ class RRT {
         this.agent.position.z += dir.z*dt;
     }
 
-    algorithm2() {
+    expand_and_rewire() {
         // input is Tree, random queue, and queue for rewiring from root
         // T, Qr, Qs
         var xrand;
         // sample random x
         if (this.goal_path_found) {
+            // returns a new node into xrand
             xrand = this.sample_elipse();
         } else {
             var pr = getRandomArbitrary(0, 1);
@@ -332,11 +379,11 @@ class RRT {
          */
         var XSI = this.get_cell_from_node(xrand);
 
-        var xclosest = this.getClosestNode(xrand);
+        var xclosest = this.get_closest_node(xrand, XSI);
 
         if (this.line_to(xclosest, xrand)) {
             var Xnear = this.find_nodes_near(xrand, XSI);
-            if (Xnear.length < this.kmax || xrand.distanceTo(xclosest) > this.rs) {
+            if (Xnear.length < this.kmax || xrand.pos.distanceTo(xclosest.pos) > this.rs) {
                 this.add_node_to_tree(xrand, xclosest, Xnear);
                 this.Qr.enqueue_front(xrand);
             } else {
@@ -349,35 +396,97 @@ class RRT {
 
     add_note_to_tree(xnew, xclosest, Xnear) {
         var xmin = xclosest; 
-        var cmin = this.cost(xclosest) + xclosest.distanceTo(xnew);
+        var cmin = this.cost(xclosest) + xclosest.pos.distanceTo(xnew.pos);
         for (let i = 0; i < Xnear.length; i++) {
             var xnear = Xnear[i];
-            var cnew = this.cost(xnear) + xnear.distanceTo(xnew);
+            var cnew = this.cost(xnear) + xnear.pos.distanceTo(xnew.pos);
             if (cnew < cmin && this.line_to(xnear, xnew)) {
                 cmin = cnew;
                 xmin = xnear;
             }
         }
         xmin.links.push(xnew);
+        xnew.parent = xmin;
     }
 
     rewire_random_node() {
-        var xr = this.Qr.dequeue();
-        var XSI = this.get_cell_from_node(xrand);
-        var Xnear = this.find_nodes_near(xr, XSI);
-        for (let i = 0; i < Xnear.length; i++) {
-            var xnear = Xnear[i];
-            cold = this.cost(xnear);
-            cnew = this.cost(xr) + xr.distanceTo(xnear);
-            if (cnew < cold && this.line_to(xr, xnear)) {
-                xnear.parent = xr;
-                this.Qr.enqueue(xnear);
+        // rewires a random node
+        var iters = 0; var maxIters = 100;
+        while (!this.Qr.isEmpty() && iters < maxIters) {
+            var xr = this.Qr.dequeue();
+            var XSI = this.get_cell_from_node(xr);
+            var Xnear = this.find_nodes_near(xr, XSI);
+            for (let i = 0; i < Xnear.length; i++) {
+                var xnear = Xnear[i];
+                cold = this.cost(xnear);
+                cnew = this.cost(xr) + xr.pos.distanceTo(xnear.pos);
+                if (cnew < cold && this.line_to(xr, xnear)) {
+                    xnear.parent = xr;
+                    // also have to add xr to children of xnear
+                    // think of better way to do this than looping through child array
+                    this.Qr.enqueue(xnear);
+                }
+            }
+            iters++;
+        }
+    }
+
+    rewire_from_root() {
+        if (this.Qs.isEmpty()) {
+            this.Qs.enqueue(this.root);
+        }
+        var iters = 0; var maxIters = 100;
+        while (!this.Qs.isEmpty() && iters < maxIters) {
+            var xs = this.Qs.dequeue();
+            var XSI = this.get_cell_from_node(xs);
+            var Xnear = this.find_nodes_near(xs, XSI);
+            for (let i = 0; i < Xnear.length; i++) {
+                var xnear = Xnear[i];
+                cold = this.cost(xnear);
+                cnew = this.cost(xs) + xs.pos.distanceTo(xnear);
+                if (cnew < cold && this.line_to(xs, xnear)) {
+                    xnear.parent = xs;
+                    // also have to add xr to children of xnear
+                    // think of better way to do this than looping through child array
+                    this.Qs.enqueue(xnear);
+                }
             }
         }
+    }
+
+    k_step_path_plan() {
 
     }
 
-    algorithm6() {
+    get_cell_from_node(node) {
+        return node.cell;
+    }
+
+    find_nodes_near(node, cell) {
+
+    }
+
+    get_closest_node(node, cell) {
+
+    }
+
+    line_to(n1, n2) {
+
+    }
+
+    sample_to_goal() {
+
+    }
+
+    sample_uniform() {
+
+    }
+
+    sample_elipse() {
+
+    }
+
+    cost(node) {
 
     }
 
