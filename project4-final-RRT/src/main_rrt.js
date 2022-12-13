@@ -5,7 +5,6 @@ import {DragControls} from './DragControls.js';
 import {OrbitControls} from './OrbitControls.js';
 import WebGL from './webGLCheck.js';
 import {GLTFLoader} from './GLTFLoader.js';
-import { dirxml } from 'console';
 
 // important things
 var scene, camera, renderer, stats;
@@ -108,7 +107,7 @@ function set_gui() {
 
 var obstacles = [];
 var num_obstacles = 5, obstacle_rad = 10, speed = 50;
-var agent, agent_rad = 10;
+var agent, agent_rad = obstacle_rad;
 function generate_obstacles() {
     for (let i = 0; i < num_obstacles; i++) {
         var sphere = new THREE.Mesh(
@@ -231,6 +230,31 @@ window.addEventListener('mousemove', (e) => {
     raycaster.ray.intersectPlane(plane, intersects);
 }, false);
 
+function GridGeometry(width = 1, height = 1, wSeg = 1, hSeg = 1, lExt = [0, 0]){
+	/* https://jsfiddle.net/prisoner849/ces0pL1v/ */
+    let seg = new THREE.Vector2(width / wSeg, height / hSeg);
+    let hlfSeg = seg.clone().multiplyScalar(0.5);
+    
+    let pts = [];
+    
+    for(let y = 0; y <= hSeg; y++){
+        pts.push(
+            new THREE.Vector3(0, 0, y * seg.y),
+            new THREE.Vector3(width + (hlfSeg.x * lExt[0]), 0, y * seg.y)
+        )
+    }
+    
+    for(let x = 0; x <= wSeg; x++){
+        pts.push(
+            new THREE.Vector3(x * seg.x, 0, 0),
+            new THREE.Vector3(x * seg.x, 0, height + (hlfSeg.y * lExt[1]))
+        )
+    }
+    
+    return new THREE.BufferGeometry().setFromPoints(pts);
+    
+}
+
 class Cell {
     constructor(row, col) {
         this.row = row;
@@ -240,19 +264,27 @@ class Cell {
 }
 
 class Grid {
-    constructor(rows, cols, size) {
+    constructor(rows, cols) {
         this.rows = rows;
         this.cols = cols;
-        this.size = size;
 
         this.grid = []
         for (let i = 0; i < this.rows; i++) {
             var t = []
             for (let j = 0; j < this.cols; j++) {
-                t.append(new Cell(i, j));
+                t.push(new Cell(i, j));
             }
-            this.grid.append(t);
+            this.grid.push(t);
         }
+
+        var gridgeom = GridGeometry(
+            floorWidth, floorHeight, rows, cols, [0,0]
+        );
+        gridgeom.translate(-floorWidth/2,1,-floorHeight/2)
+        scene.add(new THREE.LineSegments(
+            gridgeom,
+            new THREE.LineBasicMaterial({color: 0xff57})
+        ));
     }
 
     get(i, j) {
@@ -315,22 +347,13 @@ class RRT {
 
         /* spatial grid for faster neighbor search */
         this.spat_grid = new Grid(
-            1, /* placeholder: row cells */
-            1, /* palceholder: column cells */
-            10 /* placeholder: size of cells */
+            12, /* placeholder: row cells */
+            12, /* palceholder: column cells */
         )
-        this.display_grid = null;
-    }
-
-    display_spatial_grid() {
-        if (this.display_grid === null) {
-            
-        }
     }
 
     step(dt) {
         // step serves as alogirthm 1 from the paper
-        this.display_spatial_grid();
 
         // update goal, obstacles
         if (this.changeGoal) {
@@ -353,7 +376,6 @@ class RRT {
         var dir = this.root.pos.clone();
         dir.sub(this.agent.position);
         dir.normalize();
-        console.log(dir);
         this.agent.position.x += dir.x*dt;
         this.agent.position.z += dir.z*dt;
     }
@@ -476,19 +498,20 @@ class RRT {
          * returns true or false depending on 
          * if there is direct line of sight from n1 to n2
          */ 
-        var dir = n2.clone();
-        dir.sub(n1);
+        var dir = n2.pos.clone();
+        dir.sub(n1.pos);
         dir.normalize();
+        var dist = n1.pos.distanceTo(n2.pos);
         for (let i = 0; i < this.obstacles.length; i++) {
-            var toCircle = this.obstacles[i].position.clone();
-            toCircle.sub(n1);
+            var toCircle = this.obstacles[i].obj.position.clone();
+            toCircle.sub(n1.pos);
 
             var a = 1.0;
             var b = -2 * dir.dot(toCircle);
-            var c = toCircle.lengthSqr() - obstacle_rad*obstacle_rad;
+            var c = toCircle.lengthSq() - obstacle_rad*obstacle_rad;
             var d = b*b - 4*a*c;
 
-            if (d >= 0) {
+            if (d >= 0 && d <= dist) {
                 return true;
             } else {
                 return false;
