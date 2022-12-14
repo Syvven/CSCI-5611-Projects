@@ -95,7 +95,9 @@ function setup() {
         ), // goal
         agent,
         obstacles,
-        100 // n_iters
+        100, // n_iters
+        floorWidth, // bounds in x
+        floorHeight // bounds in z
     ); // rrt program to do things
 }
 
@@ -311,6 +313,16 @@ class Grid {
         node.cell_list_index = this.grid[rowIndex][colIndex].nodes.length-1;
         node.cell = this.grid[rowIndex][colIndex];
     }
+
+    get_cell_and_surrounding_cells(cell) {
+        return [
+            cell,
+            cell.col - 1 >= 0 ? this.grid[cell.row][cell.col-1] : null,
+            cell.col + 1 < this.cols ? this.grid[cell.row][cell.col] : null,
+            cell.row - 1 >= 0 ? this.grid[cell.row][cell.col] : null,
+            cell.row + 1 < this.rows ? this.grid[cell.row][cell.col] : null
+        ];
+    }
 }
 
 class Node {
@@ -325,7 +337,11 @@ class Node {
 }
 
 class RRT {
-    constructor(startGoal, agent, obstacles, n_iters) {
+    constructor(startGoal, agent, obstacles, n_iters, boundsx, boundsz) {
+        this.width = boundsx;
+        this.height = boundsz;
+        this.area = this.width * this.height;
+
         this.goal = startGoal;
         
         this.agent = agent;
@@ -374,6 +390,9 @@ class RRT {
          *  if epsilon becomes smaller than rs, set epsilon to rs
          */
         this.epsilon = 1;
+        this.total_nodes = 1;
+        /* uncomment when actually running the algorithm */
+        this.n_iters = n_iters;
     }
 
     step(dt) {
@@ -414,11 +433,11 @@ class RRT {
             xrand = this.sample_elipse();
         } else {
             var pr = getRandomArbitrary(0, 1);
-            if (pr > (1 - this.alpha)) {
-                xrand = this.sample_to_goal();
-            } else {
+            // if (pr > (1 - this.alpha)) {
+            //     xrand = this.sample_to_goal();
+            // } else {
                 xrand = this.sample_uniform();
-            }
+            // }
         }
         /*  
          *  XSI is subset of nodes that are contained 
@@ -441,7 +460,7 @@ class RRT {
         this.rewire_from_root();
     }
 
-    add_note_to_tree(xnew, xclosest, Xnear) {
+    add_node_to_tree(xnew, xclosest, Xnear) {
         var xmin = xclosest; 
         var cmin = this.cost(xclosest) + xclosest.pos.distanceTo(xnew.pos);
         for (let i = 0; i < Xnear.length; i++) {
@@ -453,7 +472,9 @@ class RRT {
             }
         }
         xmin.links.push(xnew);
+        xnew.parent_link_ind = xmin.links.length-1;
         xnew.parent = xmin;
+        this.total_nodes++;
     }
 
     rewire_random_node() {
@@ -487,17 +508,16 @@ class RRT {
             var xs = this.Qs.dequeue();
             var XSI = xs.cell;
             var Xnear = this.find_nodes_near(xs, XSI);
-            for (let i = 0; i < Xnear.length; i++) {
-                var xnear = Xnear[i];
-                cold = this.cost(xnear);
-                cnew = this.cost(xs) + xs.pos.distanceTo(xnear);
+            Xnear.forEach((xnear) => {
+                var cold = this.cost(xnear);
+                var cnew = this.cost(xs) + xs.pos.distanceTo(xnear);
                 if (cnew < cold && this.line_to(xs, xnear)) {
                     xnear.parent = xs;
                     // also have to add xr to children of xnear
                     // think of better way to do this than looping through child array
                     this.Qs.enqueue(xnear);
                 }
-            }
+            });
         }
     }
 
@@ -506,11 +526,55 @@ class RRT {
     }
 
     find_nodes_near(node, cell) {
+        /*
+         * Finds nodes near a node in cell
+         * Distance between nodes is at most epsilon
+         * If epsilon is smaller than rs, set equal
+         * Returns list of those nodes
+         * List should not be longer than kmax
+         */
+        this.epsilon = Math.sqrt(
+            (this.area * this.kmax) / (Math.PI * this.total_nodes)
+        );
 
+        if (this.epsilon < this.rs) this.epsilon = this.rs;
+        
+        var cells = this.spat_grid.get_cell_and_surrounding_cells(cell);
+        var close_nodes = [];
+        
+        cells.forEach((c) => {
+            if (c !== null) {
+                c.nodes.forEach((n) => {
+                    var dist = n.pos.distanceTo(node.pos);
+                    if (dist < this.epsilon) {
+                        close_nodes.push(n);
+                    }
+                })
+            }
+        })
+
+        return close_nodes;
     }
 
     get_closest_node(node, cell) {
+        var cells = this.spat_grid.get_cell_and_surrounding_cells(cell);
 
+        var min_dist = 9e9;
+        var min_node = null;
+
+        cells.forEach((c) => {
+            if (c !== null) {
+                c.nodes.forEach((n) => {
+                    var dist = n.pos.distanceTo(node.pos);
+                    if (dist < min_dist) {
+                        min_dist = dist;
+                        min_node = n;
+                    } 
+                });
+            }
+        });
+
+        return min_node;
     }
 
     line_to(n1, n2) {
@@ -544,7 +608,20 @@ class RRT {
     }
 
     sample_uniform() {
+        /* 
+         * Sample node from anywhere in space
+         */
+        var rand_w = getRandomArbitrary(-this.width/2, this.width/2);
+        var rand_h = getRandomArbitrary(-this.height/2, this.height/2);
 
+        var node = new Node(
+            new THREE.Vector3(rand_w, this.agent.position.y, rand_h),
+            null
+        );
+
+        this.spat_grid.add_node_to_cell(node);
+
+        return node;
     }
 
     sample_elipse() {
