@@ -268,6 +268,9 @@ class Grid {
         this.rows = rows;
         this.cols = cols;
 
+        this.cell_width = floorWidth / cols;
+        this.cell_height = floorHeight / rows;
+
         this.grid = []
         for (let i = 0; i < this.rows; i++) {
             var t = []
@@ -278,7 +281,7 @@ class Grid {
         }
 
         var gridgeom = GridGeometry(
-            floorWidth, floorHeight, rows, cols, [0,0]
+            floorWidth, floorHeight, cols, rows, [0,0]
         );
         gridgeom.translate(-floorWidth/2,1,-floorHeight/2)
         scene.add(new THREE.LineSegments(
@@ -290,6 +293,24 @@ class Grid {
     get(i, j) {
         return this.grid[i][j];
     }
+
+    add_node_to_cell(node) {
+        /* 
+         * adds node to proper cell
+         * also adds cell to the node
+         * also adds index in cell's node list to node
+         */
+        var w = -floorWidth*0.5 - node.pos.x;
+        var h = -floorHeight*0.5 - node.pos.z;
+
+        var colIndex = Math.floor(-1 * w / this.cell_width);
+        var rowIndex = Math.floor(-1 * h / this.cell_height);
+
+        this.grid[rowIndex][colIndex].nodes.push(node);
+
+        node.cell_list_index = this.grid[rowIndex][colIndex].nodes.length-1;
+        node.cell = this.grid[rowIndex][colIndex];
+    }
 }
 
 class Node {
@@ -297,8 +318,9 @@ class Node {
         this.pos = pos;
         this.links = []
         this.parent = parent;
-        
-        
+
+        this.cell = null;
+        this.cell_index = null;
     }
 }
 
@@ -309,11 +331,19 @@ class RRT {
         this.agent = agent;
         this.obstacles = obstacles;
 
+        /* spatial grid for faster neighbor search */
+        this.spat_grid = new Grid(
+            12, /* placeholder: row cells */
+            17, /* palceholder: column cells */
+        );
+
         this.root = new Node(new THREE.Vector3(
             this.agent.position.x + 1,
             this.agent.position.y,
             this.agent.position.z + 1
         ));
+
+        this.spat_grid.add_node_to_cell(this.root);
     
         this.changeGoal = false;
         this.newGoal = new THREE.Vector3(
@@ -339,17 +369,11 @@ class RRT {
         this.rs = 1;
         /* 
          *  used for returning closest nodes to xrand
-         *  sqrt(u(X)kmax / PI*ntotal
+         *  sqrt(u(X)kmax / PI*ntotal)
          *  u(X) is volume / area of search space
          *  if epsilon becomes smaller than rs, set epsilon to rs
          */
         this.epsilon = 1;
-
-        /* spatial grid for faster neighbor search */
-        this.spat_grid = new Grid(
-            12, /* placeholder: row cells */
-            12, /* palceholder: column cells */
-        )
     }
 
     step(dt) {
@@ -376,8 +400,8 @@ class RRT {
         var dir = this.root.pos.clone();
         dir.sub(this.agent.position);
         dir.normalize();
-        this.agent.position.x += dir.x*dt;
-        this.agent.position.z += dir.z*dt;
+        this.agent.position.x += dir.x*dt*4; // hardcoded 4, change in future
+        this.agent.position.z += dir.z*dt*4;
     }
 
     expand_and_rewire() {
@@ -400,7 +424,7 @@ class RRT {
          *  XSI is subset of nodes that are contained 
          *  in the cell or adjacent cells to the random node
          */
-        var XSI = this.get_cell_from_node(xrand);
+        var XSI = xrand.cell;
 
         var xclosest = this.get_closest_node(xrand, XSI);
 
@@ -437,7 +461,7 @@ class RRT {
         var iters = 0; var maxIters = 100;
         while (!this.Qr.isEmpty() && iters < maxIters) {
             var xr = this.Qr.dequeue();
-            var XSI = this.get_cell_from_node(xr);
+            var XSI = xr.cell;
             var Xnear = this.find_nodes_near(xr, XSI);
             for (let i = 0; i < Xnear.length; i++) {
                 var xnear = Xnear[i];
@@ -461,7 +485,7 @@ class RRT {
         var iters = 0; var maxIters = 100;
         while (!this.Qs.isEmpty() && iters < maxIters) {
             var xs = this.Qs.dequeue();
-            var XSI = this.get_cell_from_node(xs);
+            var XSI = xs.cell;
             var Xnear = this.find_nodes_near(xs, XSI);
             for (let i = 0; i < Xnear.length; i++) {
                 var xnear = Xnear[i];
@@ -479,10 +503,6 @@ class RRT {
 
     k_step_path_plan() {
 
-    }
-
-    get_cell_from_node(node) {
-        return node.cell;
     }
 
     find_nodes_near(node, cell) {
