@@ -108,7 +108,7 @@ function set_gui() {
 }
 
 var obstacles = [];
-var num_obstacles = 5, obstacle_rad = 10, speed = 50;
+var num_obstacles = 5, obstacle_rad = 10, speed = 1;
 var agent, agent_rad = obstacle_rad;
 function generate_obstacles() {
     for (let i = 0; i < num_obstacles; i++) {
@@ -116,12 +116,96 @@ function generate_obstacles() {
             new THREE.SphereBufferGeometry(obstacle_rad, 16,16),
             new THREE.MeshBasicMaterial({color:0xff9488})
         )
-        sphere.position.set(-floorWidth*0.5 + (i+1)*(floorWidth / (num_obstacles+1)), obstacle_rad, floorHeight*0.5-3*obstacle_rad);
+        sphere.position.set(
+            -floorWidth*0.5 + (i+1)*(floorWidth / (num_obstacles+1)), 
+            obstacle_rad, 
+            floorHeight*0.5-3*obstacle_rad
+        );
         scene.add(sphere);
         obstacles.push({
             obj: sphere,
             rad: obstacle_rad,
             vel: new THREE.Vector2(0, speed*getRandomArbitrary(-10, 10))
+        });
+    }
+
+    for (let i = 0; i < 10; i++) {
+        var sphere = new THREE.Mesh(
+            new THREE.SphereBufferGeometry(obstacle_rad, 16,16),
+            new THREE.MeshBasicMaterial({color:0xff9488})
+        );
+        
+        sphere.position.set(
+            -floorWidth*0.5+obstacle_rad+obstacle_rad*2*i, 
+            obstacle_rad, 
+            -floorHeight*0.25
+        );
+
+        scene.add(sphere);
+        obstacles.push({
+            obj: sphere,
+            rad: obstacle_rad,
+            vel: new THREE.Vector2(0, 0)
+        });
+    }
+
+    for (let i = 0; i < 10; i++) {
+        var sphere = new THREE.Mesh(
+            new THREE.SphereBufferGeometry(obstacle_rad, 16,16),
+            new THREE.MeshBasicMaterial({color:0xff9488})
+        );
+        
+        sphere.position.set(
+            -floorWidth*0.5+obstacle_rad+obstacle_rad*20, 
+            obstacle_rad, 
+            -floorHeight*0.25+obstacle_rad*2*i
+        );
+
+        scene.add(sphere);
+        obstacles.push({
+            obj: sphere,
+            rad: obstacle_rad,
+            vel: new THREE.Vector2(0, 0)
+        });
+    }
+
+    for (let i = 0; i < 10; i++) {
+        var sphere = new THREE.Mesh(
+            new THREE.SphereBufferGeometry(obstacle_rad, 16,16),
+            new THREE.MeshBasicMaterial({color:0xff9488})
+        );
+        
+        sphere.position.set(
+            floorWidth*0.5-obstacle_rad-obstacle_rad*20, 
+            obstacle_rad, 
+            -floorHeight*0.5+obstacle_rad+obstacle_rad*2*i
+        );
+
+        scene.add(sphere);
+        obstacles.push({
+            obj: sphere,
+            rad: obstacle_rad,
+            vel: new THREE.Vector2(0, 0)
+        });
+    }
+
+    for (let i = 0; i < 10; i++) {
+        var sphere = new THREE.Mesh(
+            new THREE.SphereBufferGeometry(obstacle_rad, 16,16),
+            new THREE.MeshBasicMaterial({color:0xff9488})
+        );
+        
+        sphere.position.set(
+            floorWidth*0.5-obstacle_rad-obstacle_rad*10, 
+            obstacle_rad, 
+            floorHeight*0.5-obstacle_rad-obstacle_rad*2*i
+        );
+
+        scene.add(sphere);
+        obstacles.push({
+            obj: sphere,
+            rad: obstacle_rad,
+            vel: new THREE.Vector2(0, 0)
         });
     }
 
@@ -258,10 +342,11 @@ function GridGeometry(width = 1, height = 1, wSeg = 1, hSeg = 1, lExt = [0, 0]){
 }
 
 class Cell {
-    constructor(row, col) {
+    constructor(row, col, center) {
         this.row = row;
         this.col = col;
         this.nodes = [];
+        this.center = center;
     }
 }
 
@@ -277,7 +362,12 @@ class Grid {
         for (let i = 0; i < this.rows; i++) {
             var t = []
             for (let j = 0; j < this.cols; j++) {
-                t.push(new Cell(i, j));
+                t.push(new Cell(
+                    i, j, // row and column indices
+                    new THREE.Vector3(
+
+                    ) // center of cell
+                ));
             }
             this.grid.push(t);
         }
@@ -294,6 +384,16 @@ class Grid {
 
     get(i, j) {
         return this.grid[i][j];
+    }
+
+    get_cell_from_node(node) {
+        var w = -floorWidth*0.5 - node.pos.x;
+        var h = -floorHeight*0.5 - node.pos.z;
+
+        var colIndex = Math.floor(-1 * w / this.cell_width);
+        var rowIndex = Math.floor(-1 * h / this.cell_height);
+
+        return this.grid[rowIndex][colIndex];
     }
 
     add_node_to_cell(node) {
@@ -315,13 +415,30 @@ class Grid {
     }
 
     get_cell_and_surrounding_cells(cell) {
-        return [
-            cell,
-            cell.col - 1 >= 0 ? this.grid[cell.row][cell.col-1] : null,
-            cell.col + 1 < this.cols ? this.grid[cell.row][cell.col] : null,
-            cell.row - 1 >= 0 ? this.grid[cell.row][cell.col] : null,
-            cell.row + 1 < this.rows ? this.grid[cell.row][cell.col] : null
-        ];
+        var cells_dist = [];
+        for (let i = 0; i < this.rows; i++) {
+            for (let j = 0; j < this.cols; j++) {
+                var c = this.grid[i][j];
+                if (c.nodes.length != 0) {
+                    var dist = c.center.distanceTo(cell.center);
+                    cells_dist.push([c, dist]);
+                }
+            }
+        }
+
+        cells_dist.sort((a, b) => {
+            return a[1] - b[1];
+        });
+
+        var cells = cells_dist.slice(0, 8);
+       
+        for (let i = 0; i < cells.length; i++) {
+            cells[i] = cells[i][0];
+        }
+
+        cells.push(cell);
+
+        return cells;
     }
 }
 
@@ -330,9 +447,15 @@ class Node {
         this.pos = pos;
         this.links = []
         this.parent = parent;
+        this.parent_link_ind = 0;
+        
+        this.cost = 0;
 
         this.cell = null;
         this.cell_index = null;
+        this.blocked = false;
+        this.moved = true;
+        this.line = null;
     }
 }
 
@@ -349,15 +472,19 @@ class RRT {
 
         /* spatial grid for faster neighbor search */
         this.spat_grid = new Grid(
-            12, /* placeholder: row cells */
-            17, /* palceholder: column cells */
+            3, /* placeholder: row cells */
+            3, /* palceholder: column cells */
         );
 
-        this.root = new Node(new THREE.Vector3(
-            this.agent.position.x + 1,
-            this.agent.position.y,
-            this.agent.position.z + 1
-        ));
+        this.root = new Node(
+            new THREE.Vector3(
+                this.agent.position.x + 1,
+                this.agent.position.y,
+                this.agent.position.z + 1
+            ), // position
+            null // parent
+        );
+        this.root.cost = 0;
 
         this.spat_grid.add_node_to_cell(this.root);
     
@@ -380,9 +507,9 @@ class RRT {
         /* value for controlling sampling of xrand */
         this.alpha = 0.1;
         /* max number of nodes that can be returned from find_nearest */
-        this.kmax = 1;
+        this.kmax = 20;
         /* max euclidean distance between nodes in the tree */
-        this.rs = 1;
+        this.rs = 25;
         /* 
          *  used for returning closest nodes to xrand
          *  sqrt(u(X)kmax / PI*ntotal)
@@ -393,10 +520,21 @@ class RRT {
         this.total_nodes = 1;
         /* uncomment when actually running the algorithm */
         this.n_iters = n_iters;
-    }
 
+        this.agent_block_node_radius = agent_rad*2 + 20; // cspace plus some wiggle room
+
+        // tree rendering
+        this.lines = [];
+
+        this.lkl = 0;
+    }
+    
     step(dt) {
         // step serves as alogirthm 1 from the paper
+        this.Qr.clear();
+        this.Qs.clear();
+
+        // console.log(this.total_nodes);
 
         // update goal, obstacles
         if (this.changeGoal) {
@@ -426,6 +564,10 @@ class RRT {
     expand_and_rewire() {
         // input is Tree, random queue, and queue for rewiring from root
         // T, Qr, Qs
+
+        /* this breaks it rn lol */
+        this.render_tree(true, this.root);
+
         var xrand;
         // sample random x
         if (this.goal_path_found) {
@@ -443,7 +585,7 @@ class RRT {
          *  XSI is subset of nodes that are contained 
          *  in the cell or adjacent cells to the random node
          */
-        var XSI = xrand.cell;
+        var XSI = this.spat_grid.get_cell_from_node(xrand);
 
         var xclosest = this.get_closest_node(xrand, XSI);
 
@@ -463,17 +605,22 @@ class RRT {
     add_node_to_tree(xnew, xclosest, Xnear) {
         var xmin = xclosest; 
         var cmin = this.cost(xclosest) + xclosest.pos.distanceTo(xnew.pos);
-        for (let i = 0; i < Xnear.length; i++) {
-            var xnear = Xnear[i];
+        Xnear.forEach((xnear) => {
             var cnew = this.cost(xnear) + xnear.pos.distanceTo(xnew.pos);
             if (cnew < cmin && this.line_to(xnear, xnew)) {
                 cmin = cnew;
                 xmin = xnear;
             }
-        }
+        });
+
         xmin.links.push(xnew);
         xnew.parent_link_ind = xmin.links.length-1;
         xnew.parent = xmin;
+
+        xnew.cost = cmin;
+
+        this.spat_grid.add_node_to_cell(xnew);
+
         this.total_nodes++;
     }
 
@@ -482,19 +629,29 @@ class RRT {
         var iters = 0; var maxIters = 100;
         while (!this.Qr.isEmpty() && iters < maxIters) {
             var xr = this.Qr.dequeue();
+            if (xr.parent === null) {
+                if (this.Qr.isEmpty()) {
+                    return;
+                }
+                xr = this.Qr.dequeue();
+            }
             var XSI = xr.cell;
             var Xnear = this.find_nodes_near(xr, XSI);
-            for (let i = 0; i < Xnear.length; i++) {
-                var xnear = Xnear[i];
-                cold = this.cost(xnear);
-                cnew = this.cost(xr) + xr.pos.distanceTo(xnear.pos);
+            Xnear.forEach((xnear) => {
+                var cold = this.cost(xnear);
+                var cnew = this.cost(xr) + xr.pos.distanceTo(xnear.pos);
                 if (cnew < cold && this.line_to(xr, xnear)) {
+                    xnear.parent.links.splice(xnear.parent_link_ind, 1);
                     xnear.parent = xr;
-                    // also have to add xr to children of xnear
-                    // think of better way to do this than looping through child array
+                    xr.links.push(xnear);
+                    xnear.parent_link_ind = xr.links.length-1;
+                    xnear.moved = true;
+
+                    xnear.cost = cnew;
+                    
                     this.Qr.enqueue(xnear);
                 }
-            }
+            });
             iters++;
         }
     }
@@ -512,9 +669,13 @@ class RRT {
                 var cold = this.cost(xnear);
                 var cnew = this.cost(xs) + xs.pos.distanceTo(xnear);
                 if (cnew < cold && this.line_to(xs, xnear)) {
+
+                    xnear.parent.links.splice(xnear.parent_link_ind, 1);
                     xnear.parent = xs;
-                    // also have to add xr to children of xnear
-                    // think of better way to do this than looping through child array
+                    xs.links.push(xnear);
+                    xnear.parent_link_ind = xs.links.length-1;
+                    xnear.moved = true;
+                    
                     this.Qs.enqueue(xnear);
                 }
             });
@@ -540,6 +701,7 @@ class RRT {
         if (this.epsilon < this.rs) this.epsilon = this.rs;
         
         var cells = this.spat_grid.get_cell_and_surrounding_cells(cell);
+
         var close_nodes = [];
         
         cells.forEach((c) => {
@@ -582,6 +744,7 @@ class RRT {
          * returns true or false depending on 
          * if there is direct line of sight from n1 to n2
          */ 
+        var rad = obstacle_rad*2+5;
         var dir = n2.pos.clone();
         dir.sub(n1.pos);
         dir.normalize();
@@ -592,15 +755,18 @@ class RRT {
 
             var a = 1.0;
             var b = -2 * dir.dot(toCircle);
-            var c = toCircle.lengthSq() - obstacle_rad*obstacle_rad;
+            var c = toCircle.lengthSq() - rad*rad;
             var d = b*b - 4*a*c;
 
-            if (d >= 0 && d <= dist) {
-                return true;
-            } else {
-                return false;
+            if (d >= 0) {
+                var t1 = (-b - Math.sqrt(d))/(2*a);
+
+                if (t1 > 0 && t1 < dist) {
+                    return false;
+                }
             }
         }
+        return true;
     }
 
     sample_to_goal() {
@@ -611,15 +777,19 @@ class RRT {
         /* 
          * Sample node from anywhere in space
          */
-        var rand_w = getRandomArbitrary(-this.width/2, this.width/2);
-        var rand_h = getRandomArbitrary(-this.height/2, this.height/2);
+        var rand_w = getRandomArbitrary(
+            -this.width/2+agent_rad*2, 
+            this.width/2-agent_rad*2
+        );
+        var rand_h = getRandomArbitrary(
+            -this.height/2+agent_rad*2,
+            this.height/2-agent_rad*2
+        );
 
         var node = new Node(
             new THREE.Vector3(rand_w, this.agent.position.y, rand_h),
             null
         );
-
-        this.spat_grid.add_node_to_cell(node);
 
         return node;
     }
@@ -629,11 +799,12 @@ class RRT {
     }
 
     cost(node) {
-
+        return node.cost;
     }
 
     update_obstacles(dt) {
         // replace this with other updating code in future? 
+        
         obstacles.forEach((obs) => {
             obs.obj.position.z += obs.vel.y*dt;
             if (obs.obj.position.z <= (-floorHeight*0.5+obs.rad)) {
@@ -646,11 +817,39 @@ class RRT {
             }
         });
     }
+
+    render_tree(init, node) {
+        if (node.parent !== null && node.moved) {
+            const line = new THREE.Line(
+                new THREE.BufferGeometry()
+                    .setFromPoints(
+                        [node.parent.pos, node.pos]
+                    ),
+                new THREE.LineBasicMaterial(
+                    {color: 0x0000ff}
+                )
+            );
+            scene.add(line);
+
+            if (node.line !== null) scene.remove(node.line);
+            node.line = line;
+            this.lines.push(line);
+            node.moved = false;
+        }
+
+        node.links.forEach((l) => {
+            this.render_tree(false, l);
+        });
+    }
 }
 
 class Queue {
     constructor() {
       this.items = [];
+    }
+
+    clear() {
+        this.items = [];
     }
   
     // Implementing various methods of javascript queue:
