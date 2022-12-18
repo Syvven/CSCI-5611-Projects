@@ -89,9 +89,9 @@ function setup() {
     // hard coding goal for now
     program = new RRT(
         new THREE.Vector3(
-            floorWidth*0.5+agent_rad*2,
-            agent.position.y
-            -floorHeight*0.5+agent_rad*2
+            floorWidth*0.5-agent_rad*2,
+            agent.position.y,
+            floorHeight*0.5+-agent_rad*2
         ), // goal
         agent,
         obstacles,
@@ -111,23 +111,23 @@ var obstacles = [];
 var num_obstacles = 5, obstacle_rad = 10, speed = 1;
 var agent, agent_rad = obstacle_rad;
 function generate_obstacles() {
-    for (let i = 0; i < num_obstacles; i++) {
-        var sphere = new THREE.Mesh(
-            new THREE.SphereBufferGeometry(obstacle_rad, 16,16),
-            new THREE.MeshBasicMaterial({color:0xff9488})
-        )
-        sphere.position.set(
-            -floorWidth*0.5 + (i+1)*(floorWidth / (num_obstacles+1)), 
-            obstacle_rad, 
-            floorHeight*0.5-3*obstacle_rad
-        );
-        scene.add(sphere);
-        obstacles.push({
-            obj: sphere,
-            rad: obstacle_rad,
-            vel: new THREE.Vector2(0, speed*getRandomArbitrary(-10, 10))
-        });
-    }
+    // for (let i = 0; i < num_obstacles; i++) {
+    //     var sphere = new THREE.Mesh(
+    //         new THREE.SphereBufferGeometry(obstacle_rad, 16,16),
+    //         new THREE.MeshBasicMaterial({color:0xff9488})
+    //     )
+    //     sphere.position.set(
+    //         -floorWidth*0.5 + (i+1)*(floorWidth / (num_obstacles+1)), 
+    //         obstacle_rad, 
+    //         floorHeight*0.5-3*obstacle_rad
+    //     );
+    //     scene.add(sphere);
+    //     obstacles.push({
+    //         obj: sphere,
+    //         rad: obstacle_rad,
+    //         vel: new THREE.Vector2(0, speed*getRandomArbitrary(-10, 10))
+    //     });
+    // }
 
     for (let i = 0; i < 10; i++) {
         var sphere = new THREE.Mesh(
@@ -365,7 +365,9 @@ class Grid {
                 t.push(new Cell(
                     i, j, // row and column indices
                     new THREE.Vector3(
-
+                        -floorWidth*0.5 + this.cell_width*0.5 * j,
+                        obstacle_rad,
+                        -floorHeight*0.5 + this.cell_height*0.5 * i, 
                     ) // center of cell
                 ));
             }
@@ -431,14 +433,15 @@ class Grid {
         });
 
         var cells = cells_dist.slice(0, 8);
+        
        
         for (let i = 0; i < cells.length; i++) {
             cells[i] = cells[i][0];
         }
 
         cells.push(cell);
-
         return cells;
+        
     }
 }
 
@@ -465,15 +468,18 @@ class RRT {
         this.height = boundsz;
         this.area = this.width * this.height;
 
-        this.goal = startGoal;
+        this.goal = new Node(
+            startGoal,
+            null
+        );
         
         this.agent = agent;
         this.obstacles = obstacles;
 
         /* spatial grid for faster neighbor search */
         this.spat_grid = new Grid(
-            3, /* placeholder: row cells */
-            3, /* palceholder: column cells */
+            8, /* placeholder: row cells */
+            10, /* palceholder: column cells */
         );
 
         this.root = new Node(
@@ -509,7 +515,7 @@ class RRT {
         /* max number of nodes that can be returned from find_nearest */
         this.kmax = 20;
         /* max euclidean distance between nodes in the tree */
-        this.rs = 25;
+        this.rs = 20;
         /* 
          *  used for returning closest nodes to xrand
          *  sqrt(u(X)kmax / PI*ntotal)
@@ -525,6 +531,7 @@ class RRT {
 
         // tree rendering
         this.lines = [];
+        this.changed_nodes = [];
 
         this.lkl = 0;
     }
@@ -549,16 +556,17 @@ class RRT {
 
         // plan path using algorithm 6
         this.k_step_path_plan();
-        
+    
         if (this.agent.position.distanceTo(this.root.pos) < this.epsilon) {
             // update this.root to the next node in the path
+            this.root = this.planned_path.shift();
         }
 
         var dir = this.root.pos.clone();
         dir.sub(this.agent.position);
         dir.normalize();
-        this.agent.position.x += dir.x*dt*4; // hardcoded 4, change in future
-        this.agent.position.z += dir.z*dt*4;
+        this.agent.position.x += dir.x*dt*30; // hardcoded 4, change in future
+        this.agent.position.z += dir.z*dt*30;
     }
 
     expand_and_rewire() {
@@ -570,11 +578,11 @@ class RRT {
 
         var xrand;
         // sample random x
-        if (this.goal_path_found) {
+        if (1 < 0) {
             // returns a new node into xrand
             xrand = this.sample_elipse();
         } else {
-            var pr = getRandomArbitrary(0, 1);
+            // var pr = getRandomArbitrary(0, 1);
             // if (pr > (1 - this.alpha)) {
             //     xrand = this.sample_to_goal();
             // } else {
@@ -621,6 +629,8 @@ class RRT {
 
         this.spat_grid.add_node_to_cell(xnew);
 
+        this.changed_nodes.push(xnew);
+
         this.total_nodes++;
     }
 
@@ -645,7 +655,8 @@ class RRT {
                     xnear.parent = xr;
                     xr.links.push(xnear);
                     xnear.parent_link_ind = xr.links.length-1;
-                    xnear.moved = true;
+                    
+                    this.changed_nodes.push(xnear);
 
                     xnear.cost = cnew;
                     
@@ -674,7 +685,8 @@ class RRT {
                     xnear.parent = xs;
                     xs.links.push(xnear);
                     xnear.parent_link_ind = xs.links.length-1;
-                    xnear.moved = true;
+                    
+                    this.changed_nodes.push(xnear);
                     
                     this.Qs.enqueue(xnear);
                 }
@@ -683,7 +695,26 @@ class RRT {
     }
 
     k_step_path_plan() {
-
+        if (!this.goal_path_found) {
+            var goal_cell = this.spat_grid.get_cell_from_node(this.goal);
+            var cells = this.spat_grid.get_cell_and_surrounding_cells(goal_cell);
+            outer: for (let i = 0; i < cells.length; i++) {
+                for (let j = 0; j < cells[i].nodes.length; j++) {
+                    var node = cells[i].nodes[j];
+                    if (this.line_to(node, this.goal)) {
+                        this.planned_path.length = 0;
+                        this.goal_path_found = true;
+                        var temp_node = node;
+                        this.planned_path.unshift(this.goal);
+                        while (temp_node !== null) {
+                            this.planned_path.unshift(temp_node);
+                            temp_node = temp_node.parent;
+                        }
+                        break outer;
+                    }
+                }
+            }
+        }
     }
 
     find_nodes_near(node, cell) {
@@ -819,27 +850,25 @@ class RRT {
     }
 
     render_tree(init, node) {
-        if (node.parent !== null && node.moved) {
-            const line = new THREE.Line(
-                new THREE.BufferGeometry()
-                    .setFromPoints(
-                        [node.parent.pos, node.pos]
-                    ),
-                new THREE.LineBasicMaterial(
-                    {color: 0x0000ff}
-                )
-            );
-            scene.add(line);
-
-            if (node.line !== null) scene.remove(node.line);
-            node.line = line;
-            this.lines.push(line);
-            node.moved = false;
-        }
-
-        node.links.forEach((l) => {
-            this.render_tree(false, l);
+        this.changed_nodes.forEach((node) => {
+            if (node.parent !== null) {
+                const line = new THREE.Line(
+                    new THREE.BufferGeometry()
+                        .setFromPoints(
+                            [node.parent.pos, node.pos]
+                        ),
+                    new THREE.LineBasicMaterial(
+                        {color: 0x0000ff}
+                    )
+                );
+                scene.add(line);
+    
+                if (node.line !== null) scene.remove(node.line);
+                node.line = line;
+                this.lines.push(line);
+            }
         });
+        this.changed_nodes.length = 0;
     }
 }
 
