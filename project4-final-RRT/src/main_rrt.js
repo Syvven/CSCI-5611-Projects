@@ -34,7 +34,6 @@ function setup() {
     // intialize scene, renderer, cameras, and controls for use later on
     // initializes scene and axis helpers
     scene = new THREE.Scene();
-    scene.add(new THREE.AxesHelper(1000));
 
     // creates renderer and sets its size
     renderer = new THREE.WebGLRenderer({depth:true});
@@ -55,6 +54,7 @@ function setup() {
     orbitControls = new OrbitControls(camera, renderer.domElement);
     orbitControls.enableDamping = true;
     orbitControls.zoomSpeed = 2;
+    orbitControls.enabled = false;
 
     setup_room_walls();
     generate_obstacles();
@@ -85,26 +85,34 @@ function setup() {
 
     // initialize aspects of the scene such as walls, IK things, and objects to be thrown around
     // adds texture for the ground
-
-    // hard coding goal for now
-    program = new RRT(
-        new THREE.Vector3(
-            floorWidth*0.5-agent_rad*2,
-            agent.position.y,
-            floorHeight*0.5+-agent_rad*2
-        ), // goal
-        agent,
-        obstacles,
-        100, // n_iters
-        floorWidth, // bounds in x
-        floorHeight // bounds in z
-    ); // rrt program to do things
 }
+var rrtCreated = false;
 
 function set_gui() {
     gui = new GUI();
     // base is 246
     gui.width = gui_width;
+
+    simObj = {
+        grid: false,
+        lines: false
+    };
+
+    const simFolder = gui.addFolder('Sim Controls');
+    simFolder.add(simObj, 'grid').name('Show Grid').onChange(() => {
+        renderGrid = !renderGrid;
+    });
+    simFolder.add(simObj, 'lines').name('Render Tree').onChange(() => {
+        for (let i = 0; i < program.nodes.length; i++) {
+            if (program.nodes[i].line !== null) {
+                program.nodes[i].line.material.opacity = Math.abs(
+                    program.nodes[i].line.material.opacity-1
+                )
+            }
+        }
+        
+        renderTree = !renderTree;
+    });
 }
 
 var obstacles = [];
@@ -129,10 +137,13 @@ function generate_obstacles() {
     //     });
     // }
 
+    var text = new THREE.TextureLoader().load("../images/box.jpg");
+    var geometry = new THREE.BoxGeometry( obstacle_rad*2, obstacle_rad*2, obstacle_rad*2 );
+    var material = new THREE.MeshBasicMaterial( { map: text, color: 0x957433 } );
+
     for (let i = 0; i < 10; i++) {
         var sphere = new THREE.Mesh(
-            new THREE.SphereBufferGeometry(obstacle_rad, 16,16),
-            new THREE.MeshBasicMaterial({color:0xff9488})
+            geometry, material
         );
         
         sphere.position.set(
@@ -151,8 +162,7 @@ function generate_obstacles() {
 
     for (let i = 0; i < 10; i++) {
         var sphere = new THREE.Mesh(
-            new THREE.SphereBufferGeometry(obstacle_rad, 16,16),
-            new THREE.MeshBasicMaterial({color:0xff9488})
+            geometry, material
         );
         
         sphere.position.set(
@@ -171,8 +181,7 @@ function generate_obstacles() {
 
     for (let i = 0; i < 10; i++) {
         var sphere = new THREE.Mesh(
-            new THREE.SphereBufferGeometry(obstacle_rad, 16,16),
-            new THREE.MeshBasicMaterial({color:0xff9488})
+            geometry, material
         );
         
         sphere.position.set(
@@ -191,8 +200,7 @@ function generate_obstacles() {
 
     for (let i = 0; i < 10; i++) {
         var sphere = new THREE.Mesh(
-            new THREE.SphereBufferGeometry(obstacle_rad, 16,16),
-            new THREE.MeshBasicMaterial({color:0xff9488})
+            geometry, material
         );
         
         sphere.position.set(
@@ -209,16 +217,79 @@ function generate_obstacles() {
         });
     }
 
-    agent = new THREE.Mesh(
-        new THREE.SphereBufferGeometry(agent_rad, 16,16),
-        new THREE.MeshBasicMaterial({color:0x0000ff})
-    )
-    scene.add(agent);
-    agent.position.x = -floorWidth*0.5+agent_rad*2;
-    agent.position.y = agent_rad;
-    agent.position.z = -floorHeight*0.5+agent_rad*2;
-}
+    for (let i = 0; i < 10; i++) {
+        var sphere = new THREE.Mesh(
+            geometry, material
+        );
+        
+        sphere.position.set(
+            0, 
+            obstacle_rad, 
+            floorHeight*0.5-obstacle_rad-obstacle_rad*2*i
+        );
 
+        scene.add(sphere);
+        obstacles.push({
+            obj: sphere,
+            rad: obstacle_rad,
+            vel: new THREE.Vector2(0, 0)
+        });
+    }
+
+    for (let i = 0; i < 9; i++) {
+        var sphere = new THREE.Mesh(
+            geometry, material
+        );
+        
+        sphere.position.set(
+            0, 
+            obstacle_rad, 
+            -floorHeight*0.5+obstacle_rad+obstacle_rad*2*i
+        );
+
+        scene.add(sphere);
+        obstacles.push({
+            obj: sphere,
+            rad: obstacle_rad,
+            vel: new THREE.Vector2(0, 0)
+        });
+    }
+
+    var gltfLoader = new GLTFLoader();
+    gltfLoader.load('../models/kiwi.glb', function(gltf) {
+        agent = gltf.scene;
+        agent.scale.set(5,5,5);
+        agent.position.x = -floorWidth*0.5+agent_rad*2;
+        agent.position.y = agent_rad;
+        agent.position.z = -floorHeight*0.5+agent_rad*2;
+        agent.traverse((o) => {
+            if (o.isMesh) {
+                o.castShadow = true;
+                o.receiveShadow = true;
+            }
+        });
+
+        mixer = new THREE.AnimationMixer(agent);
+        mixer.clipAction(gltf.animations[0]).play();
+
+        scene.add(agent);
+        modelReady = true;
+        // after this point, animate() is run
+    }, undefined, function(error) {
+        console.error(error);
+    });
+
+    // agent = new THREE.Mesh(
+    //     new THREE.SphereBufferGeometry(agent_rad, 16,16),
+    //     new THREE.MeshBasicMaterial({color:0x0000ff})
+    // )
+    // scene.add(agent);
+    // agent.position.x = -floorWidth*0.5+agent_rad*2;
+    // agent.position.y = agent_rad;
+    // agent.position.z = -floorHeight*0.5+agent_rad*2;
+}
+var mixer;
+var modelReady = false;
 function setup_room_walls() {
     var groundTexture = new THREE.TextureLoader().load("../images/floor_full.png");
     groundTexture.encoding = THREE.sRGBEncoding;
@@ -270,7 +341,27 @@ function animate() {
     var dt = (now - prevTime) / 1000;
     prevTime = now;
 
-    program.step(dt);
+    if (!rrtCreated && modelReady) {
+        // hard coding goal for now
+        program = new RRT(
+            new THREE.Vector3(
+                floorWidth*0.5-agent_rad*2,
+                agent.position.y,
+                floorHeight*0.5+-agent_rad*2
+            ), // goal
+            agent,
+            obstacles,
+            100, // n_iters
+            floorWidth, // bounds in x
+            floorHeight // bounds in z
+        ); // rrt program to do things
+        rrtCreated = true;
+    }
+
+    if (!paused && modelReady)  {
+        mixer.update(dt);
+        program.step(dt);
+    }
 
     // var guy1 = new Agent(dt);
     // var guy2 = new Agent(dt);
@@ -303,6 +394,24 @@ document.addEventListener( 'keydown', (e) => {
 
 document.addEventListener( 'keyup', (e) => {
     
+});
+var clicked = false;
+window.addEventListener('contextmenu', (e) => {e.preventDefault()})
+document.addEventListener('mouseup', (e) => {
+    e.preventDefault();
+    if (e.button === 2) {
+        clicked = true;
+        program.changeGoal = true;
+
+        program.newGoal = new Node(
+            new THREE.Vector3(
+                intersects.x,
+                agent_rad,
+                intersects.z
+            ),
+            null
+        );
+    }
 });
 
 var mouse = new THREE.Vector2();
@@ -378,10 +487,14 @@ class Grid {
             floorWidth, floorHeight, cols, rows, [0,0]
         );
         gridgeom.translate(-floorWidth/2,1,-floorHeight/2)
-        scene.add(new THREE.LineSegments(
+        this.obj = new THREE.LineSegments(
             gridgeom,
-            new THREE.LineBasicMaterial({color: 0xff57})
-        ));
+            new THREE.LineBasicMaterial({
+                color: 0xff57,
+                transparent: true
+            })
+        );
+        scene.add(this.obj);
     }
 
     get(i, j) {
@@ -448,9 +561,7 @@ class Grid {
 class Node {
     constructor(pos, parent) {
         this.pos = pos;
-        this.links = []
         this.parent = parent;
-        this.parent_link_ind = 0;
         
         this.cost = 0;
 
@@ -461,12 +572,15 @@ class Node {
         this.line = null;
     }
 }
-
+var renderTree = false;
+var renderGrid = false;
 class RRT {
     constructor(startGoal, agent, obstacles, n_iters, boundsx, boundsz) {
         this.width = boundsx;
         this.height = boundsz;
         this.area = this.width * this.height;
+
+        this.nodes = [];
 
         this.goal = new Node(
             startGoal,
@@ -474,6 +588,10 @@ class RRT {
         );
         
         this.agent = agent;
+        this.agent_node = new Node(
+            agent.position,
+            null
+        );
         this.obstacles = obstacles;
 
         /* spatial grid for faster neighbor search */
@@ -493,6 +611,7 @@ class RRT {
         this.root.cost = 0;
 
         this.spat_grid.add_node_to_cell(this.root);
+        // this.spat_grid.add_node_to_cell(this.goal);
     
         this.changeGoal = false;
         this.newGoal = new THREE.Vector3(
@@ -513,9 +632,9 @@ class RRT {
         /* value for controlling sampling of xrand */
         this.alpha = 0.1;
         /* max number of nodes that can be returned from find_nearest */
-        this.kmax = 20;
+        this.kmax = 10;
         /* max euclidean distance between nodes in the tree */
-        this.rs = 20;
+        this.rs = 10;
         /* 
          *  used for returning closest nodes to xrand
          *  sqrt(u(X)kmax / PI*ntotal)
@@ -533,7 +652,9 @@ class RRT {
         this.lines = [];
         this.changed_nodes = [];
 
-        this.lkl = 0;
+        this.at_goal = false;
+
+        this.nodes.push(this.root);
     }
     
     step(dt) {
@@ -541,11 +662,18 @@ class RRT {
         this.Qr.clear();
         this.Qs.clear();
 
-        // console.log(this.total_nodes);
+        if (renderGrid) {
+            this.spat_grid.obj.material.opacity = 1;
+        } else {
+            this.spat_grid.obj.material.opacity = 0;
+        }
 
         // update goal, obstacles
         if (this.changeGoal) {
             this.goal = this.newGoal;
+            this.at_goal = false;
+            this.goal_path_found = false;
+            this.changeGoal = false;
         }
         this.update_obstacles(dt);
 
@@ -556,39 +684,57 @@ class RRT {
 
         // plan path using algorithm 6
         this.k_step_path_plan();
-    
-        if (this.agent.position.distanceTo(this.root.pos) < this.epsilon) {
-            // update this.root to the next node in the path
-            this.root = this.planned_path.shift();
+        
+        var epsilon = 1;
+        var sight = false;
+        if (this.planned_path.length > 0) {
+            sight = this.line_to(this.agent_node, this.planned_path[0]);
         }
+        if ((this.agent.position.distanceTo(this.root.pos) < epsilon || sight) 
+                && this.at_goal === false) {
+            // update this.root to the next node in the path
+            this.changed_nodes.push(this.root);
 
-        var dir = this.root.pos.clone();
+            var temp = this.root;
+            this.root = this.planned_path.shift();
+
+            temp.cost = this.root.pos.distanceTo(temp.pos);
+            temp.parent = this.root;
+            
+            this.root.parent = null;
+            this.root.cost = 0;
+            
+            if (this.planned_path.length == 0) {
+                this.at_goal = true;
+                this.goal.cell = this.spat_grid.get_cell_from_node(this.goal);
+            }
+
+            this.rewire_from_root();
+        }
+        if (this.at_goal === false) {
+            var dir = this.root.pos.clone();
+        } else {
+            var dir = this.goal.pos.clone();
+        }
+        
         dir.sub(this.agent.position);
         dir.normalize();
         this.agent.position.x += dir.x*dt*30; // hardcoded 4, change in future
         this.agent.position.z += dir.z*dt*30;
+        if (this.agent.position.distanceTo(this.goal.pos) < 5) {
+            this.agent.rotation.y += 1;
+        } else {
+            this.agent.lookAt(this.root.pos);
+        }
+        if (renderTree) this.render_tree();
     }
 
     expand_and_rewire() {
         // input is Tree, random queue, and queue for rewiring from root
         // T, Qr, Qs
-
-        /* this breaks it rn lol */
-        this.render_tree(true, this.root);
-
         var xrand;
         // sample random x
-        if (1 < 0) {
-            // returns a new node into xrand
-            xrand = this.sample_elipse();
-        } else {
-            // var pr = getRandomArbitrary(0, 1);
-            // if (pr > (1 - this.alpha)) {
-            //     xrand = this.sample_to_goal();
-            // } else {
-                xrand = this.sample_uniform();
-            // }
-        }
+        xrand = this.sample_uniform();
         /*  
          *  XSI is subset of nodes that are contained 
          *  in the cell or adjacent cells to the random node
@@ -605,7 +751,7 @@ class RRT {
             } else {
                 this.Qr.enqueue_front(xclosest);
             }
-            this.rewire_random_node();
+            // this.rewire_random_node();
         }
         this.rewire_from_root();
     }
@@ -620,9 +766,6 @@ class RRT {
                 xmin = xnear;
             }
         });
-
-        xmin.links.push(xnew);
-        xnew.parent_link_ind = xmin.links.length-1;
         xnew.parent = xmin;
 
         xnew.cost = cmin;
@@ -630,14 +773,14 @@ class RRT {
         this.spat_grid.add_node_to_cell(xnew);
 
         this.changed_nodes.push(xnew);
+        this.nodes.push(xnew);
 
         this.total_nodes++;
     }
 
     rewire_random_node() {
         // rewires a random node
-        var iters = 0; var maxIters = 100;
-        while (!this.Qr.isEmpty() && iters < maxIters) {
+        while (!this.Qr.isEmpty()) {
             var xr = this.Qr.dequeue();
             if (xr.parent === null) {
                 if (this.Qr.isEmpty()) {
@@ -651,19 +794,14 @@ class RRT {
                 var cold = this.cost(xnear);
                 var cnew = this.cost(xr) + xr.pos.distanceTo(xnear.pos);
                 if (cnew < cold && this.line_to(xr, xnear)) {
-                    xnear.parent.links.splice(xnear.parent_link_ind, 1);
-                    xnear.parent = xr;
-                    xr.links.push(xnear);
-                    xnear.parent_link_ind = xr.links.length-1;
-                    
-                    this.changed_nodes.push(xnear);
-
-                    xnear.cost = cnew;
-                    
-                    this.Qr.enqueue(xnear);
+                    if (xnear.parent.parent !== xnear) {
+                        xnear.parent = xr;
+                        this.changed_nodes.push(xnear);
+                        xnear.cost = cnew;
+                        this.Qr.enqueue(xnear);
+                    }
                 }
             });
-            iters++;
         }
     }
 
@@ -671,49 +809,81 @@ class RRT {
         if (this.Qs.isEmpty()) {
             this.Qs.enqueue(this.root);
         }
-        var iters = 0; var maxIters = 100;
+        var iters = 0; var maxIters = 10;
         while (!this.Qs.isEmpty() && iters < maxIters) {
             var xs = this.Qs.dequeue();
             var XSI = xs.cell;
             var Xnear = this.find_nodes_near(xs, XSI);
             Xnear.forEach((xnear) => {
                 var cold = this.cost(xnear);
-                var cnew = this.cost(xs) + xs.pos.distanceTo(xnear);
-                if (cnew < cold && this.line_to(xs, xnear)) {
-
-                    xnear.parent.links.splice(xnear.parent_link_ind, 1);
+                var cnew = this.cost(xs) + xs.pos.distanceTo(xnear.pos);
+                if (cnew < cold && this.line_to(xnear, xs)) {
                     xnear.parent = xs;
-                    xs.links.push(xnear);
-                    xnear.parent_link_ind = xs.links.length-1;
-                    
+                    xnear.cost = cnew;
                     this.changed_nodes.push(xnear);
                     
                     this.Qs.enqueue(xnear);
                 }
             });
+            iters++;
         }
     }
 
-    k_step_path_plan() {
-        if (!this.goal_path_found) {
-            var goal_cell = this.spat_grid.get_cell_from_node(this.goal);
-            var cells = this.spat_grid.get_cell_and_surrounding_cells(goal_cell);
-            outer: for (let i = 0; i < cells.length; i++) {
-                for (let j = 0; j < cells[i].nodes.length; j++) {
-                    var node = cells[i].nodes[j];
-                    if (this.line_to(node, this.goal)) {
-                        this.planned_path.length = 0;
-                        this.goal_path_found = true;
-                        var temp_node = node;
-                        this.planned_path.unshift(this.goal);
-                        while (temp_node !== null) {
-                            this.planned_path.unshift(temp_node);
-                            temp_node = temp_node.parent;
+    check_goal_found() {
+        var goal_cell = this.spat_grid.get_cell_from_node(this.goal);
+        var cells = this.spat_grid.get_cell_and_surrounding_cells(goal_cell);
+        for (let i = 0; i < cells.length; i++) {
+            for (let j = 0; j < cells[i].nodes.length; j++) {
+                var node = cells[i].nodes[j];
+                if (this.line_to(node, this.goal)) {
+                    if (this.planned_path.length > 0) {
+                        for (let i = 0; i < this.planned_path.length-1; i++) {
+                            if (renderTree) {
+                                if (this.planned_path[i].line === null) {
+                                    const line = new THREE.Line(
+                                        new THREE.BufferGeometry()
+                                            .setFromPoints(
+                                                [
+                                                    this.planned_path[i].parent.pos, 
+                                                    this.planned_path[i].pos
+                                                ]
+                                            ),
+                                        new THREE.LineBasicMaterial(
+                                            {
+                                                color: 0x0000ff,
+                                                transparent: true
+                                            }
+                                        )
+                                    );
+                                    scene.add(line);
+                                    this.planned_path[i].line = line;
+                                }
+                                this.planned_path[i].line.material.color = new THREE.Color(0x0000ff);
+                                this.planned_path[i].line.material.needsUpdate = true;
+                            }
                         }
-                        break outer;
                     }
+                    this.planned_path = [];
+                    this.goal_path_found = true;
+                    return node;
                 }
             }
+        }
+
+        return null;
+    }
+
+    k_step_path_plan() {
+        var temp_node = this.check_goal_found();
+        if (this.goal_path_found && !this.at_goal) {
+            while (temp_node !== null) {
+                if (temp_node.parent !== null) {
+                    this.planned_path.unshift(temp_node);
+                }
+                temp_node = temp_node.parent;
+            }
+            // not breaking out of loop
+            return;
         }
     }
 
@@ -800,10 +970,6 @@ class RRT {
         return true;
     }
 
-    sample_to_goal() {
-
-    }
-
     sample_uniform() {
         /* 
          * Sample node from anywhere in space
@@ -823,10 +989,6 @@ class RRT {
         );
 
         return node;
-    }
-
-    sample_elipse() {
-
     }
 
     cost(node) {
@@ -849,7 +1011,7 @@ class RRT {
         });
     }
 
-    render_tree(init, node) {
+    render_tree() {
         this.changed_nodes.forEach((node) => {
             if (node.parent !== null) {
                 const line = new THREE.Line(
@@ -858,17 +1020,42 @@ class RRT {
                             [node.parent.pos, node.pos]
                         ),
                     new THREE.LineBasicMaterial(
-                        {color: 0x0000ff}
+                        {
+                            color: 0x0000ff,
+                            transparent: true
+                        }
+                    )
+                );
+    
+                if (node.line !== null) scene.remove(node.line);
+                scene.add(line);
+                node.line = line;
+            }
+        });
+        this.changed_nodes.length = [];
+        for (let i = 0; i < this.planned_path.length-1; i++) {
+            if (this.planned_path[i].line === null) {
+                const line = new THREE.Line(
+                    new THREE.BufferGeometry()
+                        .setFromPoints(
+                            [
+                                this.planned_path[i].parent.pos, 
+                                this.planned_path[i].pos
+                            ]
+                        ),
+                    new THREE.LineBasicMaterial(
+                        {
+                            color: 0x0000ff,
+                            transparent: true
+                        }
                     )
                 );
                 scene.add(line);
-    
-                if (node.line !== null) scene.remove(node.line);
-                node.line = line;
-                this.lines.push(line);
+                this.planned_path[i].line = line;
             }
-        });
-        this.changed_nodes.length = 0;
+            this.planned_path[i].line.material.color = new THREE.Color("yellow");
+            this.planned_path[i].line.material.needsUpdate = true;
+        }
     }
 }
 
