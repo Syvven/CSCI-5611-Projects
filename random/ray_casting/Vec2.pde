@@ -5,6 +5,11 @@
 public class Vec2 {
     public float x, y;
 
+    public Vec2() {
+        this.x = 0;
+        this.y = 0;
+    }
+
     public Vec2(float x, float y){
         this.x = x;
         this.y = y;
@@ -48,6 +53,10 @@ public class Vec2 {
     public void clampToLength(float maxL){
         float magnitude = sqrt(x*x + y*y);
         if (magnitude > maxL){
+            if (magnitude < 1e-15) {
+                this.x = 0; this.y = 0;
+                return;
+            }
             x *= maxL/magnitude;
             y *= maxL/magnitude;
         }
@@ -55,18 +64,29 @@ public class Vec2 {
 
     public void setToLength(float newL){
         float magnitude = sqrt(x*x + y*y);
+        if (magnitude < 1e-15) {
+            this.x = 0; this.y = 0;
+            return;
+        }
         x *= newL/magnitude;
         y *= newL/magnitude;
     }
 
     public void normalize(){
         float magnitude = sqrt(x*x + y*y);
+        if (magnitude < 1e-15) {
+            this.x = 0; this.y = 0;
+            return;
+        }
         x /= magnitude;
         y /= magnitude;
     }
 
     public Vec2 normalized(){
         float magnitude = sqrt(x*x + y*y);
+        if (magnitude < 1e-15) {
+            return new Vec2();
+        }
         return new Vec2(x/magnitude, y/magnitude);
     }
 
