@@ -78,6 +78,11 @@ Vec2 p1,p2,p3,p4;                       //4 corners of the box -- computed in up
 void apply_force(Vec2 force, Vec2 applied_position){
   total_force.add(force);
   //TODO: also update total_torque
+//  1) displacement = force's position - object's center of mass
+//  2) torque = cross(displacement,force)
+
+  Vec2 displacement = applied_position.minus(center);
+  total_torque += cross(displacement, force);
 }
 
 void update_physics(float dt){
@@ -90,6 +95,17 @@ void update_physics(float dt){
     //Angular Momentum = Torque * time
     //Angular Velocity = (Angular Momentum)/(Rotational Inertia)
     //Orientation += (Angular Velocity) * time
+
+  //           1) Update the angular momentum: torque is the derivative of angular momentum
+//               just as force is the derivative of momentum
+//           2) Compute the angular velocity: ang_velocity = angular_momentum/rotational_inertia
+//           3) Update the orientation of the box: ang_velocity is the derivative of orientation
+//           4) Reset the total torque back to 0 
+  angular_momentum += total_torque * dt;
+
+  angle += (angular_momentum / rot_inertia) * dt;
+
+  total_torque = 0;
   
   //Reset forces and torques
   total_force = new Vec2(0,0); //Set forces to 0 after they've been applied
@@ -181,12 +197,7 @@ void draw(){
   ColideInfo info = collisionTest(); //TODO: Use this result below
   
   //TODO the these values based on the results of a collision test
-  Boolean hit_something = false; //Did I hit something?
-  if (hit_something){
-    Vec2 hit_point = new Vec2(0,0);
-    Vec2 hit_normal = new Vec2(0,0);
-    resolveCollision(hit_point,hit_normal,dt);
-  }
+  if (info.hit) resolveCollision(info.hitPoint,info.objectNormal,dt);
   
   Vec2 box_vel = momentum.times(1/mass);
   float box_speed = box_vel.length();
